@@ -1,0 +1,246 @@
+.fi-topbar nav {
+    @apply bg-gradient-to-l from-primary-100 dark:from-gray-950 to-gray-50 dark:to-gray-950 dark:bg-gray-950 ring-0 shadow-none;
+}
+
+/* Base Sidebar */
+.fi-sidebar {
+    @apply bg-white dark:bg-gray-900;
+}
+
+/* Header */
+.fi-sidebar-header {
+    @apply py-4 bg-white dark:bg-gray-900 ring-0 shadow-none;
+}
+
+/* Navigation Groups */
+.fi-sidebar-nav-groups {
+    @apply gap-y-2 p-4;
+}
+
+/* Group Headers */
+.fi-sidebar-group-button {
+    @apply px-2 py-2 w-full flex items-center;
+}
+
+.fi-sidebar-group-label {
+    @apply text-[13px] font-semibold text-gray-800 dark:text-gray-400 uppercase tracking-wider;
+}
+
+/* Group Items */
+.fi-sidebar-group-items {
+    @apply gap-y-0.5 mt-1;
+}
+
+/* Menu Items */
+.fi-sidebar-item a {
+    @apply px-2 py-3 rounded-lg flex items-center gap-x-3 relative;
+    transition: all 0.2s ease;
+}
+
+/* Normal state */
+.fi-sidebar-item a > span {
+    @apply text-gray-600 dark:text-gray-400 text-sm font-medium;
+    transition: all 0.2s ease;
+}
+
+.fi-sidebar-item a > svg {
+    @apply text-gray-400 dark:text-gray-500 h-5 w-5;
+    transition: all 0.2s ease;
+}
+
+/* Hover state */
+.fi-sidebar-item a:hover {
+    @apply bg-primary-100 dark:bg-primary-950;
+}
+
+.fi-sidebar-item a:hover > svg {
+    @apply text-primary-600 dark:text-primary-400;
+}
+
+.fi-sidebar-item a:hover > span {
+    @apply text-gray-900 dark:text-white;
+}
+
+/* Active state - Enhanced */
+.fi-sidebar-item-active a {
+    @apply bg-primary-50 dark:bg-primary-500/10;
+}
+
+.fi-sidebar-item-active a::before {
+    content: '';
+    @apply absolute left-0 top-1/2 -translate-y-1/2 w-1 h-7 bg-primary-400 dark:bg-primary-400 rounded-r;
+}
+
+.fi-sidebar-item-icon {
+    @apply ml-2;
+}
+
+.fi-sidebar-item-active a > span {
+    @apply text-primary-500 dark:text-primary-400 font-semibold;
+}
+
+.fi-sidebar-item-active a > svg {
+    @apply text-primary-500 dark:text-primary-400;
+}
+
+/* Badges */
+.fi-badge {
+    @apply text-xs font-medium px-[6px] py-[2px] rounded;
+    @apply bg-primary-50 text-primary-700 dark:bg-primary-500/10 dark:text-primary-400;
+}
+
+/* Collapse Button */
+.fi-sidebar-group-collapse-button {
+    @apply text-gray-400 dark:text-gray-600 p-1 rounded-lg;
+    transition: all 0.2s ease;
+}
+
+.fi-sidebar-group-collapse-button:hover {
+    @apply bg-primary-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400;
+}
+
+/* Active Group */
+.fi-sidebar-group.fi-active {
+    @apply rounded-xl;
+}
+
+/* Enhanced Active States */
+.fi-sidebar-item-active a {
+    position: relative;
+}
+
+.fi-sidebar-item-active a::after {
+    content: '';
+    @apply absolute inset-0 rounded-lg ring-1 ring-primary-600/20 dark:ring-primary-500/20;
+}
+
+/* Group Section Enhancement */
+.fi-sidebar-group {
+    @apply relative py-2;
+}
+
+.fi-sidebar-group + .fi-sidebar-group::before {
+    content: '';
+    @apply absolute top-0 left-2 right-2 h-[1px] bg-gray-100 dark:bg-gray-800;
+}
+
+/* Navigation Enhancement */
+.fi-sidebar-nav {
+    @apply h-full overflow-y-auto px-2 py-0;
+}
+
+/* Top nav groups: show dropdown on hover instead of click */
+.fi-topbar nav .fi-dropdown:hover .fi-dropdown-panel {
+    display: block !important;
+}
+
+/* Mega menu — nhóm điều hướng nhiều mục, KHÔNG có tiêu đề phân cột (xem
+   resources/views/vendor/filament-panels/components/topbar/index.blade.php) được chia 2-3 cột
+   bằng CSS columns thay vì 1 danh sách dài xuống dưới. */
+.fi-mega-menu {
+    column-gap: 0;
+}
+.fi-mega-menu .fi-dropdown-list {
+    break-inside: avoid-column;
+}
+.fi-mega-menu .fi-dropdown-list-item {
+    break-inside: avoid-column;
+}
+
+/* Mega menu CÓ tiêu đề phân cột (kiểu "Resources"/"Company") — mỗi cột là 1 khối tiêu đề + danh
+   sách riêng, dùng CSS Grid thay vì columns để tiêu đề luôn đứng đầu đúng cột của nó. LUÔN tối đa
+   3 cột cố định (--fi-mega-menu-cols do Blade tính, đã kẹp <= 3) — quá 3 tiêu đề thì Grid tự xuống
+   hàng thay vì nới rộng thêm cột, nên không bao giờ cần cuộn ngang. */
+.fi-mega-menu-grid {
+    display: grid;
+    grid-template-columns: repeat(var(--fi-mega-menu-cols, 2), minmax(0, 1fr));
+    gap: 0.25rem 1rem;
+}
+.fi-mega-menu-col {
+    min-width: 0;
+}
+
+/* Tiêu đề cột (VD "Giá & Khuyến mãi") — mặc định của Filament là chữ xám, đổi sang đen đậm để
+   nổi bật rõ ràng làm mốc phân nhóm, giống style "Resources"/"Company" tham khảo. Chỉ áp dụng ở
+   light mode — dark mode giữ nguyên màu sáng mặc định của Filament, vì đen tuyền sẽ mất chữ trên
+   nền tối. */
+.fi-mega-menu-grid .fi-dropdown-header-label {
+    font-weight: 600;
+}
+html:not(.dark) .fi-mega-menu-grid .fi-dropdown-header-label {
+    color: #000;
+}
+
+/* Chữ tiêu đề/mục trong mega menu phải hiện ĐẦY ĐỦ, không bị "..." cắt — component gốc của
+   Filament (dropdown.header, dropdown.list.item) mặc định "truncate" 1 dòng, ở đây cho phép xuống
+   dòng thay vì cắt chữ hoặc tràn ngang. */
+.fi-mega-menu-grid .fi-dropdown-header-label,
+.fi-mega-menu-grid .fi-dropdown-list-item-label,
+.fi-mega-menu .fi-dropdown-list-item-label {
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+}
+.fi-mega-menu-grid .fi-dropdown-list-item {
+    white-space: normal;
+}
+
+/* Filament Actions */
+.fi-btn.fi-btn-color-primary {
+    @apply text-secondary-50;
+}
+.fi-dropdown-trigger button.fi-btn {
+    @apply !p-1;
+}
+
+.choices.is-disabled .choices__placeholder.choices__item:is(.dark *), .choices__placeholder.choices__item:is(.dark *) {
+    @apply !text-white;
+}
+
+/* Placeholder text in Choices.js selects should remain readable in both light and dark mode. */
+.choices__placeholder.choices__item {
+    @apply !text-gray-400 dark:!text-gray-400;
+}
+
+/* Select đã CHỌN giá trị (vd "Chi nhánh"/"Phòng" khi disabled) đôi lúc vẫn được Choices.js gắn
+   chung class .choices__placeholder như ô để trống (chưa chọn), nên bị dính luôn rule "!text-white"
+   ở trên dù đang ở theme sáng — chữ trắng trên nền sáng gần như không đọc được. Ép lại màu chữ rõ
+   ràng cho MỌI item đã hiển thị giá trị thật (không phải placeholder rỗng) ở cả 2 theme.
+   Đặt SAU rule phía trên để có độ ưu tiên cao hơn, ghi đè đúng những item có value thật.*/
+.choices__item.choices__item--selectable:not(.choices__placeholder) {
+    @apply !text-gray-950 dark:!text-white;
+}
+.basis-one {
+    flex-basis: 30%;
+}
+.basis-two {
+    flex-basis: 70%;
+}
+@media (max-width: 640px) {
+    .flex-menu {
+        flex-direction: column;
+    }
+    .basis-one {
+        flex-basis: 100%;
+    }
+    .basis-two {
+        flex-basis: 100%;
+    }
+}
+
+/* TinyMCE toolbar — fix dark hover/active background */
+.tox .tox-tbtn:hover,
+.tox .tox-tbtn:focus,
+.tox .tox-tbtn--enabled,
+.tox .tox-tbtn--active,
+.tox .tox-tbtn--enabled:hover {
+    background-color: #e5e7eb !important;
+    color: #111827 !important;
+}
+
+.tox .tox-tbtn svg,
+.tox .tox-tbtn:hover svg,
+.tox .tox-tbtn--enabled svg,
+.tox .tox-tbtn--active svg {
+    fill: #374151 !important;
+}

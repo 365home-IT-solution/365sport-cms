@@ -1,0 +1,251 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Modules\Category\App\Filament\Resources\CategoryResource\Forms;
+
+use CodeWithDennis\FilamentSelectTree\SelectTree;
+use Filament\Forms\Components\FileUpload;
+use Filament\Forms\Components\Grid;
+use Filament\Forms\Components\Section;
+use Filament\Forms\Components\Select;
+use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\Toggle;
+use Filament\Forms\Form;
+use Filament\Forms\Get;
+use Illuminate\Support\Str;
+use Filament\Forms\Set;
+use Illuminate\Validation\Rule;
+
+class CategoryForm
+{
+    public static function form(Form $form): Form
+    {
+        return $form
+            ->schema([
+                Grid::make(4)
+                    ->schema([
+                        self::basicInfoSection()->columnSpan(3),
+                        self::categoryDetailsSection()->columnSpan(1),
+                        self::Image()->columnSpan(3),
+                    ]),
+            ]);
+    }
+
+    private static function basicInfoSection(): Section
+    {
+        return Section::make()
+            ->schema([
+                self::nameInput(),
+                self::slugInput(),
+                self::descriptionInput(),
+            ])
+            ->columns(2);
+    }
+
+    private static function nameInput(): TextInput
+    {
+        return TextInput::make('name')
+            ->label(__('category::category.form.label.name'))
+            ->placeholder(__('category::category.form.placeholder.name'))
+            ->required()
+            ->rules(['max:255'])
+            ->live(onBlur: true)
+            ->afterStateUpdated(function (Get $get, Set $set, ?string $old, ?string $state) {
+                if (($get('slug') ?? '') !== Str::slug($old)) {
+                    return;
+                }
+                $set('slug', Str::slug($state));
+            })
+            ->columnSpan(1);
+    }
+
+    private static function slugInput(): TextInput
+    {
+        return TextInput::make('slug')
+            ->label(__('category::category.form.label.slug'))
+            ->placeholder(__('category::category.form.placeholder.slug'))
+            ->required()
+            ->rules([function (Get $get) {
+                $categoryId = $get('id');
+                return $categoryId
+                    ? Rule::unique('categories', 'slug')->ignore($categoryId)
+                    : Rule::unique('categories', 'slug');
+            }])
+            ->columnSpan(1);
+    }
+
+    private static function descriptionInput(): Textarea
+    {
+        return Textarea::make('description')
+            ->label(__('category::category.form.label.description'))
+            ->placeholder(__('category::category.form.placeholder.description'))
+            ->rows(3)
+            ->columnSpan(2);
+    }
+
+    private static function categoryDetailsSection(): Section
+    {
+        return Section::make()
+            ->schema([
+                self::parentCategoryInput(),
+                self::sortOrderInput(),
+                self::categoryTypeInput(),
+                self::partnerInput(),
+                self::statusToggle(),
+            ])
+            ->columnSpan(1);
+    }
+
+    // Thứ tự hiển thị giữa các chi nhánh/khu vực CÙNG CẤP (cùng parent_id) — số nhỏ hơn hiển thị
+    // trước. Ảnh hưởng danh sách chi nhánh ở trang tìm kiếm (?view=branches), API /v1/branches,
+    // /v1/search/branches và khối "Chi nhánh tại khu vực" trên trang chủ.
+    private static function sortOrderInput(): TextInput
+    {
+        return TextInput::make('sort_order')
+            ->label(__('category::category.form.label.sort_order'))
+            ->placeholder(__('category::category.form.placeholder.sort_order'))
+            ->numeric()
+            ->integer()
+            ->minValue(0)
+            ->default(0)
+            ->helperText('Số nhỏ hơn hiển thị trước. Chỉ so sánh giữa các mục cùng cấp (cùng "Thuộc chi nhánh").');
+    }
+
+    // Chỉ super_admin thấy field này (chọn chi nhánh thuộc đối tác nào) — tài khoản đối tác/nhân
+    // viên tạo chi nhánh thì partner_id tự động lấy theo tài khoản đang đăng nhập (xem
+    // CreateCategory::mutateFormDataBeforeCreate), không cần tự chọn.
+    // Nếu KHÔNG gán partner_id, chi nhánh sẽ không hiện trong bất kỳ select "Chi nhánh" nào ở
+    // các tài khoản đối tác — vì các select đó lọc theo partner_id của người đăng nhập.
+    private static function partnerInput(): Select
+    {
+        return Select::make('partner_id')
+            ->label('Đối tác sở hữu')
+            // KHÔNG dùng ->relationship('partner', 'name') — Partner dùng Soft Delete, quan hệ
+            // Eloquent mặc định LOẠI TRỪ đối tác đã xoá khỏi CẢ options() lẫn tra nhãn hiển thị, nên
+            // nếu chi nhánh đang gán cho 1 đối tác đã bị xoá, field này sẽ hiện TRỐNG (như chưa gán
+            // đối tác) dù partner_id thực tế vẫn đang trỏ đúng — dễ khiến admin tưởng nhầm là thiếu
+            // dữ liệu. Tự liệt kê + tra nhãn bằng withTrashed() để LUÔN hiện đúng, đồng thời đánh
+            // dấu rõ "(đã xoá)" cho đối tác không còn hoạt động.
+            ->options(fn () => \App\Models\Partner::withTrashed()
+                ->orderBy('name')
+                ->get()
+                ->mapWithKeys(fn ($partner) => [
+                    $partner->id => $partner->name . ($partner->trashed() ? ' (đã xoá)' : ''),
+                ])
+                ->all())
+            ->getOptionLabelUsing(fn ($value) => $value
+                ? \App\Models\Partner::withTrashed()->find($value)?->name
+                : null)
+            ->dehydrated()
+            ->searchable()
+            ->preload()
+            ->visible(fn () => auth()->user()?->isSuperAdmin() ?? false)
+            ->required(fn (Get $get) => $get('category_type') === 'product')
+            ->helperText('Bắt buộc chọn với chi nhánh (category_type = product) — nếu không, tài khoản đối tác sẽ không thấy chi nhánh này ở bất kỳ đâu.');
+    }
+
+    private static function parentCategoryInput(): SelectTree
+    {
+        return SelectTree::make('parent_id')
+            ->label(__('category::category.form.label.parent_id'))
+            ->placeholder(__('category::category.form.placeholder.parent_id'))
+            ->relationship('parent', 'name', 'parent_id', function ($query, $get) {
+                $currentId    = $get('id');
+                $categoryType = $get('category_type');
+
+                if ($currentId) {
+                    $query->where('id', '!=', $currentId)
+                        ->where(function ($q) use ($currentId) {
+                            $q->where('parent_id', '!=', $currentId)
+                                ->orWhereNull('parent_id');
+                        });
+                }
+
+                if ($categoryType) {
+                    $query->where('category_type', $categoryType);
+                }
+
+                // Lọc theo quyền chi nhánh của user
+                $user = auth()->user();
+                if ($user && ! $user->isSuperAdmin()) {
+                    if ($categoryType === 'product') {
+                        $allowedIds = $user->allowedBranchIds();
+                        if (! empty($allowedIds)) {
+                            $query->where(function ($q) use ($allowedIds) {
+                                $q->whereIn('id', $allowedIds)
+                                  ->orWhereIn('parent_id', $allowedIds);
+                            });
+                        } else {
+                            // Chưa gán quyền chi nhánh cụ thể thì mặc định thấy chi nhánh của
+                            // đối tác mình (partner_id), không chặn hết.
+                            $query->where('partner_id', $user->partner_id);
+                        }
+                    } elseif ($categoryType === 'post') {
+                        $allowedPostIds = $user->allowedDirectPostRootIds();
+                        if (! empty($allowedPostIds)) {
+                            $query->where(function ($q) use ($allowedPostIds) {
+                                $q->whereIn('id', $allowedPostIds)
+                                  ->orWhereIn('parent_id', $allowedPostIds);
+                            });
+                        } else {
+                            $query->whereRaw('1 = 0');
+                        }
+                    } else {
+                        // category_type chưa chọn → ẩn hết để tránh lộ dữ liệu
+                        $query->whereRaw('1 = 0');
+                    }
+                }
+
+                return $query;
+            })
+            ->live(onBlur:true)
+            ->enableBranchNode()
+            ->nullable()
+            ->helperText('Không bắt buộc. Chỉ chọn nếu đây là khu vực/chi nhánh con nằm trong 1 chi nhánh khác đã có — để trống nếu đây là chi nhánh độc lập.')
+            ->dehydrateStateUsing(function ($state, $get) {
+                $currentId = $get('id');
+
+                if ($state == $currentId) return null;
+
+                return $state;
+            });
+    }
+
+    private static function categoryTypeInput(): Select
+    {
+        return Select::make('category_type')
+            ->label(__('category::category.form.label.category_type'))
+            ->placeholder(__('category::category.form.placeholder.category_type'))
+            ->required()
+            ->default('product')
+            ->live()
+            ->options([
+                'product' => __('category::category.form.options.product'),
+                'post' => __('category::category.form.options.post'),
+            ]);
+    }
+
+    private static function statusToggle(): Toggle
+    {
+        return Toggle::make('status')
+            ->label(__('category::category.form.label.status'))
+            ->onIcon(__('category::category.form.icons.active'))
+            ->offIcon(__('category::category.form.icons.inactive'))
+            ->default(true)
+            ->required();
+    }
+
+    private static function Image(): FileUpload
+    {
+        return FileUpload::make('image')
+            ->label(__('category::category.form.label.image'))
+            ->image()
+            ->imageEditor()
+            ->directory('categories')
+            ->imagePreviewHeight('100')
+            ->nullable()
+            ->hint('Tải lên hình ảnh địa điểm');
+    }
+}

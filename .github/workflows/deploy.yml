@@ -1,0 +1,68 @@
+name: Deploy to Production
+
+on:
+  push:
+    branches: [production]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: mbstring, pdo, pdo_mysql, xml, bcmath, curl, zip
+          coverage: none
+
+      - name: Validate composer.json
+        run: composer validate --no-check-all --ansi
+
+      - name: Install dependencies
+        run: composer install --no-dev --optimize-autoloader --no-interaction --ansi
+
+      - name: Copy .env
+        run: cp .env.example .env
+
+      - name: Generate app key
+        run: php artisan key:generate --ansi
+
+      - name: Check PHP syntax
+        run: find app Modules database config -name "*.php" -print0 | xargs -0 -n1 php -l
+
+      - name: Check artisan boots
+        run: php artisan --version
+
+  deploy:
+    needs: check
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_PORT }}
+          script: |
+            set -e
+            mkdir -p /home/dev/www
+            if [ ! -d /home/dev/www/365home.vn/.git ]; then
+              git clone https://x-access-token:${{ secrets.GH_PAT }}@github.com/365home-IT-solution/365home-cms.git /home/dev/www/365home.vn
+            fi
+            cd /home/dev/www/365home.vn
+            git remote set-url origin https://x-access-token:${{ secrets.GH_PAT }}@github.com/365home-IT-solution/365home-cms.git
+            git fetch origin
+            git checkout production
+            sudo chown -R $(whoami):$(whoami) /home/dev/www/365home.vn/storage/ /home/dev/www/365home.vn/bootstrap/cache/ 2>/dev/null || true
+            git reset --hard origin/production
+            sudo chown -R www-data:www-data /home/dev/www/365home.vn/storage/ /home/dev/www/365home.vn/bootstrap/cache/ 2>/dev/null || true
+            sudo chmod -R 775 /home/dev/www/365home.vn/storage/ /home/dev/www/365home.vn/bootstrap/cache/ 2>/dev/null || true
+            docker compose up -d --build
+            pm2 startOrReload /home/dev/www/365home.vn/websocket/ecosystem.config.js --update-env
+            pm2 save
+            echo "Deploy $(date '+%Y-%m-%d %H:%M') OK"

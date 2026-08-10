@@ -1,0 +1,128 @@
+# ─── Stage 0: PHP dependencies ───────────────────────────────────────────────
+FROM composer:2 AS vendor
+
+WORKDIR /app
+COPY composer.json composer.lock ./
+RUN composer install --no-dev --no-scripts --optimize-autoloader --no-interaction --ignore-platform-reqs
+
+# ─── Stage 1a: QR scanner runtime deps (jsqr + jimp only) ────────────────────
+FROM node:20-alpine AS qr-deps
+
+WORKDIR /app
+RUN echo '{"dependencies":{"jsqr":"^1.4.0","jimp":"^1.6.1"}}' > package.json \
+    && npm install --omit=dev
+
+# ─── Stage 1: Build frontend assets ──────────────────────────────────────────
+FROM node:20-alpine AS frontend
+
+WORKDIR /app
+
+# Install root npm dependencies
+COPY package.json package-lock.json ./
+RUN npm ci
+
+# vendor needed for tailwind.config.js (imports filament preset)
+COPY --from=vendor /app/vendor ./vendor
+
+# Copy full source (modules read ../../.env relative to their directory)
+COPY . .
+
+# Provide a minimal .env so vite module builds don't fail — .env thật KHÔNG được đưa vào build
+# context (xem .dockerignore, tránh baked secret khác như DB password vào image). Riêng
+# VITE_REVERB_* không phải secret thật (key Reverb vốn để lộ client-side, chỉ REVERB_APP_SECRET
+# mới nhạy cảm và KHÔNG truyền ở đây) nên nhận qua --build-arg (compose.yaml truyền từ .env thật
+# lúc build) rồi ghi đè vào .env.example — thiếu bước này thì Echo/Reverb phía trình duyệt luôn
+# build với key rỗng, im lặng không kết nối được dù server cấu hình đúng.
+ARG VITE_REVERB_APP_KEY
+ARG VITE_REVERB_HOST
+ARG VITE_REVERB_PORT
+ARG VITE_REVERB_SCHEME
+ARG VITE_REVERB_PATH
+RUN cp .env.example .env \
+    && { \
+        echo "VITE_REVERB_APP_KEY=${VITE_REVERB_APP_KEY}"; \
+        echo "VITE_REVERB_HOST=${VITE_REVERB_HOST}"; \
+        echo "VITE_REVERB_PORT=${VITE_REVERB_PORT}"; \
+        echo "VITE_REVERB_SCHEME=${VITE_REVERB_SCHEME}"; \
+        echo "VITE_REVERB_PATH=${VITE_REVERB_PATH}"; \
+    } >> .env
+
+# Build root assets (public/build)
+RUN npm run build
+
+# Build BladeThemeV1 module assets (public/build-bladethemev1)
+RUN cd Modules/BladeThemeV1 && npm install && npm run build
+
+# Build Post module assets (public/build-post)
+RUN cd Modules/Post && npm install && npm run build
+
+# ─── Stage 2: PHP production runtime ─────────────────────────────────────────
+FROM ubuntu:24.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV TZ=Asia/Ho_Chi_Minh
+ENV LANG=C.UTF-8
+
+RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
+
+# Install PHP 8.3 (Ondrej PPA) + Nginx + Supervisor
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      gnupg curl ca-certificates zip unzip git supervisor nginx cron zbar-tools \
+    && curl -sS 'https://keyserver.ubuntu.com/pks/lookup?op=get&search=0xb8dc7e53946656efbce4c1dd71daeaab4ad4cab6' \
+       | gpg --dearmor | tee /etc/apt/keyrings/ppa_ondrej_php.gpg > /dev/null \
+    && echo "deb [signed-by=/etc/apt/keyrings/ppa_ondrej_php.gpg] https://ppa.launchpadcontent.net/ondrej/php/ubuntu noble main" \
+       > /etc/apt/sources.list.d/ppa_ondrej_php.list \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends \
+       php8.3-fpm php8.3-cli \
+       php8.3-mysql php8.3-bcmath php8.3-mbstring \
+       php8.3-xml php8.3-xsl php8.3-zip php8.3-gd php8.3-curl \
+       php8.3-intl php8.3-imagick php8.3-redis \
+       php8.3-exif php8.3-soap php8.3-sqlite3 \
+       php8.3-opcache php8.3-igbinary php8.3-ffi \
+    && apt-get autoremove -y && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /var/www/html
+
+# Install Node.js 20 runtime (needed for qr_scan.cjs at PHP runtime)
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends curl \
+    && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+    && apt-get install -y --no-install-recommends nodejs \
+    && apt-get autoremove -y && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy application source (node_modules, vendor, .env excluded via .dockerignore)
+COPY . .
+
+# Copy built assets from frontend stage
+COPY --from=frontend /app/public /var/www/html/public
+
+# Copy vendor from composer stage (autoloader paths are relative, safe to copy)
+COPY --from=vendor /app/vendor /var/www/html/vendor
+
+# Copy chỉ jsqr + jimp từ stage qr-deps (~11MB thay vì 86MB)
+COPY --from=qr-deps /app/node_modules /var/www/html/node_modules
+
+# Nginx config
+RUN rm -f /etc/nginx/sites-enabled/default
+COPY docker/nginx.conf /etc/nginx/sites-enabled/laravel
+
+# PHP-FPM: tăng max_execution_time để xử lý CCCD scan ảnh lớn
+COPY docker/php-fpm-override.ini /etc/php/8.3/fpm/conf.d/99-app.ini
+
+# Laravel scheduler crontab
+COPY docker/laravel-cron /etc/cron.d/laravel
+RUN chmod 0644 /etc/cron.d/laravel
+
+# Supervisor config
+COPY docker/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
+
+# Entrypoint
+COPY docker/entrypoint.sh /usr/local/bin/entrypoint
+RUN chmod +x /usr/local/bin/entrypoint
+
+EXPOSE 80
+
+ENTRYPOINT ["/usr/local/bin/entrypoint"]
