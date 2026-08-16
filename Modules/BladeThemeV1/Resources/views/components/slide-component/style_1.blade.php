@@ -178,7 +178,7 @@
                         </div>
                         <div class="flex items-end justify-between">
                             <div class="text-start min-w-[60%]">
-                                <p class="font-bold">GIÁ PHÒNG</p>
+                                <p class="font-bold">GIÁ SÂN</p>
                                 @if (!empty($room->time_price_pairs))
                                 @php
                                 $pairs = array_map('trim', explode(',', $room->time_price_pairs));
@@ -197,7 +197,7 @@
                             @endif
                         </div>
                         <a href="{{ route('product.detail', ['slug' => $room->pslug]) }}" class="block w-full">
-                            <button class="w-full text-white text-sm font-semibold py-3 border border-borderGray px-6 rounded-full outline-none focus:ring-4 focus:ring-primary bg-primary text-borderGray hover:bg-borderGray hover:text-primary hover:border-primary">Đặt phòng</button>
+                            <button class="w-full text-white text-sm font-semibold py-3 border border-borderGray px-6 rounded-full outline-none focus:ring-4 focus:ring-primary bg-primary text-borderGray hover:bg-borderGray hover:text-primary hover:border-primary">Đặt sân</button>
                         </a>
                     </div>
                     @endif

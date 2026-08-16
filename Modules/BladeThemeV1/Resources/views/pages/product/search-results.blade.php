@@ -18,7 +18,7 @@
                     d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
             </svg>
             <span class="font-semibold text-white truncate">
-                {{ $province ? 'Phòng tại ' . $province->name : 'Tìm kiếm phòng' }}
+                {{ $province ? 'Sân tại ' . $province->name : 'Tìm kiếm sân' }}
             </span>
         </div>
         <a href="{{ url('/') }}"
@@ -91,7 +91,7 @@ document.addEventListener('DOMContentLoaded', function () {
         .bindPopup(
             '<div style="font-family:sans-serif;min-width:140px;">' +
             '<p style="font-weight:700;font-size:14px;color:#0f766e;margin:0 0 4px">{{ addslashes($province->name) }}</p>' +
-            '<p style="font-size:12px;color:#6b7280;margin:0">365 HOME chi nhánh</p>' +
+            '<p style="font-size:12px;color:#6b7280;margin:0">365Sport chi nhánh</p>' +
             '</div>'
         )
         .openPopup();

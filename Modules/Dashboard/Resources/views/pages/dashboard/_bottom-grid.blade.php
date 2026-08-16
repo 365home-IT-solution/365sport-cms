@@ -15,8 +15,8 @@
     <div class="ta-bg-card" id="ta-rr-card">
         <div class="ta-bg-card-head">
             <div>
-                <div class="ta-sub-label">— 02 / Doanh thu phòng</div>
-                <div class="ta-panel-title">Xếp hạng phòng</div>
+                <div class="ta-sub-label">— 02 / Doanh thu sân</div>
+                <div class="ta-panel-title">Xếp hạng sân</div>
             </div>
             <div class="ta-yr-picker" id="ta-rr-yr" data-selected="{{ $rrYear }}">
                 <button class="ta-yr-btn" type="button">
@@ -36,7 +36,7 @@
             {{-- Table --}}
             <div class="ta-rr-table-wrap">
                 <div class="ta-rr-th">
-                    <div>Phòng</div>
+                    <div>Sân</div>
                     <div class="ta-rr-th-r">Đơn</div>
                     <div class="ta-rr-th-r">Doanh thu</div>
                 </div>
@@ -98,7 +98,7 @@
         <div class="ta-bg-card-head">
             <div>
                 <div class="ta-sub-label">— 03 / Khách hàng</div>
-                <div class="ta-panel-title">Top khách đặt phòng nhiều nhất</div>
+                <div class="ta-panel-title">Top khách đặt sân nhiều nhất</div>
             </div>
             <div class="ta-yr-picker" id="ta-cust-yr" data-selected="{{ $rrYear }}">
                 <button class="ta-yr-btn" type="button">

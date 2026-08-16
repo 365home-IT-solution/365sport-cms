@@ -309,7 +309,7 @@ class CategoryController extends Controller
     /**
      * DELETE /api/admin/categories/{id}
      * Hard delete (Category không dùng Soft Delete) — CHẶN xoá nếu còn khu vực con, đang được gán
-     * quyền cho nhân viên (user_branch_permissions), còn phòng hoặc đơn đặt phòng gắn vào, để tránh
+     * quyền cho nhân viên (user_branch_permissions), còn sân hoặc đơn đặt sân gắn vào, để tránh
      * mồ côi dữ liệu (bảng categories không có FK ràng buộc parent_id/category_id ở nơi khác).
      * Trang Filament hiện tại (EditCategory) xoá đơn lẻ KHÔNG có các chặn này — API cố tình chặt chẽ
      * hơn để không mất dữ liệu lịch sử qua đường API.
@@ -331,11 +331,11 @@ class CategoryController extends Controller
         }
 
         if ($category->products()->exists()) {
-            return response()->json(['message' => 'Đang có phòng gắn với chi nhánh/khu vực này, không thể xoá.'], 422);
+            return response()->json(['message' => 'Đang có sân gắn với chi nhánh/khu vực này, không thể xoá.'], 422);
         }
 
         if ($category->orders()->exists()) {
-            return response()->json(['message' => 'Đã có đơn đặt phòng gắn với chi nhánh/khu vực này, không thể xoá.'], 422);
+            return response()->json(['message' => 'Đã có đơn đặt sân gắn với chi nhánh/khu vực này, không thể xoá.'], 422);
         }
 
         $category->delete();

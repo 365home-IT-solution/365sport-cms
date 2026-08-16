@@ -56,8 +56,8 @@ class BuilderFieldGenerator
 
                                 // Chọn sản phẩm
                                 Select::make('products')
-                                    ->label('Phòng')
-                                    ->placeholder('Chọn phòng hiển thị')
+                                    ->label('Sân')
+                                    ->placeholder('Chọn sân hiển thị')
                                     ->multiple()
                                     ->options(function (callable $get) {
                                         $categoryId = $get('category_id');

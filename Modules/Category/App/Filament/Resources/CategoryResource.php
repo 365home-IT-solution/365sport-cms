@@ -78,7 +78,7 @@ class CategoryResource extends Resource implements HasKnowledgeBase
             // Chi nhánh (category_type='product') + khu vực con: mặc định thấy TOÀN BỘ chi nhánh
             // của đối tác mình — không còn bắt buộc phải được cấp quyền chi nhánh cụ thể qua
             // user_branch_permissions như trước (đó là nguyên nhân đối tác mới tạo không thấy
-            // chi nhánh/phòng nào). Nếu user được gán quyền chi nhánh cụ thể thì thu hẹp thêm
+            // chi nhánh/sân nào). Nếu user được gán quyền chi nhánh cụ thể thì thu hẹp thêm
             // theo đó (dùng để giới hạn 1 nhân viên chỉ thấy 1/vài chi nhánh trong số của đối tác).
             $q->where('category_type', 'product')->whereIn('id', $visibleProductIds);
 

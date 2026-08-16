@@ -214,8 +214,8 @@ class PartnerForm
     }
 
     // ── TAB 4: Cơ sở lưu trú ─────────────────────────────────────────────────
-    // Chi nhánh/phòng vốn đã có sẵn (Category/Product, quản lý ở resource riêng) — tab này chỉ
-    // tổng hợp + liên kết sang đó, không xây lại CRUD chi nhánh/phòng trùng lặp.
+    // Chi nhánh/sân vốn đã có sẵn (Category/Product, quản lý ở resource riêng) — tab này chỉ
+    // tổng hợp + liên kết sang đó, không xây lại CRUD chi nhánh/sân trùng lặp.
     private static function propertiesTab(): Forms\Components\Tabs\Tab
     {
         return Forms\Components\Tabs\Tab::make('Cơ sở lưu trú')
@@ -298,7 +298,7 @@ class PartnerForm
 
         $stats = $statCard('Tổng số cơ sở', $branches->count())
             . $statCard('Đang hoạt động', $activeCount)
-            . $statCard('Tổng số phòng', $totalRooms);
+            . $statCard('Tổng số sân', $totalRooms);
 
         if ($branches->isEmpty()) {
             $rows = '<tr><td colspan="6" style="padding:16px;text-align:center;color:#9ca3af;">Chưa có cơ sở lưu trú nào.</td></tr>';
@@ -346,7 +346,7 @@ class PartnerForm
                         <tr style="border-bottom:2px solid #e5e7eb;color:#6b7280;">
                             <th style="padding:8px;">Cơ sở lưu trú</th>
                             <th style="padding:8px;">Vị trí & địa chỉ</th>
-                            <th style="padding:8px;text-align:center;">Số phòng</th>
+                            <th style="padding:8px;text-align:center;">Số sân</th>
                             <th style="padding:8px;">Trạng thái</th>
                             <th style="padding:8px;text-align:right;">Doanh thu (tháng)</th>
                             <th style="padding:8px;">Thao tác</th>
@@ -370,7 +370,7 @@ class PartnerForm
             ->schema([
                 Forms\Components\Placeholder::make('branch_assignment_note')
                     ->hiddenLabel()
-                    ->content('Chọn các chi nhánh đã có sẵn trong hệ thống để gán cho đối tác này. Có thể chọn cả chi nhánh đang thuộc đối tác khác — khi lưu, chi nhánh đó (và toàn bộ phòng/lịch đặt/mã cổng bên trong) sẽ được CHUYỂN sang đối tác hiện tại.'),
+                    ->content('Chọn các chi nhánh đã có sẵn trong hệ thống để gán cho đối tác này. Có thể chọn cả chi nhánh đang thuộc đối tác khác — khi lưu, chi nhánh đó (và toàn bộ sân/lịch đặt/mã cổng bên trong) sẽ được CHUYỂN sang đối tác hiện tại.'),
 
                 Forms\Components\CheckboxList::make('branch_ids')
                     ->hiddenLabel()
@@ -533,7 +533,7 @@ class PartnerForm
                 Forms\Components\Grid::make(2)->schema([
                     Forms\Components\TextInput::make('commission_rate')
                         ->label('Tỷ lệ hoa hồng (%)')
-                        ->helperText('Áp dụng cho tất cả các loại phòng và dịch vụ cộng thêm.'),
+                        ->helperText('Áp dụng cho tất cả các loại sân và dịch vụ cộng thêm.'),
 
                     Forms\Components\Textarea::make('cancellation_policy')
                         ->label('Chính sách hủy/hoàn tiền')

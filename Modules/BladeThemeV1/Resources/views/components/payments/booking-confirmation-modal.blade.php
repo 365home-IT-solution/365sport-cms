@@ -56,13 +56,22 @@
             </svg>
         </button>
 
+        {{-- GIF ss10.gif/ss5.gif (nếu đã upload vào storage) — onerror ẩn ảnh vỡ, tự lộ banner chữ
+             thay thế bên dưới (cùng vị trí, cùng class ẩn/hiện) để không bao giờ hiện icon ảnh vỡ
+             kể cả khi chưa có file GIF thật. --}}
         <!-- GIF giảm 10% - lần 2 -->
         <img
             x-show="loyaltyCount === 1"
             src="{{ asset('storage/ss10.gif') }}"
             alt="Giảm 10%"
             class="w-full h-auto block"
-            style="display:none;">
+            style="display:none;"
+            onerror="this.style.display='none'; this.nextElementSibling.style.removeProperty('display');">
+        <div x-show="loyaltyCount === 1" style="display:none;"
+            class="w-full py-10 px-4 text-center bg-gradient-to-br from-amber-400 to-orange-500 text-white">
+            <p class="text-3xl font-extrabold">🎉 Giảm 10%</p>
+            <p class="text-sm font-medium mt-1 opacity-90">Ưu đãi dành riêng cho khách quay lại</p>
+        </div>
 
         <!-- GIF giảm 5% - lần 3 trở lên -->
         <img
@@ -70,7 +79,13 @@
             src="{{ asset('storage/ss5.gif') }}"
             alt="Giảm 5%"
             class="w-full h-auto block"
-            style="display:none;">
+            style="display:none;"
+            onerror="this.style.display='none'; this.nextElementSibling.style.removeProperty('display');">
+        <div x-show="loyaltyCount >= 2" style="display:none;"
+            class="w-full py-10 px-4 text-center bg-gradient-to-br from-emerald-400 to-teal-500 text-white">
+            <p class="text-3xl font-extrabold">🎁 Giảm 5%</p>
+            <p class="text-sm font-medium mt-1 opacity-90">Quà tri ân khách hàng thân thiết</p>
+        </div>
 
         <!-- Progress bar 3s -->
         <div class="w-full h-1 overflow-hidden bg-black bg-opacity-20">
@@ -83,8 +98,8 @@
     </div>
 </div>
 
-<!-- Modal Xác nhận đặt phòng -->
-{{-- x-teleport="body": khung đặt giờ/lịch đặt phòng nằm trong sidebar có position:sticky,
+<!-- Modal Xác nhận đặt sân -->
+{{-- x-teleport="body": khung đặt giờ/lịch đặt sân nằm trong sidebar có position:sticky,
      mà sticky luôn tạo stacking context riêng nên z-index của modal bị giới hạn trong đó.
      Teleport ra <body> để modal luôn đè lên trên cùng, không bị khung đặt giờ che mất. --}}
 <template x-teleport="body">
@@ -103,7 +118,7 @@
             <!-- Header -->
             <div class="flex items-center justify-between gap-3 px-5 py-4 border-b border-gray-200 shrink-0">
                 <h3 class="text-lg sm:text-xl font-bold text-gray-900" id="modal-title">
-                    Xác nhận đặt phòng
+                    Xác nhận đặt sân
                 </h3>
                 <button @click="showModal = false" type="button" class="shrink-0 bg-white rounded-md text-gray-400 hover:text-neutral-900 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary">
                     <span class="sr-only">Close</span>
@@ -116,7 +131,7 @@
             <!-- Modal content: 2 cột, responsive, cuộn nếu dài -->
             <div class="overflow-y-auto px-5 py-4">
                 <div class="grid grid-cols-1 md:grid-cols-2 md:gap-x-6">
-                    <!-- Cột trái: Thông tin khách hàng + thời gian đặt phòng -->
+                    <!-- Cột trái: Thông tin khách hàng + thời gian đặt sân -->
                     <ul class="list-none divide-y divide-gray-200">
                                 <li class="py-[12px]">
                                     <span class="text-neutral-900 text-[16px] font-semibold">Tên khách hàng:</span>
@@ -131,7 +146,7 @@
                                     <span class="text-[16px]">Home - {{ $categories['c3'] }}, {{$categories['c2']}}</span>
                                 </li>
                                 <li class="py-[12px]">
-                                    <span class="text-neutral-900 text-[16px] font-semibold">Tên phòng:</span>
+                                    <span class="text-neutral-900 text-[16px] font-semibold">Tên sân:</span>
                                     <span class="text-[16px]">{{ $product['name'] }}</span>
                                 </li>
 
@@ -147,10 +162,10 @@
                                     }
                                 @endphp
 
-                                <!-- Thời gian đặt phòng -->
+                                <!-- Thời gian đặt sân -->
                                 <li class="py-[12px]">
                                     @if($bookingStyle == 2)
-                                        {{-- Style=2: hiển thị ngày nhận/trả phòng --}}
+                                        {{-- Style=2: hiển thị ngày nhận/trả sân --}}
                                         @php
                                             $ciMod = !empty($startTime) ? \Carbon\Carbon::parse($startTime)->startOfDay() : null;
                                             $coMod = !empty($endTime)   ? \Carbon\Carbon::parse($endTime)->startOfDay()   : null;
@@ -175,12 +190,12 @@
                                         @if($ciMod && $coMod)
                                             <div class="grid grid-cols-2 gap-2">
                                                 <div class="bg-gray-50 rounded-lg p-3 text-center border border-gray-200">
-                                                    <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1">Nhận phòng</p>
+                                                    <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1">Nhận sân</p>
                                                     <p class="text-base font-bold text-gray-900">{{ $ci2TimeModal }}</p>
                                                     <p class="text-xs text-gray-500 mt-0.5">{{ $ciMod->format('d/m/Y') }}</p>
                                                 </div>
                                                 <div class="bg-gray-50 rounded-lg p-3 text-center border border-gray-200">
-                                                    <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1">Trả phòng</p>
+                                                    <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1">Trả sân</p>
                                                     <p class="text-base font-bold text-gray-900">{{ $co2TimeModal }}</p>
                                                     <p class="text-xs text-gray-500 mt-0.5">{{ $coMod->format('d/m/Y') }}</p>
                                                 </div>
@@ -405,7 +420,7 @@
                                         @if($effectivePct < 100)
                                             <div class="space-y-1.5">
                                                 <div class="flex justify-between items-center">
-                                                    <span class="text-gray-500 text-[14px]">Tổng tiền phòng:</span>
+                                                    <span class="text-gray-500 text-[14px]">Tổng tiền sân:</span>
                                                     <span class="font-semibold text-gray-700 text-[14px]">{{ number_format($totalAmount, 0, ',', '.') }}đ</span>
                                                 </div>
                                                 <div class="rounded-lg px-3 py-2" style="background:#fffbeb;border:1px solid #fbbf24">
@@ -414,7 +429,7 @@
                                                         <span class="text-amber-700 font-extrabold text-[18px]">{{ number_format($depositAmtModal, 0, ',', '.') }}đ</span>
                                                     </div>
                                                     <p class="text-xs text-amber-600 mt-1">
-                                                        💡 Còn lại {{ number_format($remainingModal, 0, ',', '.') }}đ thanh toán khi nhận phòng
+                                                        💡 Còn lại {{ number_format($remainingModal, 0, ',', '.') }}đ thanh toán khi nhận sân
                                                     </p>
                                                 </div>
                                                 <p class="text-[11px] text-gray-400 italic text-center">Mã cổng được gửi sau khi thanh toán đủ</p>
@@ -485,7 +500,7 @@
                         <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
                         <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
                     </svg>
-                    <span wire:loading.remove wire:target="confirmBooking">Đặt phòng</span>
+                    <span wire:loading.remove wire:target="confirmBooking">Đặt sân</span>
                     <span wire:loading wire:target="confirmBooking">Đang xử lý...</span>
                 </button>
 

@@ -52,7 +52,7 @@ Route::post('lock/callback', [LockRecordCallbackController::class, 'handle'])
 /*
 |--------------------------------------------------------------------------
 | Room Types
-| GET /api/room-types → Danh sách danh mục phòng (dùng cho select/dropdown)
+| GET /api/room-types → Danh sách danh mục sân (dùng cho select/dropdown)
 |--------------------------------------------------------------------------
 */
 Route::get('room-types',      [RoomTypeController::class, 'index'])->name('api.room-types.index');
@@ -82,10 +82,10 @@ Route::get('v1/branches/{id}', [BranchController::class, 'show'])->name('api.v1.
 |
 | GET /api/v1/ask-user/{id}                 → Nội dung thông báo khi vào app
 |
-| GET /api/v1/branches/{slug}/time-slots?days=15 → Lịch đặt phòng đầy đủ 1 chi nhánh (mọi phòng
+| GET /api/v1/branches/{slug}/time-slots?days=15 → Lịch đặt sân đầy đủ 1 chi nhánh (mọi sân
 |                                                    theo khung giờ x ngày, kèm giá/khuyến mãi/
 |                                                    trạng thái đã đặt) — days tối đa 31.
-| GET /api/v1/branches/{branch}/daily-rooms      → Danh sách phòng THEO NGÀY (styles=2) thuộc 1
+| GET /api/v1/branches/{branch}/daily-rooms      → Danh sách sân THEO NGÀY (styles=2) thuộc 1
 |                                                    chi nhánh — {branch} nhận id, slug, hoặc tên.
 |--------------------------------------------------------------------------
 */
@@ -167,7 +167,7 @@ Route::get('pages/{slug}', [AppPageController::class, 'show'])->name('api.pages.
 /*
 |--------------------------------------------------------------------------
 | Rooms
-| GET /api/rooms/{slug} → Chi tiết phòng (amenities, services, specials,
+| GET /api/rooms/{slug} → Chi tiết sân (amenities, services, specials,
 |                          prices, promotions, coupons)
 |--------------------------------------------------------------------------
 */
@@ -177,7 +177,7 @@ Route::get('rooms/{id}/guest-surcharge-preview', [RoomController::class, 'guestS
 
 /*
 |--------------------------------------------------------------------------
-| Daily Rooms (phòng theo ngày — styles=2)
+| Daily Rooms (sân theo ngày — styles=2)
 | GET /api/rooms/{id}/dates?month=YYYY-MM
 |     → Lịch tháng: giá, availability, promotion từng ngày (dùng cho calendar)
 | GET /api/rooms/{id}/price-preview?checkin=YYYY-MM-DD&checkout=YYYY-MM-DD
@@ -196,7 +196,7 @@ Route::delete('rooms/{id}/hold',       [DailyRoomHoldController::class, 'release
 | Trước đây cho phép bất kỳ ai (không cần đăng nhập) gọi thẳng 2 route này để "giữ chỗ" 1 ô
 | khung giờ, phát real-time cho admin/khách khác thấy ngay. Rủi ro bảo mật thật sự: throttle
 | 30 request/phút/IP KHÔNG đủ chặn kẻ tấn công cố ý spam giữ hết mọi ô khung giờ còn trống của
-| 1 phòng (đổi IP/dùng nhiều IP), khiến khách thật không đặt được phòng dù còn trống — đây là
+| 1 sân (đổi IP/dùng nhiều IP), khiến khách thật không đặt được sân dù còn trống — đây là
 | lỗ hổng DoS/phá đơn, không phải lỗi hiệu năng thông thường. ĐÃ BỎ theo yêu cầu, chỉ còn giữ
 | lại chiều NGƯỢC LẠI (admin giữ chỗ → khách thấy ngay, xem TimeslotHoldService +
 | admin.rooms.timeslot-hold ở routes/web.php) — chiều đó an toàn vì chỉ admin đã đăng nhập mới
@@ -282,7 +282,7 @@ Route::prefix('auth')->name('api.auth.')->group(function () {
 /*
 |--------------------------------------------------------------------------
 | Orders / Booking
-| POST /api/orders → Tạo đơn đặt phòng (slot hoặc monthly)
+| POST /api/orders → Tạo đơn đặt sân (slot hoặc monthly)
 |                    - Nếu có token Sanctum: lấy buyer từ customer
 |                    - Nếu không có token:  bắt buộc buyer_name + buyer_phone
 |--------------------------------------------------------------------------
@@ -310,7 +310,7 @@ Route::middleware('auth:sanctum')->group(function () {
 /*
 |--------------------------------------------------------------------------
 | Guest Booking (không cần đăng nhập)
-| POST   /api/guest/orders                                        → Đặt phòng theo giờ / ngày (slot / daily)
+| POST   /api/guest/orders                                        → Đặt sân theo giờ / ngày (slot / daily)
 |                                                                      payment_type=full   → 100% (mặc định)
 |                                                                      payment_type=deposit → 50% (chỉ daily)
 | POST   /api/guest/orders/{order_code}                           → Cập nhật đơn (xác thực bằng buyer_phone)
@@ -398,7 +398,7 @@ Route::middleware(['auth:sanctum', 'customer.active'])->group(function () {
 /*
 |--------------------------------------------------------------------------
 | Wishlist
-| GET  /api/wishlist                    → Danh sách phòng đã lưu
+| GET  /api/wishlist                    → Danh sách sân đã lưu
 | POST /api/wishlist/{product}/toggle   → Thêm / bỏ khỏi wishlist
 |--------------------------------------------------------------------------
 */

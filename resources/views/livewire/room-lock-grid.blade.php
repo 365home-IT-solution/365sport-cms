@@ -42,7 +42,7 @@
                 @if ($productId)
                     @if (empty($slots))
                         <p class="py-8 text-center text-sm italic text-gray-400">
-                            Phòng này không có khung giờ (đặt theo ngày, không áp dụng khóa tạm thời kiểu này).
+                            Sân này không có khung giờ (đặt theo ngày, không áp dụng khóa tạm thời kiểu này).
                         </p>
                     @else
                         <div class="grid grid-cols-1 gap-5 lg:grid-cols-10">
@@ -82,7 +82,7 @@
                     wire:loading.attr="disabled"
                     @if (empty($selectedSlots)) disabled @endif
                     class="rounded-lg bg-primary-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-40">
-                    Đặt phòng ({{ count($selectedSlots) }} khung giờ) →
+                    Đặt sân ({{ count($selectedSlots) }} khung giờ) →
                 </button>
             </div>
 

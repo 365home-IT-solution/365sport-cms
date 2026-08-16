@@ -101,7 +101,7 @@ class SearchBooking extends Component
                 'buyerEmail'  => $order->buyer_email ?? '',
                 'expiredAt'   => now()->addMinutes(30)->timestamp,
                 'items'       => [[
-                    'name'     => 'Tiền cọc - ' . ($order->items->first()->name ?? 'Phòng'),
+                    'name'     => 'Tiền cọc - ' . ($order->items->first()->name ?? 'Sân'),
                     'quantity' => 1,
                     'price'    => $depositAmount,
                 ]],
@@ -187,7 +187,7 @@ class SearchBooking extends Component
                 'buyerEmail'  => $order->buyer_email ?? '',
                 'expiredAt'   => now()->addMinutes(30)->timestamp,
                 'items'       => [[
-                    'name'     => 'Tiền còn lại - ' . ($order->items->first()->name ?? 'Phòng'),
+                    'name'     => 'Tiền còn lại - ' . ($order->items->first()->name ?? 'Sân'),
                     'quantity' => 1,
                     'price'    => $remaining,
                 ]],

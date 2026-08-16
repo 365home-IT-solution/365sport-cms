@@ -19,7 +19,7 @@ use Modules\Employee\Entities\ConsultationLog;
 
 // Nơi nhân viên (thường là lễ tân) tự ghi nhận từng lượt tư vấn khách hàng — dùng để tính lương
 // theo lượt cho vị trí piece_rate (xem SalaryType::calc_type, Employee::getFinalSalaryAttribute()).
-// Lượt dọn phòng KHÔNG cần ghi ở đây — đã tự động ghi nhận sẵn ở màn "Kiểm tra dọn phòng".
+// Lượt dọn sân KHÔNG cần ghi ở đây — đã tự động ghi nhận sẵn ở màn "Kiểm tra dọn sân".
 class ConsultationLogResource extends Resource
 {
     protected static ?string $model = ConsultationLog::class;

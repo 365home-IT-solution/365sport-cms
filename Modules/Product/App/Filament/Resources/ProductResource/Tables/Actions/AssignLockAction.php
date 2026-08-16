@@ -24,7 +24,7 @@ class AssignLockAction
             // hiện nút rồi mở modal chỉ để báo "chưa có tài khoản" gây rối, không cần thiết.
             ->visible(fn (Product $record) => TTLockService::hasAccountForCategory($record->branch_category_id))
             ->modalHeading(fn (Product $record) => "Gán khóa TTLock → {$record->name}")
-            ->modalDescription('Chọn 2 khóa TTLock cho phòng này: khóa ngoài (check-in) và khóa trong (check-out).')
+            ->modalDescription('Chọn 2 khóa TTLock cho sân này: khóa ngoài (check-in) và khóa trong (check-out).')
             ->modalWidth('lg')
             ->fillForm(fn (Product $record): array => [
                 'lock_id'          => $record->lock_id,

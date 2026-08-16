@@ -114,7 +114,7 @@ class AdditionServiceResource extends Resource
                     ->sortable(),
 
                 TextColumn::make('products_count')
-                    ->label('Số phòng')
+                    ->label('Số sân')
                     ->counts('products')
                     ->badge()
                     ->color('info'),

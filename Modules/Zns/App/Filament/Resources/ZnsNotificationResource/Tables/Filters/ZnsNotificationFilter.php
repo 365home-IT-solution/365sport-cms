@@ -25,7 +25,7 @@ class ZnsNotificationFilter
             SelectFilter::make('notification_type')
                 ->label('Loại thông báo')
                 ->options([
-                    'booking_success' => 'Đặt phòng thành công',
+                    'booking_success' => 'Đặt sân thành công',
                     'booking_reminder' => 'Nhắc nhở',
                     'booking_cancelled' => 'Hủy đơn',
                 ]),

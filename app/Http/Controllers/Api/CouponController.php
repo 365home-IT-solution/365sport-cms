@@ -89,7 +89,7 @@ class CouponController extends Controller
             ->first();
 
         if (! $room) {
-            return response()->json(['message' => 'Phòng không tồn tại hoặc đã ngừng hoạt động.'], 404);
+            return response()->json(['message' => 'Sân không tồn tại hoặc đã ngừng hoạt động.'], 404);
         }
 
         $customer = auth('sanctum')->user();
@@ -136,7 +136,7 @@ class CouponController extends Controller
         };
 
         if (! $applicable) {
-            return response()->json(['message' => 'Mã giảm giá không áp dụng cho phòng này.'], 422);
+            return response()->json(['message' => 'Mã giảm giá không áp dụng cho sân này.'], 422);
         }
 
         $discountAmount = (int) $coupon->calculateDiscount($amount);

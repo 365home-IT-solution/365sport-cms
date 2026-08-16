@@ -17,7 +17,7 @@ use Modules\Product\App\Models\RoomType;
  * Tổng hợp dữ liệu cho trang "Tổng quan" admin — 7 block, MỖI block lọc kỳ
  * (hôm nay/tuần này/tháng này/năm nay...) ĐỘC LẬP với nhau, nhưng vẫn gộp
  * chung trong 1 API duy nhất:
- *   Kinh doanh, Lễ tân, Đặt phòng, Công suất phòng, Top 5 công suất,
+ *   Kinh doanh, Lễ tân, Đặt sân, Công suất sân, Top 5 công suất,
  *   Doanh thu, Top 5 doanh thu.
  */
 class OverviewService
@@ -59,7 +59,7 @@ class OverviewService
         ];
     }
 
-    /** KINH DOANH: số hoá đơn + doanh thu, thu - chi, trung bình phòng/ngày */
+    /** KINH DOANH: số hoá đơn + doanh thu, thu - chi, trung bình sân/ngày */
     private static function business($user, ?array $branchCategoryIds, Carbon $start, Carbon $end): array
     {
         $query = static::baseOrderQuery($user, $branchCategoryIds)
@@ -133,7 +133,7 @@ class OverviewService
             ->distinct('product_id')
             ->count('product_id');
 
-        // "Ở quá giờ": đã nhận phòng, giờ trả phòng dự kiến hôm nay đã qua nhưng vẫn còn hiệu lực đơn.
+        // "Ở quá giờ": đã nhận sân, giờ trả sân dự kiến hôm nay đã qua nhưng vẫn còn hiệu lực đơn.
         $overstayRooms = OrderItem::query()
             ->tap($orderScope)
             ->where('checkin_date', '<=', $now)
@@ -152,7 +152,7 @@ class OverviewService
         ];
     }
 
-    /** ĐẶT PHÒNG: đặt phòng mới, đặt phòng huỷ (theo created_at trong kỳ) */
+    /** ĐẶT SÂN: đặt sân mới, đặt sân huỷ (theo created_at trong kỳ) */
     private static function booking($user, ?array $branchCategoryIds, Carbon $start, Carbon $end): array
     {
         $query = static::baseOrderQuery($user, $branchCategoryIds)
@@ -168,7 +168,7 @@ class OverviewService
         ];
     }
 
-    /** CÔNG SUẤT PHÒNG: tỉ lệ lấp đầy tổng + theo ngày/tháng trong kỳ (không gồm top 5 — xem occupancyTop) */
+    /** CÔNG SUẤT SÂN: tỉ lệ lấp đầy tổng + theo ngày/tháng trong kỳ (không gồm top 5 — xem occupancyTop) */
     private static function occupancyTrend(array $productIds, Carbon $start, Carbon $end): array
     {
         $totalRooms = count($productIds);
@@ -192,7 +192,7 @@ class OverviewService
         $sumOccupied = 0;
 
         if ($byMonth) {
-            // Gộp theo tháng: % lấp đầy = tổng ngày-phòng đã đặt / (số phòng * số ngày trong tháng)
+            // Gộp theo tháng: % lấp đầy = tổng ngày-sân đã đặt / (số sân * số ngày trong tháng)
             $monthBuckets = [];
             foreach (CarbonPeriod::create($start->copy()->startOfMonth(), '1 month', $rangeEnd) as $m) {
                 $bucketStart = $m->copy()->startOfMonth()->max($start);
@@ -232,7 +232,7 @@ class OverviewService
         ];
     }
 
-    /** TOP 5 CÔNG SUẤT: tỉ lệ lấp đầy theo hạng phòng / khu vực trong kỳ (lọc kỳ riêng với occupancyTrend) */
+    /** TOP 5 CÔNG SUẤT: tỉ lệ lấp đầy theo hạng sân / khu vực trong kỳ (lọc kỳ riêng với occupancyTrend) */
     private static function occupancyTop(array $productIds, Carbon $start, Carbon $end): array
     {
         $totalRooms = count($productIds);
@@ -280,7 +280,7 @@ class OverviewService
     }
 
     /**
-     * Tính tập ngày mỗi phòng đã có khách trong [$start, $rangeEnd].
+     * Tính tập ngày mỗi sân đã có khách trong [$start, $rangeEnd].
      *
      * @return array{0: array<int, array<string, bool>>, 1: int} [occupiedDays[product_id][Y-m-d]=true, totalDays]
      */
@@ -359,7 +359,7 @@ class OverviewService
         ];
     }
 
-    /** TOP 5 DOANH THU: theo hạng phòng / kênh bán trong kỳ (lọc kỳ riêng với revenueTotal) */
+    /** TOP 5 DOANH THU: theo hạng sân / kênh bán trong kỳ (lọc kỳ riêng với revenueTotal) */
     private static function revenueTop(array $productIds, Carbon $start, Carbon $end): array
     {
         if (empty($productIds)) {
@@ -470,7 +470,7 @@ class OverviewService
             // Mặc định thấy TOÀN BỘ chi nhánh của đối tác mình (partner_id) — KHÔNG bắt buộc phải
             // có bản ghi branchPermissions riêng (chủ đối tác thường không có bản ghi này, chỉ
             // nhân viên được giao hạn chế mới có). allowedCategoryIds() rỗng KHÔNG có nghĩa là
-            // "không được xem gì" — trước đây return [] ở đây khiến chủ đối tác luôn thấy 0 phòng.
+            // "không được xem gì" — trước đây return [] ở đây khiến chủ đối tác luôn thấy 0 sân.
             $partnerCategoryIds = Category::where('partner_id', $user->partner_id)->pluck('id')->toArray();
             if (empty($partnerCategoryIds)) {
                 return [];

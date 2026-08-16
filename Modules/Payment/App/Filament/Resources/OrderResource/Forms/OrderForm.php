@@ -43,7 +43,7 @@ class OrderForm
     {
         return $form
             ->schema([
-                // Trước đây tách 2 tab ("Thông tin đơn đặt phòng" / "Thông tin thanh toán") — theo
+                // Trước đây tách 2 tab ("Thông tin đơn đặt sân" / "Thông tin thanh toán") — theo
                 // yêu cầu gộp lại thành 1 trang duy nhất, cuộn liên tục, không còn điều hướng tab.
                 // Không đặt heading nữa (Section::make() rỗng) — chỉ dùng làm khung bọc vô hình
                 // (order-form-root, xem order-form.css) để gom nhóm layout, các card thật bên trong
@@ -52,7 +52,7 @@ class OrderForm
                             ->extraAttributes(['class' => 'order-form-root'])
                             ->schema([
                                 // Mã cổng + Thông tin khách hàng đặt cạnh nhau — Mã cổng chỉ hiện khi
-                                // đơn đã 'paid' và phòng không dùng khóa thủ công (xem ->visible() của
+                                // đơn đã 'paid' và sân không dùng khóa thủ công (xem ->visible() của
                                 // chính component đó). Lịch sử thanh toán LUÔN hiện (không phụ thuộc mã
                                 // cổng) nên nằm CHUNG cột với mã cổng (bọc trong 1 Grid::make(1) riêng),
                                 // KHÔNG còn theo kiểu "ẩn mã cổng thì nhường hết chỗ cho Thông tin khách
@@ -88,7 +88,7 @@ class OrderForm
 
                                                         $product = $record->items->sortBy('checkin_date')->first()?->product;
 
-                                                        // Phòng khóa THỦ CÔNG — chi nhánh không có TTLock nên KHÔNG tra
+                                                        // Sân khóa THỦ CÔNG — chi nhánh không có TTLock nên KHÔNG tra
                                                         // accessCodes (bảng đó luôn rỗng cho case này), thay thế bằng
                                                         // ManualLockPassword::getForProductAndDate(). Mốc $referenceDate
                                                         // PHẢI là thời điểm đơn được CHỐT (paid_at/deposit_paid_at/
@@ -230,7 +230,7 @@ class OrderForm
 
                                                         Textarea::make('description')
                                                             ->label(__('payment::order.form.label.description'))
-                                                            ->placeholder('VD: Yêu cầu phòng tầng cao, view đẹp...')
+                                                            ->placeholder('VD: Yêu cầu sân tầng cao, view đẹp...')
                                                             ->nullable()
                                                             ->default('')
                                                             ->rows(4)
@@ -241,7 +241,7 @@ class OrderForm
                                                         // (field bị ẩn mặc định không dehydrate, xem HasState::isDehydrated()).
                                                         TextInput::make('short_description')
                                                             ->label(__('payment::order.form.label.short_description'))
-                                                            ->placeholder('VD: Yêu cầu phòng tầng cao')
+                                                            ->placeholder('VD: Yêu cầu sân tầng cao')
                                                             ->nullable()
                                                             ->maxLength(255)
                                                             ->hidden()
@@ -362,12 +362,12 @@ class OrderForm
                                                         // về null khi color=null) — chữ gần như vô hình do thiếu tương phản.
                                                         // Đã xác nhận thực tế qua ảnh chụp màn hình.
                                                         ToggleButtons::make('order_status')
-                                                            ->label('Trạng thái nhận/trả phòng')
+                                                            ->label('Trạng thái nhận/trả sân')
                                                             ->options([
-                                                                'pending'     => 'Chờ nhận phòng',
-                                                                'checked_in'  => 'Đã nhận phòng',
+                                                                'pending'     => 'Chờ nhận sân',
+                                                                'checked_in'  => 'Đã nhận sân',
                                                                 'staying'     => 'Đang ở',
-                                                                'checked_out' => 'Đã trả phòng',
+                                                                'checked_out' => 'Đã trả sân',
                                                             ])
                                                             ->colors([
                                                                 'pending'     => 'gray',
@@ -405,12 +405,12 @@ class OrderForm
                                                     ]),
 
                                                 // Cột 2: Đối tác + Chi nhánh (chuyển từ đầu Section "Chi tiết đặt
-                                                // phòng" cũ vào đây — logic lọc/reset khi đổi đối tác-chi nhánh giữ
-                                                // nguyên 100%, xem 2 field bên dưới). "Chọn phòng"/"Số lượng khách"/
-                                                // lịch đặt phòng vẫn nằm trong Repeater "orderItems" ở Section "Chi
-                                                // tiết đặt phòng" như cũ — đó là dữ liệu LẶP LẠI theo từng phòng, tách
-                                                // khỏi Repeater sẽ phá vỡ cơ chế nhiều phòng/nhiều khung giờ.
-                                                // Badge/khung riêng cho cột 2 (Đối tác/Chi nhánh + Chọn phòng/Số
+                                                // sân" cũ vào đây — logic lọc/reset khi đổi đối tác-chi nhánh giữ
+                                                // nguyên 100%, xem 2 field bên dưới). "Chọn sân"/"Số lượng khách"/
+                                                // lịch đặt sân vẫn nằm trong Repeater "orderItems" ở Section "Chi
+                                                // tiết đặt sân" như cũ — đó là dữ liệu LẶP LẠI theo từng sân, tách
+                                                // khỏi Repeater sẽ phá vỡ cơ chế nhiều sân/nhiều khung giờ.
+                                                // Badge/khung riêng cho cột 2 (Đối tác/Chi nhánh + Chọn sân/Số
                                                 // lượng khách + Dịch vụ) — tái dùng đúng token màu "boulder" đã có
                                                 // (xem .cot2-badge trong order-form.css), không đổi tỉ lệ cột (vẫn
                                                 // ->columnSpan(1) trên chính Section thay vì Grid như trước).
@@ -421,7 +421,7 @@ class OrderForm
                                                         Grid::make(3)
                                                             ->schema([
                                                                 // Chỉ super_admin/nhân viên đối tác NỀN TẢNG (365home) mới thấy field
-                                                                // này — họ đặt phòng hộ mọi đối tác nên phải CHỌN ĐÚNG đối tác trước,
+                                                                // này — họ đặt sân hộ mọi đối tác nên phải CHỌN ĐÚNG đối tác trước,
                                                                 // rồi "Chi nhánh" bên dưới mới lọc theo đúng đối tác đó (thay vì liệt kê
                                                                 // lẫn lộn chi nhánh của mọi đối tác cùng lúc). Không dehydrate vào Order
                                                                 // — chỉ dùng để LỌC, partner_id thật sự lấy từ category_id đã chọn
@@ -437,7 +437,7 @@ class OrderForm
                                                                     ->columnSpan(1)
                                                                     // Chỉ liệt kê đối tác ĐÃ ĐƯỢC XÁC NHẬN (verification_status =
                                                                     // 'approved') — đối tác đang chờ duyệt/bị từ chối chưa đủ điều
-                                                                    // kiện vận hành thật, không nên đặt phòng hộ cho họ.
+                                                                    // kiện vận hành thật, không nên đặt sân hộ cho họ.
                                                                     ->options(fn () => \App\Models\Partner::query()
                                                                         ->where('verification_status', 'approved')
                                                                         ->orderBy('name')
@@ -469,8 +469,8 @@ class OrderForm
                                                                         $user  = auth()->user();
                                                                         // whereNull('parent_id') — chi nhánh là category CẤP GỐC; nếu không
                                                                         // lọc thêm điều kiện này, các category CON (dùng để phân loại
-                                                                        // phòng bên trong 1 chi nhánh, cũng category_type='product') sẽ
-                                                                        // lẫn vào danh sách, hiện nhầm tên phòng thay vì tên chi nhánh.
+                                                                        // sân bên trong 1 chi nhánh, cũng category_type='product') sẽ
+                                                                        // lẫn vào danh sách, hiện nhầm tên sân thay vì tên chi nhánh.
                                                                         $query = Category::query()
                                                                             ->where('category_type', 'product')
                                                                             ->whereNull('parent_id')
@@ -513,9 +513,9 @@ class OrderForm
                                                                     ->columnSpan(fn () => self::isPlatformStaff() ? 2 : 3)
                                                                     ->disabled(fn (Get $get) => self::isPlatformStaff() && ! $get('booking_partner_id'))
                                                                     ->afterStateUpdated(function (Set $set, Get $get) {
-                                                                        // Đổi chi nhánh thì các phòng đã chọn ở Repeater bên dưới (nếu có)
+                                                                        // Đổi chi nhánh thì các sân đã chọn ở Repeater bên dưới (nếu có)
                                                                         // rất có thể không còn thuộc chi nhánh mới — reset lại để tránh giữ
-                                                                        // nhầm phòng của chi nhánh cũ.
+                                                                        // nhầm sân của chi nhánh cũ.
                                                                         foreach (array_keys($get('orderItems') ?? []) as $key) {
                                                                             $set("orderItems.{$key}.product_id", null);
                                                                         }
@@ -527,13 +527,13 @@ class OrderForm
                                                             Grid::make(2)
                                                                 ->schema([
                                                                     Select::make('product_id')
-                                                                        ->label('Chọn phòng')
+                                                                        ->label('Chọn sân')
                                                                         ->options(function (Get $get) {
                                                                             $user = auth()->user();
 
-                                                                            // Nhân viên đối tác NỀN TẢNG (vd 365home) đặt phòng hộ mọi đối
+                                                                            // Nhân viên đối tác NỀN TẢNG (vd 365home) đặt sân hộ mọi đối
                                                                             // tác — phải gỡ hẳn global scope 'partner' của Product mới thấy
-                                                                            // được phòng của TẤT CẢ đối tác khác, không chỉ đối tác của mình.
+                                                                            // được sân của TẤT CẢ đối tác khác, không chỉ đối tác của mình.
                                                                             $query = ($user && $user->belongsToPlatformPartner())
                                                                                 ? Product::withoutGlobalScope('partner')->where('is_activated', true)
                                                                                 : Product::query()->where('is_activated', true);
@@ -551,9 +551,9 @@ class OrderForm
                                                                                 // đã tự lọc theo partner_id (BelongsToPartner).
                                                                             }
 
-                                                                            // Chỉ hiện phòng THUỘC ĐÚNG chi nhánh đã chọn ở trên — trước đây
-                                                                            // chọn chi nhánh không thu hẹp danh sách phòng chút nào, dễ chọn
-                                                                            // nhầm phòng của chi nhánh khác cùng đối tác.
+                                                                            // Chỉ hiện sân THUỘC ĐÚNG chi nhánh đã chọn ở trên — trước đây
+                                                                            // chọn chi nhánh không thu hẹp danh sách sân chút nào, dễ chọn
+                                                                            // nhầm sân của chi nhánh khác cùng đối tác.
                                                                             $categoryId = $get('data.category_id', isAbsolute: true);
 
                                                                             if (! $categoryId) {
@@ -561,11 +561,11 @@ class OrderForm
                                                                             }
 
                                                                             // Một số đối tác (dữ liệu cũ, vd 365home) tổ chức category 2 cấp:
-                                                                            // chi nhánh (parent_id NULL) → danh mục phòng con (parent_id = chi
+                                                                            // chi nhánh (parent_id NULL) → danh mục sân con (parent_id = chi
                                                                             // nhánh) — Product được gán categorizable vào danh mục CON, không
                                                                             // phải thẳng vào chi nhánh. Phải gộp cả chi nhánh + toàn bộ danh
-                                                                            // mục con của nó khi tìm phòng, nếu không chọn chi nhánh sẽ ra
-                                                                            // danh sách rỗng dù chi nhánh đó có đầy đủ phòng.
+                                                                            // mục con của nó khi tìm sân, nếu không chọn chi nhánh sẽ ra
+                                                                            // danh sách rỗng dù chi nhánh đó có đầy đủ sân.
                                                                             $childCategoryIds = Category::where('parent_id', $categoryId)->pluck('id');
                                                                             $searchCategoryIds = $childCategoryIds->push($categoryId);
 
@@ -580,7 +580,7 @@ class OrderForm
                                                                         // 'data.category_id' (absolute path), riêng modal "Xem chi tiết"
                                                                         // (ViewAction) có statePath KHÁC trang Sửa nên path tuyệt đối này
                                                                         // không phải lúc nào cũng resolve đúng. getOptionLabelUsing() tra
-                                                                        // thẳng theo ID nên LUÔN hiện đúng tên phòng bất kể options() ở
+                                                                        // thẳng theo ID nên LUÔN hiện đúng tên sân bất kể options() ở
                                                                         // trên có rỗng hay không.
                                                                         ->getOptionLabelUsing(fn ($value) => Product::withoutGlobalScope('partner')->find($value)?->name)
                                                                         ->searchable()
@@ -597,16 +597,16 @@ class OrderForm
                                                                                     $displayPrice = $product->discount ?: $product->price;
                                                                                     $set('discount', $displayPrice);
 
-                                                                                    // Đổi phòng — XOÁ SẠCH giá + khung giờ/ngày đã chọn của phòng
-                                                                                    // CŨ (không còn nghĩa gì với phòng MỚI, và mỗi khung giờ có
+                                                                                    // Đổi sân — XOÁ SẠCH giá + khung giờ/ngày đã chọn của sân
+                                                                                    // CŨ (không còn nghĩa gì với sân MỚI, và mỗi khung giờ có
                                                                                     // giá/khuyến mãi RIÊNG nên không thể suy ra giá đúng ngay khi
-                                                                                    // vừa đổi phòng — bắt buộc chọn lại khung giờ/ngày để tính giá
+                                                                                    // vừa đổi sân — bắt buộc chọn lại khung giờ/ngày để tính giá
                                                                                     // thật). 'price' set 0 (KHÔNG set = $product->price) để tổng
-                                                                                    // tiền không hiện nhầm giá phòng gốc trong lúc chưa chọn khung
+                                                                                    // tiền không hiện nhầm giá sân gốc trong lúc chưa chọn khung
                                                                                     // giờ nào — selectTimeslot()/checkin_day-checkout_day sẽ tự
                                                                                     // ghi đè lại đúng giá thật ngay khi chọn. KHÔNG đụng
                                                                                     // 'orderServices' (dịch vụ đã chọn) — field đó tách riêng,
-                                                                                    // không phụ thuộc phòng.
+                                                                                    // không phụ thuộc sân.
                                                                                     $set('price', 0);
                                                                                     $set('selected_slots', []);
                                                                                     $set('checkin_date', null);
@@ -726,7 +726,7 @@ class OrderForm
                                     ->schema([
                                         // Chia 2 cột: cột 1 = lịch/khung giờ (bọc Group('orderItems.0')), cột
                                         // 2 = "Tổng thanh toán" — ĐẶT NGOÀI Group đó vì đây là field CẤP ĐƠN
-                                        // (orders.amount/surcharge), không phải theo từng phòng. Để cả 2 cột
+                                        // (orders.amount/surcharge), không phải theo từng sân. Để cả 2 cột
                                         // trong CÙNG 1 Group('orderItems.0') (như bản trước) sẽ lưu NHẦM
                                         // 'surcharge'/'amount' thành 'orderItems.0.surcharge'/'orderItems.0.amount'
                                         // thay vì cột thật trên bảng orders — CreateOrder/EditOrder đọc
@@ -738,9 +738,9 @@ class OrderForm
                                                 Group::make()
                                                     ->statePath('orderItems.0')
                                                     ->schema([
-                                                                // Giá phòng — KHÔNG cho nhân viên gõ tay nữa (theo yêu cầu: ô này
+                                                                // Giá sân — KHÔNG cho nhân viên gõ tay nữa (theo yêu cầu: ô này
                                                                 // không thực sự có tác dụng, giá thật luôn lấy từ Product lúc chọn
-                                                                // phòng ở trên/từ đơn giá×số đêm ở style 2, gõ tay vào đây không
+                                                                // sân ở trên/từ đơn giá×số đêm ở style 2, gõ tay vào đây không
                                                                 // ảnh hưởng gì tới số tiền thật sự lưu). Chuyển thành Hidden — vẫn
                                                                 // PHẢI dehydrate ở MỌI style (xem ghi chú gốc: order 2978 từng lưu
                                                                 // price = NULL khi field bị ẩn không dehydrate), chỉ bỏ khỏi giao
@@ -750,7 +750,7 @@ class OrderForm
 
                                                                 // Style 2: hiển thị tổng tính tự động
                                                                 Placeholder::make('price_nights_summary')
-                                                                    ->label('Tổng tiền phòng')
+                                                                    ->label('Tổng tiền sân')
                                                                     ->visible(fn(Get $get) => (int)($get('product_style') ?? 1) === 2)
                                                                     ->live()
                                                                     ->content(function(Get $get) {
@@ -770,7 +770,7 @@ class OrderForm
                                                                                 '</div>'
                                                                             );
                                                                         }
-                                                                        return new \Illuminate\Support\HtmlString('<span class="text-gray-400 italic text-xs">Chọn ngày nhận & trả phòng để tính giá</span>');
+                                                                        return new \Illuminate\Support\HtmlString('<span class="text-gray-400 italic text-xs">Chọn ngày nhận & trả sân để tính giá</span>');
                                                                     }),
 
                                                                 // Phụ thu — KHÔNG cho nhân viên gõ tay nữa (theo yêu cầu: ô này
@@ -781,9 +781,9 @@ class OrderForm
                                                                 Hidden::make('extra_fee')
                                                                         ->default(0),
 
-                                                            // Style 1 + phòng CÓ khai báo khung giờ (RoomTimeSlot) — CHỈ 1 bảng cho
-                                                            // đúng 1 phòng này, chọn được NHIỀU khung giờ (nhiều ngày/nhiều khung)
-                                                            // ngay trên cùng bảng đó, KHÔNG thêm dòng/thẻ phòng mới nào. Mỗi khung
+                                                            // Style 1 + sân CÓ khai báo khung giờ (RoomTimeSlot) — CHỈ 1 bảng cho
+                                                            // đúng 1 sân này, chọn được NHIỀU khung giờ (nhiều ngày/nhiều khung)
+                                                            // ngay trên cùng bảng đó, KHÔNG thêm dòng/thẻ sân mới nào. Mỗi khung
                                                             // giờ đã chọn được lưu vào mảng 'selected_slots' của ĐÚNG dòng này; lúc
                                                             // lưu đơn, mỗi phần tử trong mảng đó mới được tách thành 1 order_item
                                                             // riêng (xem OrderForm::expandOrderItemsForPersistence()).
@@ -791,9 +791,9 @@ class OrderForm
                                                                 ->visible(fn (Get $get) => (int) ($get('product_style') ?? 1) !== 2
                                                                     && self::getRoomTimeSlots((string) ($get('product_id') ?? ''))->isNotEmpty())
                                                                 ->schema([
-                                                                    // Lưới NGÀY × KHUNG GIỜ dạng bảng, giống trang đặt phòng phía
+                                                                    // Lưới NGÀY × KHUNG GIỜ dạng bảng, giống trang đặt sân phía
                                                                     // client (14 ngày tới, mỗi ô kiểm tra chồng lấn với đơn khác của
-                                                                    // đúng phòng này). Bấm 1 ô = gọi thẳng method
+                                                                    // đúng sân này). Bấm 1 ô = gọi thẳng method
                                                                     // selectTimeslot() trên trang Tạo/Sửa đơn (wire:click chính
                                                                     // thống của Livewire) để ghi trực tiếp checkin_date/checkout_date/
                                                                     // giá — KHÔNG dùng Alpine/$wire.entangle tự chế như 2 lần thử
@@ -842,7 +842,7 @@ class OrderForm
                                                                         }),
                                                                 ]),
 
-                                                            // Nhập tay CHECKIN/CHECKOUT cho style 1 CÓ khung giờ — dự phòng cho
+                                                            // Nhập tay CHECKIN/CHECKOUT cho style 1 CÓ khung giờ — dự sân cho
                                                             // trường hợp lưới ở trên KHÔNG hiển thị được ô cần chọn (lưới chỉ vẽ
                                                             // 14 ngày kể từ HÔM NAY trở đi — xem getTimeslotGridData(), $dates
                                                             // luôn bắt đầu từ now()), ví dụ: khách đặt qua điện thoại cho khung
@@ -861,11 +861,16 @@ class OrderForm
                                                                     Placeholder::make('manual_slot_hint')
                                                                         ->label('')
                                                                         ->columnSpan(2)
-                                                                        ->content('Không chọn được khung giờ cần thiết trên lưới ở trên (VD: khung giờ của ngày hôm qua)? Nhập trực tiếp ngày & giờ nhận/trả phòng bên dưới. Lưu ý: nếu đã bấm chọn ô nào trên lưới, hệ thống sẽ ưu tiên dùng ô đã chọn và bỏ qua phần nhập tay này.'),
+                                                                        ->content(new \Illuminate\Support\HtmlString(
+                                                                            '<div style="display:flex;gap:8px;align-items:flex-start;background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:10px 12px;font-size:.8rem;line-height:1.45;color:#1e3a5f;">'
+                                                                            . '<svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="width:16px;height:16px;flex-shrink:0;margin-top:2px;color:#3b82f6;"><path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>'
+                                                                            . '<span>Không chọn được khung giờ cần thiết trên lưới ở trên (VD: khung giờ của ngày hôm qua)? Nhập trực tiếp ngày & giờ nhận/trả sân bên dưới. <strong>Lưu ý:</strong> nếu đã bấm chọn ô nào trên lưới, hệ thống sẽ ưu tiên dùng ô đã chọn và bỏ qua phần nhập tay này.</span>'
+                                                                            . '</div>'
+                                                                        )),
 
                                                                     DateTimePicker::make('manual_checkin_date_override')
-                                                                        ->label('Ngày & Giờ nhận phòng (nhập tay)')
-                                                                        ->placeholder('Chọn ngày & giờ nhận phòng')
+                                                                        ->label('Ngày & Giờ nhận sân (nhập tay)')
+                                                                        ->placeholder('Chọn ngày & giờ nhận sân')
                                                                         ->displayFormat('d/m/Y H:i')
                                                                         ->seconds(false)
                                                                         ->native(false)
@@ -874,8 +879,8 @@ class OrderForm
                                                                         ->live(),
 
                                                                     DateTimePicker::make('manual_checkout_date_override')
-                                                                        ->label('Ngày & Giờ trả phòng (nhập tay)')
-                                                                        ->placeholder('Chọn ngày & giờ trả phòng')
+                                                                        ->label('Ngày & Giờ trả sân (nhập tay)')
+                                                                        ->placeholder('Chọn ngày & giờ trả sân')
                                                                         ->displayFormat('d/m/Y H:i')
                                                                         ->seconds(false)
                                                                         ->native(false)
@@ -902,7 +907,7 @@ class OrderForm
                                                             Hidden::make('checkin_date'),
                                                             Hidden::make('checkout_date'),
 
-                                                            // Style 1 nhưng phòng CHƯA khai báo khung giờ nào — giữ nguyên cách
+                                                            // Style 1 nhưng sân CHƯA khai báo khung giờ nào — giữ nguyên cách
                                                             // nhập tự do như trước (không có khung giờ cố định để chọn). Đổi tên
                                                             // field + dehydrated(false) để KHÔNG xung đột với Hidden checkin_date/
                                                             // checkout_date thật ở Grid trên — chỉ mirror giá trị qua lại.
@@ -911,8 +916,8 @@ class OrderForm
                                                                     && self::getRoomTimeSlots((string) ($get('product_id') ?? ''))->isEmpty())
                                                                 ->schema([
                                                                     DateTimePicker::make('manual_checkin_date')
-                                                                        ->label('Ngày & Giờ nhận phòng')
-                                                                        ->placeholder('Chọn ngày & giờ nhận phòng')
+                                                                        ->label('Ngày & Giờ nhận sân')
+                                                                        ->placeholder('Chọn ngày & giờ nhận sân')
                                                                         ->displayFormat('d/m/Y H:i')
                                                                         ->seconds(false)
                                                                         ->native(false)
@@ -927,8 +932,8 @@ class OrderForm
                                                                         ->required(fn(Get $get) => (int)($get('product_style') ?? 1) !== 2),
 
                                                                     DateTimePicker::make('manual_checkout_date')
-                                                                        ->label('Ngày & Giờ trả phòng')
-                                                                        ->placeholder('Chọn ngày & giờ trả phòng')
+                                                                        ->label('Ngày & Giờ trả sân')
+                                                                        ->placeholder('Chọn ngày & giờ trả sân')
                                                                         ->displayFormat('d/m/Y H:i')
                                                                         ->seconds(false)
                                                                         ->native(false)
@@ -948,8 +953,8 @@ class OrderForm
                                                                 ->visible(fn(Get $get) => (int)($get('product_style') ?? 1) === 2)
                                                                 ->schema([
                                                                     DatePicker::make('checkin_day')
-                                                                        ->label('Ngày nhận phòng')
-                                                                        ->placeholder('Chọn ngày nhận phòng')
+                                                                        ->label('Ngày nhận sân')
+                                                                        ->placeholder('Chọn ngày nhận sân')
                                                                         ->displayFormat('d/m/Y')
                                                                         ->native(false)
                                                                         ->icon('heroicon-o-calendar-days')
@@ -961,7 +966,7 @@ class OrderForm
                                                                         // Không cho chọn ngày ĐÃ QUA — hôm nay 14 thì không thể đặt cho
                                                                         // ngày 12/13 (đã trôi qua), chỉ được chọn từ hôm nay trở đi.
                                                                         ->minDate(now()->startOfDay())
-                                                                        // Chặn chọn trúng 1 đêm đã có khách khác đặt cho đúng phòng này —
+                                                                        // Chặn chọn trúng 1 đêm đã có khách khác đặt cho đúng sân này —
                                                                         // giống cách style 1 chặn khung giờ đã đặt trên lưới.
                                                                         ->disabledDates(fn (Get $get) => self::getBookedNightsForProduct(
                                                                             $get('product_id'),
@@ -989,14 +994,14 @@ class OrderForm
                                                                                 $set('checkin_date', null);
                                                                                 Notification::make()
                                                                                     ->title('Khoảng ngày này đã có khách khác đặt')
-                                                                                    ->body('Vui lòng chọn lại ngày nhận phòng khác.')
+                                                                                    ->body('Vui lòng chọn lại ngày nhận sân khác.')
                                                                                     ->warning()
                                                                                     ->send();
                                                                                 return;
                                                                             }
 
-                                                                            // Ghép ngày đã chọn với giờ nhận phòng MẶC ĐỊNH đã cấu hình sẵn
-                                                                            // cho phòng (Product::default_checkin) — KHÔNG tự ý dùng 00:00.
+                                                                            // Ghép ngày đã chọn với giờ nhận sân MẶC ĐỊNH đã cấu hình sẵn
+                                                                            // cho sân (Product::default_checkin) — KHÔNG tự ý dùng 00:00.
                                                                             // $state đôi khi đến kèm cả giờ (DatePicker có lúc trả về
                                                                             // "2026-07-14 00:00:00" thay vì chỉ "2026-07-14") — phải lấy
                                                                             // đúng phần NGÀY trước khi ghép giờ, nếu không bị lỗi "Double
@@ -1017,8 +1022,8 @@ class OrderForm
                                                                         }),
 
                                                                     DatePicker::make('checkout_day')
-                                                                        ->label('Ngày trả phòng')
-                                                                        ->placeholder('Chọn ngày trả phòng')
+                                                                        ->label('Ngày trả sân')
+                                                                        ->placeholder('Chọn ngày trả sân')
                                                                         ->displayFormat('d/m/Y')
                                                                         ->native(false)
                                                                         ->icon('heroicon-o-calendar-days')
@@ -1027,8 +1032,8 @@ class OrderForm
                                                                         ->locale('vi')
                                                                         ->dehydrated(false)
                                                                         ->required(fn(Get $get) => (int)($get('product_style') ?? 1) === 2)
-                                                                        // Không cho chọn ngày ĐÃ QUA, và ngày trả phòng luôn phải SAU
-                                                                        // ngày nhận phòng ít nhất 1 ngày (nếu đã chọn ngày nhận phòng).
+                                                                        // Không cho chọn ngày ĐÃ QUA, và ngày trả sân luôn phải SAU
+                                                                        // ngày nhận sân ít nhất 1 ngày (nếu đã chọn ngày nhận sân).
                                                                         ->minDate(fn (Get $get) => $get('checkin_day')
                                                                             ? \Carbon\Carbon::parse($get('checkin_day'))->addDay()
                                                                             : now()->startOfDay())
@@ -1059,14 +1064,14 @@ class OrderForm
                                                                                 $set('checkout_date', null);
                                                                                 Notification::make()
                                                                                     ->title('Khoảng ngày này đã có khách khác đặt')
-                                                                                    ->body('Vui lòng chọn lại ngày trả phòng khác.')
+                                                                                    ->body('Vui lòng chọn lại ngày trả sân khác.')
                                                                                     ->warning()
                                                                                     ->send();
                                                                                 return;
                                                                             }
 
-                                                                            // Ghép ngày đã chọn với giờ trả phòng MẶC ĐỊNH đã cấu hình sẵn
-                                                                            // cho phòng (Product::default_checkout) — KHÔNG tự ý dùng 00:00.
+                                                                            // Ghép ngày đã chọn với giờ trả sân MẶC ĐỊNH đã cấu hình sẵn
+                                                                            // cho sân (Product::default_checkout) — KHÔNG tự ý dùng 00:00.
                                                                             // $state đôi khi đến kèm cả giờ (xem ghi chú tương tự ở
                                                                             // checkin_day) — phải lấy đúng phần NGÀY trước khi ghép giờ.
                                                                             $product = Product::find($get('product_id'));
@@ -1122,8 +1127,8 @@ class OrderForm
                                                             Hidden::make('price_per_night')
                                                                 ->default(0),
 
-                                                            // Danh sách CÁC khung giờ đã chọn cho ĐÚNG 1 phòng này (nhiều khung
-                                                            // giờ trên CÙNG 1 bảng, không thêm dòng/thẻ phòng mới) — mỗi phần tử
+                                                            // Danh sách CÁC khung giờ đã chọn cho ĐÚNG 1 sân này (nhiều khung
+                                                            // giờ trên CÙNG 1 bảng, không thêm dòng/thẻ sân mới) — mỗi phần tử
                                                             // là ['slot_id'=>.., 'date'=>..]. Không phải cột thật trên
                                                             // order_items — CreateOrder/EditOrder tự expand mảng này thành đúng
                                                             // số bản ghi order_item cần thiết lúc lưu (1 khung giờ = 1 order_item).
@@ -1137,7 +1142,7 @@ class OrderForm
                                             ->schema([
                                                 // "Tổng thanh toán" (Chi tiết tính toán chi phí) — DI CHUYỂN nguyên
                                                         // cả nhóm field vào đây theo yêu cầu, thay vì nằm rời phía dưới
-                                                        // hàng lịch đặt phòng như trước. Bỏ hẳn khung Section (theo yêu
+                                                        // hàng lịch đặt sân như trước. Bỏ hẳn khung Section (theo yêu
                                                         // cầu "gọn đẹp lại") — chỉ còn 1 nhãn nhỏ + nội dung trần, không
                                                         // còn là "card" riêng. Group này vẫn nằm bên trong
                                                         // Group('orderItems.0') (xem Group B ngay trên) nên MỌI $get()/
@@ -1155,7 +1160,7 @@ class OrderForm
 
                                                                 Grid::make(2)
                                                                     ->schema([
-                                                                        // Phụ thu ngoài đơn giá phòng/dịch vụ (vd phí phát sinh admin thoả
+                                                                        // Phụ thu ngoài đơn giá sân/dịch vụ (vd phí phát sinh admin thoả
                                                                         // thuận riêng với khách) — admin gõ tay, CỘNG THẲNG vào tổng ở
                                                                         // calculateTotal()/amount_preview bên dưới, giống cách 'orderServices'
                                                                         // được cộng vào tổng.
@@ -1172,7 +1177,7 @@ class OrderForm
                                                                             }),
 
                                                                         // Tổng tiền THẬT SỰ sẽ lưu vào đơn — mặc định tự điền theo đúng số
-                                                                        // hệ thống vừa tính ở dưới (mỗi khi sửa phòng/dịch vụ/phụ thu,
+                                                                        // hệ thống vừa tính ở dưới (mỗi khi sửa sân/dịch vụ/phụ thu,
                                                                         // calculateTotal() sẽ ghi đè lại field này bằng số tính đúng). Admin
                                                                         // vẫn có thể gõ đè 1 số KHÁC ngay tại đây nếu cần điều chỉnh giá
                                                                         // thực thu.
@@ -1185,7 +1190,7 @@ class OrderForm
                                                                             ->dehydrated(true),
                                                                     ]),
 
-                                                                // Card breakdown (phòng/dịch vụ/giảm giá/phụ thu khách/phụ thu) TRUYỀN
+                                                                // Card breakdown (sân/dịch vụ/giảm giá/phụ thu khách/phụ thu) TRUYỀN
                                                                 // THÊM 'displayTotal' = giá trị HIỆN TẠI của field 'amount' ở trên —
                                                                 // để dòng "TỔNG THANH TOÁN" trên card LUÔN khớp CHÍNH XÁC với số
                                                                 // trong ô "Tổng tiền đơn" (kể cả khi admin đã gõ đè tay), thay vì
@@ -1314,7 +1319,7 @@ class OrderForm
                                                             'buyerPhone'  => $record->buyer_phone ?? '',
                                                             'expiredAt'   => $expiredAt->timestamp,
                                                             'items'       => [[
-                                                                'name'     => 'Tiền còn lại - ' . ($record->items->first()?->name ?? 'Phòng'),
+                                                                'name'     => 'Tiền còn lại - ' . ($record->items->first()?->name ?? 'Sân'),
                                                                 'quantity' => 1,
                                                                 'price'    => $remaining,
                                                             ]],
@@ -1550,7 +1555,7 @@ class OrderForm
 
     // Helper methods for badges
     // Luật Cư trú yêu cầu khai báo lưu trú ĐỦ TỪNG NGƯỜI khi ở qua đêm — chỉ hiện section CCCD
-    // khách thứ 2 khi CÓ ÍT NHẤT 1 phòng/lượt đặt: (a) số khách = 2, VÀ (b) là lượt ở QUA ĐÊM
+    // khách thứ 2 khi CÓ ÍT NHẤT 1 sân/lượt đặt: (a) số khách = 2, VÀ (b) là lượt ở QUA ĐÊM
     // (style "đặt theo ngày" luôn qua đêm; style "khung giờ" thì phải có khung giờ đã chọn đánh
     // dấu over_night=true, vd khung 22:00 - 02:00).
     private static function requiresSecondGuestCccd(Get $get): bool
@@ -1601,9 +1606,9 @@ class OrderForm
         return false;
     }
 
-    // Số ô CCCD "khách đi cùng" cần hiện = số khách CAO NHẤT trong các dòng đặt phòng - 1 (trừ
+    // Số ô CCCD "khách đi cùng" cần hiện = số khách CAO NHẤT trong các dòng đặt sân - 1 (trừ
     // khách chính). Khai báo lưu trú tính theo CẢ ĐƠN (cccd_declarations chỉ khoá order_id +
-    // guest_index, không tách theo từng phòng), nên dùng giá trị cao nhất giữa các dòng thay vì
+    // guest_index, không tách theo từng sân), nên dùng giá trị cao nhất giữa các dòng thay vì
     // cộng dồn — 1 đơn thường chỉ có 1 lượt lưu trú thực tế dù có thể tách nhiều dòng/khung giờ.
     private static function maxGuestCountAcrossItems(Get $get): int
     {
@@ -1626,7 +1631,7 @@ class OrderForm
     // $record ở đây LUÔN là bản ghi ĐÃ LƯU trong DB (không phải state form đang sửa dở) — badge
     // phải ưu tiên cảnh báo "còn nợ phát sinh" (extra_charge_amount chưa thu, xem
     // EditOrder::handlePriceDiff()) NGAY CẢ KHI status vẫn là 'paid', vì status 'paid' chỉ phản
-    // ánh đơn phòng gốc đã trả đủ — khoản phát sinh sau khi sửa đơn là 1 nghĩa vụ thanh toán
+    // ánh đơn sân gốc đã trả đủ — khoản phát sinh sau khi sửa đơn là 1 nghĩa vụ thanh toán
     // RIÊNG, không tự động đổi status. Trước đây badge chỉ nhìn status nên vẫn hiện "Đã thanh
     // toán" (xanh) dù đơn đang còn nợ khoản phát sinh, gây hiểu nhầm cho admin.
     public static function hasUnpaidExtraCharge($record): bool
@@ -2884,6 +2889,21 @@ class OrderForm
                             ];
                         }
 
+                        // Khách tự huỷ đơn/xin hoàn tiền online (xem OrderCancellationService) —
+                        // admin cần thấy RÕ đây là khách tự huỷ (không phải admin xử lý tay), để
+                        // biết panel "Hoàn tiền chưa xử lý" bên dưới (nếu có) là do đâu.
+                        if ($record->cancelled_at) {
+                            $steps[] = [
+                                'icon_type' => 'warning',
+                                'label'     => $record->cancelled_by === 'customer' ? 'Khách tự huỷ đơn' : 'Đơn bị huỷ',
+                                'time'      => $fmt($record->cancelled_at),
+                                'done'      => true,
+                                'color'     => 'red',
+                                'sub'       => $record->cancel_reason ?: null,
+                                'sort_time' => $record->cancelled_at,
+                            ];
+                        }
+
                         // Sắp xếp lại TOÀN BỘ dòng (mốc gốc + phát sinh/hoàn tiền) theo ĐÚNG
                         // thời gian thực (sort_time) — trước đây các mốc gốc (tạo đơn/thanh
                         // toán) luôn đứng ĐẦU mảng bất kể thời điểm thật, còn dòng phát sinh
@@ -2974,7 +2994,7 @@ class OrderForm
                     });
     }
 
-    // "Mã cổng" chỉ hiện khi đơn đã 'paid' VÀ phòng không dùng khóa thủ công VÀ chi nhánh của phòng
+    // "Mã cổng" chỉ hiện khi đơn đã 'paid' VÀ sân không dùng khóa thủ công VÀ chi nhánh của sân
     // đó CÒN tài khoản TTLock đang hoạt động (không có ttlock thì không thể cấp/hiện mã cổng thật sự
     // nào). Khi false, cột mã cổng không còn trống hẳn nữa — vẫn còn Lịch sử thanh toán ở đó (xem
     // buildPaymentTimelineSection()), nên "Thông tin khách hàng" cạnh nó giữ nguyên columnSpan(4).
@@ -2990,7 +3010,7 @@ class OrderForm
             return false;
         }
 
-        // Phòng khóa THỦ CÔNG (has_manual_lock) — chi nhánh không có tài khoản TTLock nên
+        // Sân khóa THỦ CÔNG (has_manual_lock) — chi nhánh không có tài khoản TTLock nên
         // KHÔNG có gì để tra ở bảng access_codes/TTLockService, thay vào đó luôn hiện khung này
         // để hiển thị mật khẩu thủ công (xem manual-lock-info.blade.php bên dưới) — trước đây
         // return false luôn cho case này, khiến cả khung "Mã cổng" biến mất hoàn toàn, không có
@@ -3002,8 +3022,8 @@ class OrderForm
         return \App\Services\TTLockService::hasAccountForCategory($record->category_id);
     }
 
-    // super_admin và nhân viên đối tác NỀN TẢNG (vd 365home) đặt phòng hộ mọi đối tác — cần chọn
-    // đối tác trước để lọc đúng chi nhánh/phòng, khác nhân viên đối tác thường (chỉ thấy đối
+    // super_admin và nhân viên đối tác NỀN TẢNG (vd 365home) đặt sân hộ mọi đối tác — cần chọn
+    // đối tác trước để lọc đúng chi nhánh/sân, khác nhân viên đối tác thường (chỉ thấy đối
     // tác/chi nhánh của chính mình, không cần chọn).
     private static function isPlatformStaff(): bool
     {
@@ -3012,9 +3032,9 @@ class OrderForm
         return (bool) ($user?->isSuperAdmin() || $user?->belongsToPlatformPartner());
     }
 
-    // Danh sách khung giờ (RoomTimeSlot) CỐ ĐỊNH khai báo sẵn cho phòng — không lọc theo ngày cụ
+    // Danh sách khung giờ (RoomTimeSlot) CỐ ĐỊNH khai báo sẵn cho sân — không lọc theo ngày cụ
     // thể (đây là định nghĩa dùng lại mỗi ngày, giống cách BlockTimeslotModal đang dùng để chặn
-    // lịch). Trả rỗng nếu phòng chưa khai báo khung giờ nào (dùng để fallback về DateTimePicker
+    // lịch). Trả rỗng nếu sân chưa khai báo khung giờ nào (dùng để fallback về DateTimePicker
     // nhập tự do như trước).
     // Nhớ tạm trong PHẠM VI 1 REQUEST (mảng static, tự reset giữa các request vì dự án không
     // dùng Octane — xem composer.json) — hàm này bị gọi LẶP LẠI với CÙNG 1 $productId nhiều lần
@@ -3046,9 +3066,9 @@ class OrderForm
             ->values();
     }
 
-    // Style 2 (đặt theo ngày) — tính giá phòng GIỐNG HỆT luồng đặt phòng của khách trên web
+    // Style 2 (đặt theo ngày) — tính giá sân GIỐNG HỆT luồng đặt sân của khách trên web
     // (BookingController::buildDailyItems() + applyDailyPromotions()): mỗi đêm tự tra RoomTimeSlot
-    // "type=date" của ĐÚNG phòng này khớp đúng ngày đó (label = "Y-m-d") để lấy giá override riêng
+    // "type=date" của ĐÚNG sân này khớp đúng ngày đó (label = "Y-m-d") để lấy giá override riêng
     // ngày (không có thì dùng giá gốc Product::price), rồi áp khuyến mãi ĐANG HOẠT ĐỘNG gắn trên
     // ĐÚNG RoomTimeSlot đó qua PromotionCalculator::calculateForDate() — TRƯỚC ĐÂY admin chỉ nhân
     // giá gốc × số đêm, bỏ qua hoàn toàn giá riêng theo ngày/khuyến mãi mà khách thấy khi tự đặt
@@ -3110,10 +3130,10 @@ class OrderForm
         ];
     }
 
-    // Style 2 — giờ nhận/trả phòng THẬT SỰ áp dụng cho phòng: luôn dùng giờ mặc định đã cài trên
-    // phòng (Product::default_checkin/default_checkout), fallback '14:00'/'12:00' nếu phòng chưa
+    // Style 2 — giờ nhận/trả sân THẬT SỰ áp dụng cho sân: luôn dùng giờ mặc định đã cài trên
+    // sân (Product::default_checkin/default_checkout), fallback '14:00'/'12:00' nếu sân chưa
     // cấu hình — không tự bịa giờ khác (không dùng 00:00), và KHÔNG override theo từng ngày riêng
-    // lẻ (giữ đơn giản, đúng yêu cầu — mọi ngày của 1 phòng đều nhận/trả phòng cùng 1 giờ cố định).
+    // lẻ (giữ đơn giản, đúng yêu cầu — mọi ngày của 1 sân đều nhận/trả sân cùng 1 giờ cố định).
     private static function resolveCheckinCheckoutTime(Product $product): array
     {
         $checkin  = $product->default_checkin  ?? '14:00';
@@ -3126,23 +3146,27 @@ class OrderForm
         ];
     }
 
-    // Style 2 (đặt theo ngày) — map các NGÀY đang bị CHIẾM bởi lượt đặt KHÁC của ĐÚNG phòng này,
+    // Style 2 (đặt theo ngày) — map các NGÀY đang bị CHIẾM bởi lượt đặt KHÁC của ĐÚNG sân này,
     // dùng chung cho cả disabledDates (chặn chọn trúng ngay 1 ngày kín) LẪN kiểm tra chồng lấn
     // (chặn kiểu "nhảy qua" 1 ngày kín ở giữa khoảng). Tính TỪ checkin_date ĐẾN checkout_date, CẢ
-    // HAI ĐẦU MÚT — mặc định KHÔNG cho turnover cùng ngày (ngày trả phòng của lượt đặt cũ vẫn bị
-    // khoá) — TRỪ khi ngày đó là HÔM NAY và giờ hiện tại đã qua giờ trả phòng thật sự đã cấu hình
-    // cho phòng ngày đó (nghĩa là khách chắc chắn đã trả phòng rồi, không còn lý do gì để khoá).
+    // HAI ĐẦU MÚT — mặc định KHÔNG cho turnover cùng ngày (ngày trả sân của lượt đặt cũ vẫn bị
+    // khoá) — TRỪ khi ngày đó là HÔM NAY và giờ hiện tại đã qua giờ trả sân thật sự đã cấu hình
+    // cho sân ngày đó (nghĩa là khách chắc chắn đã trả sân rồi, không còn lý do gì để khoá).
     // Order KHÔNG có FK cascade tới order_items (xem ghi chú ở Order::booted() — xoá đơn qua raw
     // SQL/bulk delete để lại order_item mồ côi, order_id trỏ tới 1 đơn không còn tồn tại). Đơn đã
     // 'failed'/'cancelled_payment'/'refunded' hoặc 'pending' đã hết hạn cũng KHÔNG còn thật sự giữ
     // chỗ. whereHas('order', ...) vừa tự loại order_item mồ côi (không JOIN được thì không tính)
     // vừa chỉ tính đúng đơn CÒN THẬT SỰ CHIẾM CHỖ — thiếu điều kiện này khiến lịch hiện "Đã đặt"
-    // cho cả những ngày/khung giờ không hề có đơn nào khi tra lại (đã xác nhận thực tế với phòng
+    // cho cả những ngày/khung giờ không hề có đơn nào khi tra lại (đã xác nhận thực tế với sân
     // LUMEN: 134 order_item mồ côi trỏ tới các đơn #3227-3279 đã bị xoá từ trước).
     private static function applyActiveOrderConstraint(\Illuminate\Database\Eloquent\Builder $query): \Illuminate\Database\Eloquent\Builder
     {
         return $query->whereHas('order', function ($q) {
-            $q->where(function ($inner) {
+            // cancelled_at NOT NULL = khách đã tự huỷ đơn (xem OrderCancellationService) — không
+            // còn thật sự chiếm chỗ nữa dù status vẫn 'paid'/'deposit' (giữ nguyên để báo cáo
+            // doanh thu không sai lệch, xem ghi chú tương tự ở các nơi lọc order khác).
+            $q->whereNull('cancelled_at')
+                ->where(function ($inner) {
                 $inner->whereIn('status', ['paid', 'deposit'])
                     ->orWhere(function ($pendingQ) {
                         $pendingQ->where('status', 'pending')
@@ -3188,8 +3212,8 @@ class OrderForm
                     [, $checkoutTime] = self::resolveCheckinCheckoutTime($product);
 
                     if ($nowTime >= $checkoutTime) {
-                        // Giờ hiện tại đã qua giờ trả phòng cấu hình cho hôm nay — khách đã trả
-                        // phòng thật sự, không khoá ngày này nữa.
+                        // Giờ hiện tại đã qua giờ trả sân cấu hình cho hôm nay — khách đã trả
+                        // sân thật sự, không khoá ngày này nữa.
                         $day->addDay();
                         continue;
                     }
@@ -3209,10 +3233,10 @@ class OrderForm
     }
 
     // Style 2 — kiểm tra khoảng ngày [checkin, checkout] vừa chọn có CHỒNG LẤN với lượt đặt khác
-    // của ĐÚNG phòng này không (chặn cả trường hợp chọn 2 đầu mút đều là ngày trống nhưng khoảng ở
+    // của ĐÚNG sân này không (chặn cả trường hợp chọn 2 đầu mút đều là ngày trống nhưng khoảng ở
     // giữa lại đè lên 1 ngày đã đặt — disabledDates chỉ chặn được khi chọn TRÚNG 1 ngày kín, không
     // chặn được kiểu "nhảy qua" này). Dùng CHUNG map ngày bị chiếm với getBookedNightsForProduct()
-    // để nhất quán luật "qua giờ trả phòng hôm nay thì được đặt lại".
+    // để nhất quán luật "qua giờ trả sân hôm nay thì được đặt lại".
     public static function hasOverlappingNightBooking(?string $productId, string $checkin, string $checkout, $currentOrderItemId = null): bool
     {
         if (! $productId) {
@@ -3258,8 +3282,8 @@ class OrderForm
         return [$start, $end];
     }
 
-    // Dữ liệu lưới NGÀY × KHUNG GIỜ (giống hệt logic trang đặt phòng phía client — mỗi ô kiểm tra
-    // chồng lấn checkin/checkout với các đơn khác của đúng phòng này) — dùng cho lưới bấm chọn
+    // Dữ liệu lưới NGÀY × KHUNG GIỜ (giống hệt logic trang đặt sân phía client — mỗi ô kiểm tra
+    // chồng lấn checkin/checkout với các đơn khác của đúng sân này) — dùng cho lưới bấm chọn
     // dạng bảng ở admin (xem view 'payment::components.timeslot-grid-table').
     public static function getTimeslotGridData(string $productId, $currentOrderItemId = null, int $days = 14, ?string $mustIncludeDate = null, $excludeOrderId = null): array
     {
@@ -3288,7 +3312,7 @@ class OrderForm
             array_unshift($dates, $mustIncludeDate);
         }
 
-        // 1 QUERY DUY NHẤT lấy hết OrderItem của phòng này có thể chồng lấn khoảng ngày đang hiển
+        // 1 QUERY DUY NHẤT lấy hết OrderItem của sân này có thể chồng lấn khoảng ngày đang hiển
         // thị, rồi so khớp CHỒNG LẤN TRONG PHP cho từng ô bên dưới — TRƯỚC ĐÂY mỗi ô (ngày × khung
         // giờ, mặc định 14 ngày × ~5 khung = ~70 ô) tự chạy 1 query exists() RIÊNG (kèm subquery
         // whereHas('order',...)), khiến MỖI lần bấm chọn 1 ô phải đợi ~70 query tuần tự chạy lại
@@ -3414,11 +3438,11 @@ class OrderForm
     // nào (style "đặt theo ngày", hoặc nhập tay) giữ nguyên mỗi item 1 dòng riêng như trước.
     // Trước đây trả về NHIỀU dòng (key UUID ngẫu nhiên) khớp với Repeater nhiều dòng cũ. Giờ
     // OrderForm.php đã đổi 'orderItems' sang 2 Group::make()->statePath('orderItems.0') CỐ ĐỊNH
-    // (đơn chỉ còn đúng 1 phòng, xem form()) nên PHẢI trả về ĐÚNG 1 phần tử, key cố định '0'.
+    // (đơn chỉ còn đúng 1 sân, xem form()) nên PHẢI trả về ĐÚNG 1 phần tử, key cố định '0'.
     //
-    // RỦI RO ĐÃ BIẾT (chấp nhận theo yêu cầu): đơn CŨ tạo TRƯỚC khi giới hạn "1 phòng/đơn" có thể
-    // đang có NHIỀU order_item khác product_id nhau — hàm này giờ CHỈ lấy phòng có checkin_date
-    // SỚM NHẤT, các phòng khác sẽ không hiển thị và sẽ MẤT nếu admin mở sửa rồi lưu lại đơn đó.
+    // RỦI RO ĐÃ BIẾT (chấp nhận theo yêu cầu): đơn CŨ tạo TRƯỚC khi giới hạn "1 sân/đơn" có thể
+    // đang có NHIỀU order_item khác product_id nhau — hàm này giờ CHỈ lấy sân có checkin_date
+    // SỚM NHẤT, các sân khác sẽ không hiển thị và sẽ MẤT nếu admin mở sửa rồi lưu lại đơn đó.
     public static function buildOrderItemsFormState(Order $record): array
     {
         $items = $record->items()->orderBy('checkin_date')->get();
@@ -3467,7 +3491,7 @@ class OrderForm
         ];
     }
 
-    // Khớp order_item đã lưu với ĐÚNG 1 RoomTimeSlot của phòng đó (so sánh giờ bắt đầu thật sự
+    // Khớp order_item đã lưu với ĐÚNG 1 RoomTimeSlot của sân đó (so sánh giờ bắt đầu thật sự
     // tính ra từ khung giờ với checkin_date đã lưu) — để biết đây là 1 khung giờ chọn từ lưới hay
     // 1 lượt đặt "đặt theo ngày"/nhập tay không có khung giờ cố định.
     private static function findMatchingSlotId(OrderItem $item): ?int
@@ -3495,7 +3519,7 @@ class OrderForm
         return null;
     }
 
-    // Tách 1 dòng Repeater (1 phòng) có nhiều khung giờ trong 'selected_slots' thành NHIỀU phần
+    // Tách 1 dòng Repeater (1 sân) có nhiều khung giờ trong 'selected_slots' thành NHIỀU phần
     // tử phẳng — mỗi phần tử tương ứng ĐÚNG 1 order_item thật sự sẽ được lưu (1 khung giờ = 1
     // order_item, giống đúng cách client/API tạo dữ liệu). Dùng chung cho cả tính tổng tiền
     // (computeOrderTotal) LẪN lúc lưu đơn thật sự (CreateOrder/EditOrder).
@@ -3512,7 +3536,7 @@ class OrderForm
                 ))
                 : [];
 
-            // Không có khung giờ dạng lưới (style "đặt theo ngày", hoặc phòng chưa khai báo
+            // Không có khung giờ dạng lưới (style "đặt theo ngày", hoặc sân chưa khai báo
             // RoomTimeSlot nên nhập tay checkin/checkout) — giữ nguyên dòng gốc, chỉ bỏ field ảo.
             if (empty($selectedSlots)) {
                 unset($item['selected_slots']);
@@ -3598,8 +3622,8 @@ class OrderForm
         return (float) preg_replace('/[.,]/', '', $discountStr);
     }
 
-    // Tính giá ĐẦY ĐỦ (giá phòng gốc + khuyến mãi khung giờ + giảm giá hệ thống + phụ thu khách)
-    // cho 1 nhóm order_item CÙNG 1 phòng (product_id) — PORT CHÍNH XÁC thuật toán
+    // Tính giá ĐẦY ĐỦ (giá sân gốc + khuyến mãi khung giờ + giảm giá hệ thống + phụ thu khách)
+    // cho 1 nhóm order_item CÙNG 1 sân (product_id) — PORT CHÍNH XÁC thuật toán
     // App\Http\Controllers\Api\Concerns\BuildsRoomBooking::computeBookingPreview(), engine tính
     // giá DUY NHẤT dùng cho MỌI đơn tạo/sửa thật qua API (BookingController::store()/preview(),
     // OrderController::update()/preview() — xem POST /api/admin/orders/preview). Trước đây hàm
@@ -3616,7 +3640,7 @@ class OrderForm
     //     (luồng đó không set cột 'discount', và 'price' của luồng đó CHÍNH LÀ giá gốc rồi — xem
     //     BuildsRoomBooking::buildSlotItems()) — 1 công thức chạy đúng cho CẢ 2 nguồn dữ liệu.
     //   - "Đặt full ngày" (full_booking_discount): hễ CÓ ít nhất 1 ngày trong nhóm đạt full-booking
-    //     (số khung giờ chọn đúng ngày đó = tổng khung giờ đã cấu hình cho phòng) thì áp % giảm giá
+    //     (số khung giờ chọn đúng ngày đó = tổng khung giờ đã cấu hình cho sân) thì áp % giảm giá
     //     lên TOÀN BỘ basePrice của CẢ NHÓM (mọi ngày đã chọn trong lượt đặt/sửa này, KHÔNG CHỈ
     //     riêng ngày đủ full) — y hệt applyFullBookingDiscount($basePrice, $room) — VÀ khuyến mãi
     //     khung giờ (promo_discount) bị BỎ QUA HOÀN TOÀN, không chỉ tắt giảm giá theo số lượng.
@@ -3628,7 +3652,7 @@ class OrderForm
     //     cho type=slot, = count(slotSummary) cho type=daily — 2 công thức đó THỰC RA quy về cùng
     //     1 số "ngày duy nhất trong nhóm", vì đặt theo ngày thì mỗi đêm vốn đã là 1 order_item = 1
     //     ngày duy nhất).
-    // Hệ thống hiện giới hạn 1 phòng/đơn nên không cần xử lý nhiều phòng cùng lúc trong 1 lần gọi.
+    // Hệ thống hiện giới hạn 1 sân/đơn nên không cần xử lý nhiều sân cùng lúc trong 1 lần gọi.
     // $groupItems: order_item ĐÃ expand (1 dòng = 1 khung giờ), CÙNG product_id — CHƯA cộng
     // extra_fee, caller tự cộng riêng (giống $noProductItems ở computeOrderTotal()).
     public static function resolveProductGroupPricing(array $groupItems, ?Product $product): array
@@ -3763,9 +3787,9 @@ class OrderForm
     public static function computeOrderTotal(array $items, array $services): float
     {
         // Loại dòng order_item "Phụ phí khách thêm" CŨ (extra_fee > 0, product_id = null — do
-        // luồng đặt phòng cũ ProductDetail.php tự tạo riêng 1 dòng cho phụ thu khách). Phụ thu
+        // luồng đặt sân cũ ProductDetail.php tự tạo riêng 1 dòng cho phụ thu khách). Phụ thu
         // khách giờ LUÔN tính LIVE trong resolveProductGroupPricing() (theo guest_count + số ngày
-        // duy nhất của từng nhóm phòng) — giữ lại dòng extra_fee cũ sẽ cộng phụ thu 2 LẦN. Cùng
+        // duy nhất của từng nhóm sân) — giữ lại dòng extra_fee cũ sẽ cộng phụ thu 2 LẦN. Cùng
         // quy ước với ExtraChargeService::calculateRealTotal() (->where('extra_fee', 0)) — 3 nơi
         // tính tổng PHẢI cùng ra 1 số.
         $items = array_filter($items, fn ($item) => (float) ($item['extra_fee'] ?? 0) <= 0);
@@ -3788,7 +3812,7 @@ class OrderForm
         foreach ($itemsByProduct as $productId => $productItems) {
             $product = \Modules\Product\App\Models\Product::find($productId);
 
-            // Giá phòng (đã áp khuyến mãi/giảm giá hệ thống) + phụ thu khách — xem
+            // Giá sân (đã áp khuyến mãi/giảm giá hệ thống) + phụ thu khách — xem
             // resolveProductGroupPricing() (port chính xác BuildsRoomBooking::computeBookingPreview()).
             $pricing = self::resolveProductGroupPricing($productItems, $product);
             $total += $pricing['total'] + $pricing['guest_surcharge'];

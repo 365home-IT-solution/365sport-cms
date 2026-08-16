@@ -7,9 +7,9 @@
     $hideAdjustments = $hideAdjustments ?? false;
 
     // Loại dòng order_item "Phụ phí khách thêm" CŨ (extra_fee > 0, product_id = null — do luồng
-    // đặt phòng cũ ProductDetail.php tự tạo riêng 1 dòng cho phụ thu khách). Phụ thu khách ở card
+    // đặt sân cũ ProductDetail.php tự tạo riêng 1 dòng cho phụ thu khách). Phụ thu khách ở card
     // này LUÔN tính LIVE ở $guestSurchargeDetails/$totalGuestSurcharge bên dưới (dựa trên
-    // guest_count của từng phòng) — giữ lại dòng này sẽ hiện thành 1 "khung giờ" giả VÀ cộng phụ
+    // guest_count của từng sân) — giữ lại dòng này sẽ hiện thành 1 "khung giờ" giả VÀ cộng phụ
     // thu 2 LẦN. Cùng quy ước với OrderForm::computeOrderTotal() / ExtraChargeService::
     // calculateRealTotal() (->where('extra_fee', 0)) — 3 nơi tính tổng PHẢI cùng ra 1 số.
     $items = is_array($items)
@@ -90,19 +90,19 @@
         }
     }
 
-    // Giá phòng + khuyến mãi khung giờ + giảm giá hệ thống (bulk HOẶC full_booking, loại trừ lẫn
+    // Giá sân + khuyến mãi khung giờ + giảm giá hệ thống (bulk HOẶC full_booking, loại trừ lẫn
     // nhau) + phụ thu khách — TẤT CẢ dùng qua OrderForm::resolveProductGroupPricing() (port chính
     // xác App\Http\Controllers\Api\Concerns\BuildsRoomBooking::computeBookingPreview(), engine
     // tính giá THẬT dùng cho mọi đơn tạo/sửa qua API — /api/admin/orders/preview) để card này
     // LUÔN ra đúng số khách/admin thấy ở API thật, không tự suy diễn công thức riêng nữa.
-    $originalTotal          = 0;   // "Giá phòng gốc" = tổng giá GỐC thật của khung giờ (KHÔNG khuyến mãi/giảm giá) — khớp "slots_total" ở API preview
+    $originalTotal          = 0;   // "Giá sân gốc" = tổng giá GỐC thật của khung giờ (KHÔNG khuyến mãi/giảm giá) — khớp "slots_total" ở API preview
     $totalPromotionDiscount = 0;   // Khuyến mãi theo khung giờ (promo_discount) — CHỈ áp khi KHÔNG full-booking
     $totalSystemDiscount    = 0;   // Giảm giá hệ thống: bulk HOẶC full_booking (loại trừ lẫn nhau)
     $totalGuestSurcharge    = 0;
     $bulkDiscountDetails        = [];
     $fullBookingDiscountDetails = [];
     $guestSurchargeDetails      = [];
-    // Snapshot ĐẦY ĐỦ kết quả resolveProductGroupPricing() theo từng phòng — dùng lại NGUYÊN VẸN
+    // Snapshot ĐẦY ĐỦ kết quả resolveProductGroupPricing() theo từng sân — dùng lại NGUYÊN VẸN
     // (không tính lại riêng) cho khối "Điều kiện giảm giá" trong "Xem chi tiết từng khung giờ" bên
     // dưới, để 2 nơi hiển thị LUÔN khớp nhau (tránh lệch như trước: khối đó tự suy luận riêng theo
     // bulk_discount_rules, không biết gì về full_booking_discount đang thắng thế).
@@ -220,7 +220,7 @@
     $finalTotal = $displayTotal ?? $computedLiveTotal;
 
     // Đơn paid có extra_charge: extra_charge_amount là phần đã phát sinh trước đó. Vẫn giữ tổng live
-    // theo form hiện tại để khi admin thêm dịch vụ/phòng mới, card thấy ngay phần chênh lệch mới.
+    // theo form hiện tại để khi admin thêm dịch vụ/sân mới, card thấy ngay phần chênh lệch mới.
     $extraChargeAmt  = $hasRecord ? (int)($record->extra_charge_amount ?? 0) : 0;
     $isPaidWithExtra = $extraChargeAmt > 0 && $hasRecord && $record->deposit_percent === null;
     $canPreviewPriceAdjustment = $hasRecord && in_array($record->status, ['paid', 'deposit'], true);
@@ -299,7 +299,7 @@
 
             // Số tiền GỐC dùng làm cơ sở tính % — khác nhau giữa 2 loại giảm giá (xem
             // resolveProductGroupPricing()): bulk tính trên (giá gốc − khuyến mãi khung giờ), còn
-            // "Đặt full ngày" tính trên TOÀN BỘ giá gốc của phòng đó trong đơn (mọi ngày, KHÔNG trừ
+            // "Đặt full ngày" tính trên TOÀN BỘ giá gốc của sân đó trong đơn (mọi ngày, KHÔNG trừ
             // khuyến mãi khung giờ trước) — vì hàm return SỚM ngay khi phát hiện full-booking, khuyến
             // mãi khung giờ (PromotionCalculator) KHÔNG được cộng dồn nữa (2 loại loại trừ lẫn nhau).
             $bulkCalcBase = $pricing['base_price'] - $pricing['promotion_discount'];
@@ -339,7 +339,7 @@
         }
     }
 
-    // Số khách đã đặt — hệ thống hiện giới hạn 1 phòng/đơn nên guest_count giống nhau ở mọi dòng,
+    // Số khách đã đặt — hệ thống hiện giới hạn 1 sân/đơn nên guest_count giống nhau ở mọi dòng,
     // lấy thẳng dòng đầu để hiển thị (mục "Số lượng khách" theo yêu cầu, kể cả khi KHÔNG vượt
     // ngưỡng miễn phí — lúc đó chỉ hiện số khách, không hiện dòng phụ thu).
     $totalGuestCount = (is_array($items) && count($items) > 0) ? (int) ($items[0]['guest_count'] ?? 0) : 0;
@@ -358,7 +358,7 @@
         {{-- Empty state --}}
         <div style="text-align:center; padding: 2rem 1rem;">
             <div style="font-size:1.5rem; font-weight:700; color:var(--boulder-80, #E5E7EB); margin-bottom:0.25rem;">0 VNĐ</div>
-            <p style="color:var(--boulder-50, #737882); font-size:0.8125rem;">Chưa có phòng nào được chọn</p>
+            <p style="color:var(--boulder-50, #737882); font-size:0.8125rem;">Chưa có sân nào được chọn</p>
         </div>
     @else
 
@@ -576,7 +576,7 @@
             </div>
             <div style="background:var(--boulder-99, #FBFCFD); border:1px solid var(--boulder-80, #E5E7EB); border-radius:0.75rem; padding:0.5rem 0.75rem;">
                 <div style="display:flex; justify-content:space-between; align-items:center; padding-bottom:0.35rem; border-bottom:1px dashed var(--boulder-80, #E5E7EB);">
-                    <span style="font-size:0.75rem; color:var(--boulder-50, #737882);">Giá phòng gốc</span>
+                    <span style="font-size:0.75rem; color:var(--boulder-50, #737882);">Giá sân gốc</span>
                     <span style="font-size:0.75rem; color:var(--boulder-50, #737882); text-decoration:line-through;">
                         {{ number_format($originalTotal, 0, ',', '.') }} đ
                     </span>
@@ -690,7 +690,7 @@
                         Tổng thanh toán
                     </div>
                     <div style="font-size:0.7rem; color:rgba(255,255,255,0.5);">
-                        {{ $slotCount }} phòng{{ $serviceItems->count() > 0 ? ' + ' . $serviceItems->count() . ' dịch vụ' : '' }}
+                        {{ $slotCount }} sân{{ $serviceItems->count() > 0 ? ' + ' . $serviceItems->count() . ' dịch vụ' : '' }}
                     </div>
                 </div>
                 <div style="text-align:right;">
@@ -772,7 +772,7 @@
             {{-- 3-box grid --}}
             <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(90px, 1fr)); gap:0.5rem; padding:0.6rem 0.75rem; background:var(--boulder-99, #FBFCFD);">
                 <div style="background:var(--boulder-95, #F9FAFB); border:1px solid var(--boulder-80, #E5E7EB); border-radius:0.625rem; padding:0.5rem 0.6rem; text-align:center;">
-                    <div style="font-size:0.65rem; color:var(--boulder-50, #737882); margin-bottom:0.2rem;">Tổng tiền phòng</div>
+                    <div style="font-size:0.65rem; color:var(--boulder-50, #737882); margin-bottom:0.2rem;">Tổng tiền sân</div>
                     <div style="font-size:0.875rem; font-weight:700; color:var(--boulder-20, #272B35);">{{ number_format($realTotal, 0, ',', '.') }}đ</div>
                 </div>
                 <div style="background:var(--boulder-95, #F9FAFB); border:1px solid var(--boulder-80, #E5E7EB); border-radius:0.625rem; padding:0.5rem 0.6rem; text-align:center;">
@@ -780,7 +780,7 @@
                     <div style="font-size:0.875rem; font-weight:700; color:var(--boulder-20, #272B35);">{{ number_format($depositAmt, 0, ',', '.') }}đ</div>
                 </div>
                 <div style="background:{{ $isFullPaid ? '#f0fdf4' : 'var(--boulder-95, #F9FAFB)' }}; border:1px solid {{ $isFullPaid ? '#86efac' : 'var(--boulder-80, #E5E7EB)' }}; border-radius:0.625rem; padding:0.5rem 0.6rem; text-align:center;">
-                    <div style="font-size:0.65rem; color:var(--boulder-50, #737882); margin-bottom:0.2rem;">Còn lại khi nhận phòng</div>
+                    <div style="font-size:0.65rem; color:var(--boulder-50, #737882); margin-bottom:0.2rem;">Còn lại khi nhận sân</div>
                     @if($isFullPaid)
                         <div style="font-size:0.875rem; font-weight:700; color:#15803d;">Đã trả đủ</div>
                     @else
@@ -818,7 +818,7 @@
                 @elseif($isDepPaid)
                     <span style="font-size:0.7rem; color:var(--boulder-50, #737882); display:flex; align-items:center; gap:0.3rem;">
                         <x-heroicon-o-information-circle style="width:0.75rem; height:0.75rem; flex-shrink:0;" />
-                        Đã nhận cọc {{ $depPct }}% — Khách thanh toán {{ number_format($remain2, 0, ',', '.') }}đ còn lại khi nhận phòng.
+                        Đã nhận cọc {{ $depPct }}% — Khách thanh toán {{ number_format($remain2, 0, ',', '.') }}đ còn lại khi nhận sân.
                     </span>
                 @else
                     <span style="font-size:0.7rem; color:var(--boulder-50, #737882); display:flex; align-items:center; gap:0.3rem;">

@@ -5,10 +5,10 @@
 >
     {{-- Skeleton toàn trang chủ trong lúc load() (public/js/home-sections.js) đang gọi
          /api/v1/home — trước đây "loading" chỉ là state nội bộ không được dùng ở template nên
-         suốt lúc chờ tải, mọi section (banner/loại hình dịch vụ/flash sale/gợi ý/danh sách phòng)
+         suốt lúc chờ tải, mọi section (banner/loại hình dịch vụ/flash sale/gợi ý/danh sách sân)
          đều x-show/x-if theo "section.rooms.length" v.v. nên KHÔNG có gì hiện ra — trang chủ
          trắng trơn 1 khoảng. Không biết trước CMS sẽ trả về bao nhiêu/loại section nào nên dùng 2
-         khối carousel thẻ chung chung (giống hình dạng Flash Sale/Danh sách phòng thật) làm
+         khối carousel thẻ chung chung (giống hình dạng Flash Sale/Danh sách sân thật) làm
          placeholder, đủ để người dùng thấy trang "đang có nội dung" thay vì trống trơn. --}}
     <div x-show="loading" x-cloak>
         <template x-for="i in 2" :key="'hs-skel-' + i">
@@ -75,7 +75,7 @@
                 {{-- Cột 2: Loại hình dịch vụ — luôn đứng NGAY DƯỚI banner (thứ tự DOM tự nhiên) ở
                      mọi kích thước màn hình. Khác Cột 1 (banner, full-bleed sát mép), cột này tự
                      thêm lại px-4/sm:px-6 — GIỮ NGUYÊN ở desktop (không lg:px-0) để thẳng hàng với
-                     các section khác (Lần đầu khám phá, Lịch đặt phòng trực tuyến...) đều dùng
+                     các section khác (Lần đầu khám phá, Lịch đặt sân trực tuyến...) đều dùng
                      đúng pattern px-4 sm:px-6 này, không riêng gì banner mới cần full-bleed. --}}
                 <template x-if="roomTypes && roomTypes.length">
                     <div class="min-w-0 px-4 sm:px-6 hs-roomtype-col-spacing">
@@ -156,14 +156,14 @@
         </div>
     </section>
 
-    {{-- "Lịch đặt phòng trực tuyến" — đặt ngay SAU "Lần đầu khám phá" theo yêu cầu (trước đây đã bỏ
+    {{-- "Lịch đặt sân trực tuyến" — đặt ngay SAU "Lần đầu khám phá" theo yêu cầu (trước đây đã bỏ
          hẳn khỏi trang chủ, giờ thêm lại đúng vị trí này). Partial Blade thuần (không phải Livewire
          component riêng) — tự quản lý state qua Alpine homeBookingBoard() (định nghĩa trong
          public/js/home-sections.js), bên trong nhúng lại đúng Livewire\Book component đã dùng ở
          trang /branch/{slug} và panel ?view=branches của trang tìm kiếm. --}}
     @include('bladethemev1::livewire.home-booking-board')
 
-    {{-- "Các chi nhánh tại..." — đặt ngay dưới "Lịch đặt phòng trực tuyến".
+    {{-- "Các chi nhánh tại..." — đặt ngay dưới "Lịch đặt sân trực tuyến".
          Livewire component riêng (BranchSuggestion) — query thẳng DB, không còn qua API
          /api/v1/home (dùng chung với app mobile) như bản cũ (_branch-suggestion-section.blade.php,
          dựa vào Alpine x-for lọc trên `sections` load từ API). Vẫn cập nhật lại theo đúng khu vực
@@ -198,7 +198,7 @@
                 </section>
             </template>
 
-            {{-- ============== PROMOTION LIST (phòng khuyến mãi) ============== --}}
+            {{-- ============== PROMOTION LIST (sân khuyến mãi) ============== --}}
             <template x-if="section.type === 'promotion_list' && section.rooms && section.rooms.length">
                 <section class="py-4 bg-white">
                     <div class="w-full max-w-7xl mx-auto px-4 sm:px-6" x-data="carouselNav()" x-init="init()">
@@ -243,7 +243,7 @@
                  component Livewire BranchSuggestion (@livewire('bladethemev1::branch-suggestion')
                  phía trên — query thẳng DB, không qua API /api/v1/home) — nên loại trừ ở đây để
                  tránh hiện lặp lại 2 lần (API /api/v1/home vẫn trả về cả block branch này trong
-                 `sections`, chỉ là không dùng nó để render nữa). Loại "theo phòng"
+                 `sections`, chỉ là không dùng nó để render nữa). Loại "theo sân"
                  (suggestion_type === 'room') không bị ảnh hưởng, vẫn hiện bình thường ở đúng vị trí
                  cũ trong vòng lặp sections (vẫn lấy từ API như cũ). --}}
             <template x-if="section.type === 'suggestion_list' && section.suggestion_type !== 'branch' && section.items && section.items.length">
@@ -284,11 +284,11 @@
             </template>
 
             {{-- ============== ROOM LIST ============== --}}
-            {{-- "Danh sách phòng - [chi nhánh]" (display_mode 'fixed' — các khối phòng cố định
+            {{-- "Danh sách sân - [chi nhánh]" (display_mode 'fixed' — các khối sân cố định
                  theo chi nhánh cấu hình sẵn trong CMS): CHỈ hiện khi CHƯA chọn khu vực (provinceName
-                 rỗng) — lúc đó "Các chi nhánh"/Flash Sale/"Gợi ý theo phòng" đều tự ẩn (API trả rỗng
+                 rỗng) — lúc đó "Các chi nhánh"/Flash Sale/"Gợi ý theo sân" đều tự ẩn (API trả rỗng
                  khi không có province, xem HomeController::buildPromotionList()/buildSuggestionList()),
-                 nên hiện danh sách phòng cố định này thay thế. Khi ĐÃ chọn khu vực, ẩn khối này lại
+                 nên hiện danh sách sân cố định này thay thế. Khi ĐÃ chọn khu vực, ẩn khối này lại
                  để nhường chỗ cho 3 khối theo khu vực kia. Khối room_list kiểu 'by_region' (nếu có,
                  hiện chưa dùng) không bị ảnh hưởng, luôn hiện bình thường. --}}
             <template x-if="section.type === 'room_list' && section.rooms && section.rooms.length">
@@ -342,7 +342,7 @@
         .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
         .hide-scrollbar::-webkit-scrollbar { display: none; }
 
-        /* Tiêu đề section trang chủ ("Flash Sale", "Gợi ý cho bạn", "Danh sách phòng...", "Các chi
+        /* Tiêu đề section trang chủ ("Flash Sale", "Gợi ý cho bạn", "Danh sách sân...", "Các chi
            nhánh tại..." ở branch-suggestion.blade.php — dùng chung class này) — mobile dùng đúng
            cỡ text-2xl của Tailwind (1.5rem/24px), giữ nguyên 1.1rem ở desktop (>=1024px) như trước. */
         .hs-section-title {
@@ -352,7 +352,7 @@
             .hs-section-title { font-size: 1.1rem; }
         }
 
-        /* "Danh sách phòng - [chi nhánh]" (room_list, display_mode 'fixed') — tiêu đề lấy tên chi
+        /* "Danh sách sân - [chi nhánh]" (room_list, display_mode 'fixed') — tiêu đề lấy tên chi
            nhánh động, có thể dài, in hoa + letter-spacing nên ở mobile 1.5rem (như các tiêu đề
            section khác) dễ bị to/tràn dòng. Chỉ thu nhỏ riêng khối này ở mobile, desktop vẫn dùng
            chung 1.1rem như hs-section-title. */
@@ -471,7 +471,7 @@
             object-fit: contain;
         }
 
-        /* Banner "dự phòng" (chỉ dùng khi CMS có >1 block banner — block đầu đã hiển thị ở cột 2
+        /* Banner "dự sân" (chỉ dùng khi CMS có >1 block banner — block đầu đã hiển thị ở cột 2
            của hàng center-mode phía trên) — vẫn dùng carousel cuộn thường như trước, cần lại
            kích thước cố định theo flex-basis vì không nằm trong Swiper. */
         .legacy-banner-card {

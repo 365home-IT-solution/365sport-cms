@@ -1,6 +1,6 @@
 {{--
- * VIDEO PHÒNG — component
- * Chỉnh URL, tỉ lệ, tiêu đề SEO → vào admin (Filament) > Sản phẩm > Video phòng
+ * VIDEO SÂN — component
+ * Chỉnh URL, tỉ lệ, tiêu đề SEO → vào admin (Filament) > Sản phẩm > Video sân
  * Chỉnh giao diện nút / modal → file này:
  *   Modules/BladeV1Theme/Resources/views/components/product-detail/video-room.blade.php
  *
@@ -11,7 +11,7 @@
     $videoSetting   = is_array($product->setting_video_room) ? $product->setting_video_room : [];
     $rawVideoUrl    = trim($videoSetting['url'] ?? '');
     $videoRatio     = $videoSetting['ratio'] ?? '16:9';
-    $videoSeoTitle  = $videoSetting['title'] ?? ($product->name . ' - Video phòng');
+    $videoSeoTitle  = $videoSetting['title'] ?? ($product->name . ' - Video sân');
 @endphp
 
 @if(!empty($rawVideoUrl))
@@ -77,7 +77,7 @@
             <circle cx="12" cy="12" r="10" fill="rgba(255,255,255,.2)"/>
             <polygon points="10,8 10,16 17,12" fill="white"/>
         </svg>
-        Xem video phòng
+        Xem video sân
     </button>
     @endif
 

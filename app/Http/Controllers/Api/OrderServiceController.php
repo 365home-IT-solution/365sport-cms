@@ -37,10 +37,10 @@ class OrderServiceController extends Controller
             'services.*.quantity'     => 'required|integer|min:1',
         ]);
 
-        // Load phòng từ order item đầu tiên
+        // Load sân từ order item đầu tiên
         $productId = $order->items->first()?->product_id;
         if (! $productId) {
-            return response()->json(['message' => 'Đơn hàng không có phòng.'], 422);
+            return response()->json(['message' => 'Đơn hàng không có sân.'], 422);
         }
 
         $room = \Modules\Product\App\Models\Product::where('id', $productId)
@@ -48,7 +48,7 @@ class OrderServiceController extends Controller
             ->first();
 
         if (! $room) {
-            return response()->json(['message' => 'Phòng không tồn tại.'], 404);
+            return response()->json(['message' => 'Sân không tồn tại.'], 404);
         }
 
         $availableServices = $room->additionalServices->keyBy('id');
@@ -62,7 +62,7 @@ class OrderServiceController extends Controller
 
             if (! $service || ! $service->is_active) {
                 throw ValidationException::withMessages([
-                    "services.{$index}.service_id" => ["Dịch vụ #{$serviceId} không tồn tại hoặc không khả dụng cho phòng này."],
+                    "services.{$index}.service_id" => ["Dịch vụ #{$serviceId} không tồn tại hoặc không khả dụng cho sân này."],
                 ]);
             }
 

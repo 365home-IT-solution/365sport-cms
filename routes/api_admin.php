@@ -132,10 +132,10 @@ Route::middleware(['auth:sanctum', 'admin.api'])->prefix('admin')->name('api.adm
 | Branches / Rooms — dữ liệu nền để admin chọn khi tạo/sửa đơn (room_id)
 | GET /api/admin/branches → chi nhánh CHA (parent_id=null, category_type=product) theo đối tác;
 |                            super_admin thấy tất cả. Dùng khi user có nhiều chi nhánh cần chọn lọc.
-| GET /api/admin/rooms    → id/name/slug các phòng đang hoạt động (is_activated=true) theo đối tác;
+| GET /api/admin/rooms    → id/name/slug các sân đang hoạt động (is_activated=true) theo đối tác;
 |                            ?categories={slug chi nhánh} lọc thêm đúng 1 chi nhánh (gồm danh mục con).
 | GET /api/admin/rooms/{id}/time-slots
-|                          → khung giờ x ngày của 1 phòng, mặc định 10 ngày — dùng ?offset_days= để
+|                          → khung giờ x ngày của 1 sân, mặc định 10 ngày — dùng ?offset_days= để
 |                            xem thêm 10 ngày tiếp theo, hoặc ?offset_days=-10 để xem 10 ngày TRƯỚC
 |                            hôm nay (xem docblock RoomController::timeSlots()).
 | POST/DELETE /api/admin/rooms/{id}/time-slot-hold
@@ -144,14 +144,14 @@ Route::middleware(['auth:sanctum', 'admin.api'])->prefix('admin')->name('api.adm
 |                            (TimeSlotHoldController) nhưng định danh bằng chính token admin
 |                            ("admin:{user_id}"), không nhận session_id từ client.
 | GET /api/admin/rooms/{id}/dates
-|                          → lịch phòng theo NGÀY (styles=2) — ?month=YYYY-MM (calendar) hoặc
+|                          → lịch sân theo NGÀY (styles=2) — ?month=YYYY-MM (calendar) hoặc
 |                            ?from=&to= (xem trước 1 khoảng, có subtotal/deposit/holding).
 | POST/DELETE /api/admin/rooms/{id}/hold
-|                          → giữ/bỏ giữ tạm 1 khoảng ngày cho phòng theo NGÀY — cùng nguyên tắc với
+|                          → giữ/bỏ giữ tạm 1 khoảng ngày cho sân theo NGÀY — cùng nguyên tắc với
 |                            time-slot-hold ở trên (định danh admin:{user_id}, dùng chung kho dữ
 |                            liệu + kênh realtime với DailyRoomHoldController khách hàng).
 | PATCH /api/admin/rooms/{id}/status
-|                          → bật/tắt trạng thái hoạt động của phòng (body: status — boolean), map
+|                          → bật/tắt trạng thái hoạt động của sân (body: status — boolean), map
 |                            xuống cột `is_activated` trong bảng products (xem docblock
 |                            App\Http\Controllers\Api\Admin\ProductController::updateStatus()).
 | GET /api/admin/rooms/{id}/time-slots/overview
@@ -159,23 +159,23 @@ Route::middleware(['auth:sanctum', 'admin.api'])->prefix('admin')->name('api.adm
 |                            has_promotion/is_increase/promotions (xem RoomController::
 |                            timeSlotsOverview()).
 | POST/DELETE /api/admin/rooms/{id}/block
-|                          → khoá/mở khoá lịch phòng. styles=1: body room_time_slot_ids[]+date_from+
+|                          → khoá/mở khoá lịch sân. styles=1: body room_time_slot_ids[]+date_from+
 |                            date_to (ghi room_time_slots.settings.blocked_dates). styles=2: body
 |                            date_from+date_to (ghi products.room_config.blocked_ranges) — xem
 |                            docblock App\Http\Controllers\Api\Admin\RoomBlockController.
 | PATCH /api/admin/rooms/{id}/booking-settings
-|                          → cấu hình đặt phòng: full_booking_discount/bulk_discount_rules/
-|                            room_config (như discount-settings nhưng cho 1 phòng) + deposit_1_night/
+|                          → cấu hình đặt sân: full_booking_discount/bulk_discount_rules/
+|                            room_config (như discount-settings nhưng cho 1 sân) + deposit_1_night/
 |                            deposit_multi_night/deposit_min_nights/default_checkin/default_checkout
 |                            (xem docblock ProductController::updateBookingSettings()).
 | GET/POST/DELETE /api/admin/rooms/{id}/promotions
-|                          → gán/gỡ ưu đãi (Promotion) cho 1 khung giờ của phòng (bảng pivot
+|                          → gán/gỡ ưu đãi (Promotion) cho 1 khung giờ của sân (bảng pivot
 |                            promotion_room_time_slot) — xem RoomPromotionController.
 | GET/PATCH /api/admin/rooms/{id}/pricing
 |                          → gộp XEM + SỬA giá khung giờ (room_time_slots) VÀ điều kiện giảm giá
 |                            (full_booking_discount/bulk_discount_rules/room_config/deposit_1_night/
 |                            deposit_multi_night/deposit_min_nights/default_checkin/default_checkout)
-|                            cho 1 phòng — xem RoomPricingController.
+|                            cho 1 sân — xem RoomPricingController.
 |--------------------------------------------------------------------------
 */
 Route::middleware(['auth:sanctum', 'admin.api'])->prefix('admin')->name('api.admin.')->group(function () {
@@ -217,7 +217,7 @@ Route::middleware(['auth:sanctum', 'admin.api'])->prefix('admin')->name('api.adm
 | PUT|POST /api/admin/categories/{id}   → sửa (POST khi cần gửi kèm ảnh, PHP không tự parse
 |                                          multipart cho method PUT thật)
 | DELETE /api/admin/categories/{id}     → xoá — CHẶN nếu còn khu vực con / đang gán quyền nhân
-|                                          viên / còn phòng hoặc đơn đặt phòng gắn vào
+|                                          viên / còn sân hoặc đơn đặt sân gắn vào
 |--------------------------------------------------------------------------
 */
 Route::middleware(['auth:sanctum', 'admin.api'])->prefix('admin/categories')->name('api.admin.categories.')->group(function () {
@@ -232,7 +232,7 @@ Route::middleware(['auth:sanctum', 'admin.api'])->prefix('admin/categories')->na
 
 /*
 |--------------------------------------------------------------------------
-| Orders — Danh sách đơn đặt phòng theo đối tác của tài khoản đang đăng nhập
+| Orders — Danh sách đơn đặt sân theo đối tác của tài khoản đang đăng nhập
 | GET /api/admin/orders      → lọc tự động theo users.partner_id (super_admin xem hết); hỗ trợ
 |                               thêm ?filter[branch_id|categories|room_id|status|payment_method|
 |                               search|from|to|checkin_date|checkout_date]=... (hoặc param phẳng
@@ -246,18 +246,18 @@ Route::middleware(['auth:sanctum', 'admin.api'])->prefix('admin/categories')->na
 |                                              không tác dụng phụ — xem docblock BookingController::preview().
 | GET /api/admin/orders/{order_code}        → chi tiết đầy đủ 1 đơn (items, dịch vụ, CCCD khách
 |                                              chính + khách đi cùng ĐÃ LƯU, cọc, mốc thời gian
-|                                              thanh toán/nhận-trả phòng, người tạo đơn) — xem
+|                                              thanh toán/nhận-trả sân, người tạo đơn) — xem
 |                                              ngay không cần gửi kèm request cập nhật.
 | PUT|POST /api/admin/orders/{order_code}   → sửa đơn (ghi chú, trạng thái, CCCD, khung giờ, phụ thu/
-|                                              tổng tiền tay, ĐỔI PHÒNG) — tra theo order_code, KHÔNG
+|                                              tổng tiền tay, ĐỔI SÂN) — tra theo order_code, KHÔNG
 |                                              phải id nội bộ. Nhận CẢ PUT lẫn POST — dùng POST khi
 |                                              cần gửi multipart/form-data kèm file (PHP không tự
 |                                              parse form-data cho method PUT thật, kể cả không có file).
-|                                              Đổi phòng: gửi kèm 'room_id' (id phòng đích) cùng với
+|                                              Đổi sân: gửi kèm 'room_id' (id sân đích) cùng với
 |                                              'type' + slots[]/checkin_date+checkout_date theo cấu
-|                                              hình PHÒNG MỚI — xem docblock OrderController::update().
+|                                              hình SÂN MỚI — xem docblock OrderController::update().
 | POST /api/admin/orders/{order_code}/preview
-|                                          → tính lại giá khi đổi phòng/khung giờ/khách/dịch vụ của
+|                                          → tính lại giá khi đổi sân/khung giờ/khách/dịch vụ của
 |                                            đơn NÀY, KHÔNG ghi DB (dry-run) — body giống phần "Đổi
 |                                            khung giờ/ngày" ở trên, trả cùng khối summary/
 |                                            guest_surcharge/system_discount/deposit như response
@@ -268,7 +268,7 @@ Route::middleware(['auth:sanctum', 'admin.api'])->prefix('admin/categories')->na
 | POST /api/admin/orders/{order_code}/unlock
 |                                          → mở cổng TTLock hộ khách — CHỈ áp dụng cho đơn thuộc
 |                                            chi nhánh đã đăng ký tài khoản TTLock đang hoạt động.
-|                                            Admin được BỎ QUA cửa sổ giờ nhận/trả phòng (khách tự mở
+|                                            Admin được BỎ QUA cửa sổ giờ nhận/trả sân (khách tự mở
 |                                            qua app thì vẫn bị chặn ngoài giờ) — vẫn cập nhật
 |                                            checked_in_at/checked_out_at + order_status như bình thường.
 | POST /api/admin/orders/{order_code}/open-gate
@@ -276,7 +276,7 @@ Route::middleware(['auth:sanctum', 'admin.api'])->prefix('admin/categories')->na
 |                                            nữa để khoá lại). Khi bật, CHÍNH KHÁCH HÀNG của đơn được
 |                                            tự mở cổng qua app (POST /api/orders/{order_code}/unlock
 |                                            hoặc /api/guest/...) vào bất kỳ lúc nào, không giới hạn
-|                                            khung giờ nhận/trả phòng. Cùng logic với action
+|                                            khung giờ nhận/trả sân. Cùng logic với action
 |                                            toggle_unlock_anytime ở bảng đơn hàng (Filament).
 | POST /api/admin/orders/{order_code}/remaining-payment
 |                                          → QR (hoặc xác nhận tiền mặt) cho phần còn lại của đơn
@@ -374,7 +374,7 @@ Route::middleware(['auth:sanctum', 'admin.api'])->prefix('admin/customers')->nam
 /*
 |--------------------------------------------------------------------------
 | Customer Companions — CCCD "khách đi cùng" đã LƯU SẴN vào hồ sơ 1 khách hàng
-| (customer_companions), tái sử dụng được cho nhiều lần đặt phòng qua đêm sau này — khác với CCCD
+| (customer_companions), tái sử dụng được cho nhiều lần đặt sân qua đêm sau này — khác với CCCD
 | khách đi cùng gắn riêng theo từng đơn (guests[] ở POST /api/admin/orders).
 |
 | Luồng FE khi admin tạo đơn và CHỌN khách hàng có sẵn: dựa vào guest_count, hiển thị đúng
@@ -419,8 +419,8 @@ Route::middleware(['auth:sanctum', 'admin.api'])->prefix('admin/services')->name
 
 /*
 |--------------------------------------------------------------------------
-| Tags — Danh sách TIỆN ÍCH phòng (bảng `tags`, field "tags" trong ProductForm — label hiển thị
-| "Tiện ích", KHÔNG phải RoomAmenity). Dùng để admin chọn tag_id khi tạo/sửa phòng
+| Tags — Danh sách TIỆN ÍCH sân (bảng `tags`, field "tags" trong ProductForm — label hiển thị
+| "Tiện ích", KHÔNG phải RoomAmenity). Dùng để admin chọn tag_id khi tạo/sửa sân
 | (POST/PUT /api/admin/products, tags[]).
 | GET /api/admin/tags → ?search=
 |--------------------------------------------------------------------------
@@ -433,10 +433,10 @@ Route::middleware(['auth:sanctum', 'admin.api'])->prefix('admin/tags')->name('ap
 |--------------------------------------------------------------------------
 | Time Slots — Danh sách khung giờ dùng chung (bảng `time_slots`), đã chia sẵn 4 nhóm
 | Ngày/Chiều/Đêm/Qua đêm — xem TimeSlotController. Dùng làm dữ liệu nền để gán khung giờ cho
-| từng phòng (POST /api/admin/products/{id}/time-slots).
+| từng sân (POST /api/admin/products/{id}/time-slots).
 | GET /api/admin/time-slots → ?type=&include_date_type=
 | POST /api/admin/time-slots → tạo khung giờ mới (start_time/end_time/over_night/label/type)
-| PUT|PATCH /api/admin/time-slots/{id} → sửa — LƯU Ý dùng chung cho mọi phòng đang gán khung giờ này
+| PUT|PATCH /api/admin/time-slots/{id} → sửa — LƯU Ý dùng chung cho mọi sân đang gán khung giờ này
 |--------------------------------------------------------------------------
 */
 Route::middleware(['auth:sanctum', 'admin.api'])->prefix('admin/time-slots')->name('api.admin.time-slots.')->group(function () {
@@ -448,9 +448,9 @@ Route::middleware(['auth:sanctum', 'admin.api'])->prefix('admin/time-slots')->na
 
 /*
 |--------------------------------------------------------------------------
-| Room Types — Danh mục PHÒNG dùng chung cho mọi đối tác (bảng `room_types`, vd "Theo giờ",
+| Room Types — Danh mục SÂN dùng chung cho mọi đối tác (bảng `room_types`, vd "Theo giờ",
 | "Theo ngày"...), KHÔNG phải chi nhánh/khu vực (đó là `categories`, xem admin/branches). Dùng làm
-| dữ liệu nền cho dropdown room_type_id khi tạo/sửa phòng và lọc GET /api/admin/products.
+| dữ liệu nền cho dropdown room_type_id khi tạo/sửa sân và lọc GET /api/admin/products.
 | GET /api/admin/room-types → ?is_active= (mặc định trả tất cả, kể cả đang tắt)
 |--------------------------------------------------------------------------
 */
@@ -460,20 +460,20 @@ Route::middleware(['auth:sanctum', 'admin.api'])->prefix('admin/room-types')->na
 
 /*
 |--------------------------------------------------------------------------
-| Products — Quản lý PHÒNG (bảng `products`) — xem docblock App\Http\Controllers\Api\Admin\ProductController.
+| Products — Quản lý SÂN (bảng `products`) — xem docblock App\Http\Controllers\Api\Admin\ProductController.
 | GET    /api/admin/products                     → ?category_id=&search=&status=&per_page= (ảnh
 |                                                    chính, tên, chi nhánh, trạng thái)
 | GET    /api/admin/products/{id}                → chi tiết đầy đủ
 | POST   /api/admin/products                     → tạo (multipart/form-data — ảnh chính bắt buộc)
 | PUT|POST /api/admin/products/{id}               → sửa (POST khi cần gửi kèm ảnh)
-| DELETE /api/admin/products/{id}                → xoá — chặn nếu còn đơn đặt phòng gắn vào
+| DELETE /api/admin/products/{id}                → xoá — chặn nếu còn đơn đặt sân gắn vào
 | POST   /api/admin/products/discount-settings   → thiết lập full_booking_discount/
 |                                                    bulk_discount_rules/room_config cho 1 hoặc
-|                                                    nhiều phòng cùng lúc (body: room_ids[])
-| GET    /api/admin/products/{id}/time-slots     → danh sách khung giờ đã gán cho phòng
+|                                                    nhiều sân cùng lúc (body: room_ids[])
+| GET    /api/admin/products/{id}/time-slots     → danh sách khung giờ đã gán cho sân
 |                                                    (room_time_slots: room_id, timeslot_id, price,
 |                                                    over_night)
-| POST   /api/admin/products/{id}/time-slots     → thêm/cập nhật khung giờ cho phòng (body: slots[])
+| POST   /api/admin/products/{id}/time-slots     → thêm/cập nhật khung giờ cho sân (body: slots[])
 |--------------------------------------------------------------------------
 */
 Route::middleware(['auth:sanctum', 'admin.api'])->prefix('admin/products')->name('api.admin.products.')->group(function () {

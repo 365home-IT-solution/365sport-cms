@@ -1,7 +1,7 @@
 {{-- KPI --}}
 <div class="ta-kpi-grid">
     <div class="ta-kpi">
-        <div class="ta-kpi-label">Tổng đơn đặt phòng</div>
+        <div class="ta-kpi-label">Tổng đơn đặt sân</div>
         <div class="ta-kpi-value" id="ta-kpi-total">{{ number_format($total) }}</div>
         <div class="ta-kpi-delta {{ $totalDelta >= 0 ? 'up' : 'down' }}" id="ta-kpi-total-delta">
             {{ $totalDelta >= 0 ? '↑' : '↓' }} {{ abs($totalDelta) }}%

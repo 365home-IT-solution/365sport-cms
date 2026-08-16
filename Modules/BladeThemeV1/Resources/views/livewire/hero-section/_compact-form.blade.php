@@ -220,7 +220,7 @@
                                 <div class="flex items-center gap-3 min-w-0 flex-1">
                                     <div class="flex flex-col min-w-0">
                                         <span :class="open ? 'text-[var(--color-primary)]' : 'text-gray-900'"
-                                            class="text-sm font-bold leading-none transition-colors duration-200">Nhận phòng</span>
+                                            class="text-sm font-bold leading-none transition-colors duration-200">Nhận sân</span>
                                         <span class="text-sm font-medium mt-1 truncate"
                                             :class="displayCheckIn ? 'text-gray-900' : 'text-gray-400'"
                                             x-text="displayCheckIn || '{{ $checkIn ?: 'Chọn ngày' }}'"></span>
@@ -230,7 +230,7 @@
                                     </svg>
                                     <div class="flex flex-col min-w-0">
                                         <span :class="open ? 'text-[var(--color-primary)]' : 'text-gray-900'"
-                                            class="text-sm font-bold leading-none transition-colors duration-200">Trả phòng</span>
+                                            class="text-sm font-bold leading-none transition-colors duration-200">Trả sân</span>
                                         <span class="text-sm font-medium mt-1 truncate"
                                             :class="displayCheckOut ? 'text-gray-900' : 'text-gray-400'"
                                             x-text="displayCheckOut || '{{ $checkOut ?: 'Chọn ngày' }}'"></span>
@@ -343,10 +343,10 @@
                                 </div>
                             </div>
 
-                            {{-- Badge giờ nhận / trả phòng --}}
+                            {{-- Badge giờ nhận / trả sân --}}
                             <div class="mt-5 pt-5 border-t border-gray-100 space-y-4">
                                 <div>
-                                    <p class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">Giờ nhận phòng</p>
+                                    <p class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">Giờ nhận sân</p>
                                     <div class="flex flex-wrap gap-2">
                                         <template x-for="h in hourBadges" :key="'in-' + h">
                                             <button type="button" x-show="availableStartHourBadges.includes(h)"
@@ -358,7 +358,7 @@
                                     </div>
                                 </div>
                                 <div>
-                                    <p class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">Giờ trả phòng</p>
+                                    <p class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">Giờ trả sân</p>
                                     <div class="flex flex-wrap gap-2">
                                         <template x-for="h in hourBadges" :key="'out-' + h">
                                             <button type="button" x-show="availableEndHourBadges.includes(h)"

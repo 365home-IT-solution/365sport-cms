@@ -20,7 +20,7 @@ Route::middleware(['auth', 'web', 'throttle:120,1'])->prefix('admin/api')->group
         return response()->json(['count' => $count]);
     })->name('admin.notifications.unread-count');
 
-    // Room cards polling — trả về JSON để JS cập nhật section phòng không reload trang.
+    // Room cards polling — trả về JSON để JS cập nhật section sân không reload trang.
     // ?days= — số ngày hiển thị ở view "Lịch" (select 5/10/15 cạnh carousel chi nhánh,
     // rcCalApplyDaysRange() trong _scripts.blade.php) — mặc định 10, chặn tối đa 15 (đã chặn phía
     // client, chặn lại ở đây phòng khi request bị sửa tay/gọi trực tiếp ngoài ý muốn).
@@ -211,7 +211,7 @@ Route::middleware(['auth', 'web', 'throttle:120,1'])->prefix('admin/api')->group
         ]);
     })->name('admin.branch-revenue');
 
-    // Top customers — top điện thoại đặt phòng nhiều nhất trong năm
+    // Top customers — top điện thoại đặt sân nhiều nhất trong năm
     Route::get('top-customers', function (\Illuminate\Http\Request $request) {
         $user = auth()->user();
         if (! $user) return response()->json(['customers' => [], 'year' => date('Y')]);
@@ -301,7 +301,7 @@ Route::middleware(['auth', 'web', 'throttle:120,1'])->prefix('admin/api')->group
         return response()->json($data);
     })->name('admin.orders.latest-ts');
 
-    // Room revenue ranking — top 10 phòng theo doanh thu trong năm chỉ định
+    // Room revenue ranking — top 10 sân theo doanh thu trong năm chỉ định
     Route::get('room-revenue', function (\Illuminate\Http\Request $request) {
         $user = auth()->user();
         if (! $user) {
@@ -401,7 +401,7 @@ Route::middleware(['auth', 'web', 'throttle:120,1'])->prefix('admin/api')->group
         ])->render();
 
         // Mã cổng — ĐÚNG luật hiển thị của OrderForm::hasAccessCodeSection() (chỉ đơn đã 'paid' —
-        // access code/mật khẩu thủ công chỉ thật sự được gán lúc đơn chuyển paid): phòng
+        // access code/mật khẩu thủ công chỉ thật sự được gán lúc đơn chuyển paid): sân
         // has_manual_lock -> mật khẩu thủ công (ManualLockPassword, mốc paid_at/deposit_paid_at/
         // created_at — KHÔNG dùng checkin_date/now(), xem docblock getForProductAndDate()); nếu
         // không thì chi nhánh có tài khoản TTLock đang active (TTLockService::hasAccountForCategory())
@@ -463,7 +463,7 @@ Route::middleware(['auth', 'web', 'throttle:120,1'])->prefix('admin/api')->group
     // Lưu ghi chú đơn (Order.description) — sửa trực tiếp trong popup thông tin nhanh của view
     // "Lịch" (rcCalSaveOrderNote() trong _scripts.blade.php), KHÔNG cần mở orderform. Trả lại
     // 'has_note' để JS tự cập nhật badge trên MỌI ô khung giờ thuộc đơn này (window.__rcRoomsData)
-    // mà không cần load lại toàn bộ dữ liệu phòng.
+    // mà không cần load lại toàn bộ dữ liệu sân.
     Route::post('orders/{id}/description', function (\Illuminate\Http\Request $request, $id) {
         $user = auth()->user();
         if (! $user) {
@@ -495,12 +495,12 @@ Route::middleware(['auth', 'web', 'throttle:120,1'])->prefix('admin/api')->group
         ]);
     })->name('admin.orders.description');
 
-    // Thống kê nhanh 1 phòng — popup "Xem phòng" ở view "Lịch" (rcCalOpenViewPopup() trong
+    // Thống kê nhanh 1 sân — popup "Xem sân" ở view "Lịch" (rcCalOpenViewPopup() trong
     // _scripts.blade.php): tổng doanh thu + số đơn thành công (ALL-TIME), doanh thu 12 tháng
     // (T1-T12) của NĂM đang lọc (?year=, mặc định năm hiện tại — ĐÚNG cấu trúc
     // Dashboard::getMonthlyRevenueData(), panel "04/Theo tháng" ở Tổng quan, nhưng scope theo 1
-    // phòng). Định nghĩa "thành công" ĐÚNG như Dashboard::getRoomRevenueData() (panel "Doanh thu
-    // phòng") — status=paid, payment_method PayOS/cod, exclude_from_stats=false — để số liệu khớp
+    // sân). Định nghĩa "thành công" ĐÚNG như Dashboard::getRoomRevenueData() (panel "Doanh thu
+    // sân") — status=paid, payment_method PayOS/cod, exclude_from_stats=false — để số liệu khớp
     // nhau giữa các panel, không định nghĩa lại.
     Route::get('rooms/{id}/stats-popup', function (\Illuminate\Http\Request $request, $id) {
         $user = auth()->user();
@@ -522,7 +522,7 @@ Route::middleware(['auth', 'web', 'throttle:120,1'])->prefix('admin/api')->group
         $product = $query->find($id);
 
         if (! $product) {
-            return response()->json(['message' => 'Không tìm thấy phòng.'], 404);
+            return response()->json(['message' => 'Không tìm thấy sân.'], 404);
         }
 
         $year = (int) $request->query('year', now()->year);
@@ -558,9 +558,9 @@ Route::middleware(['auth', 'web', 'throttle:120,1'])->prefix('admin/api')->group
         ]);
     })->name('admin.rooms.stats-popup');
 
-    // Giá phòng — popup "Giá phòng" ở view "Lịch" (Dashboard::_room-cards.blade.php,
-    // rcCalOpenPricePopup()) đọc nhanh cấu hình giá của 1 phòng theo khung giờ (styles=1) mà
-    // không cần mở SettingBook đầy đủ: giảm giá full phòng, số khách miễn phí/phụ thu, giảm giá
+    // Giá sân — popup "Giá sân" ở view "Lịch" (Dashboard::_room-cards.blade.php,
+    // rcCalOpenPricePopup()) đọc nhanh cấu hình giá của 1 sân theo khung giờ (styles=1) mà
+    // không cần mở SettingBook đầy đủ: giảm giá full sân, số khách miễn phí/phụ thu, giảm giá
     // theo số khung giờ, và từng khung giờ + giá + khuyến mãi đang gắn — ĐÚNG field
     // RoomCardsService::computeSlotAmount()/SettingBook.php đang đọc, không tính lại công thức
     // riêng. 'available_promotions' — ĐÚNG luật allowedPromotionOptions() của SettingBook.php
@@ -575,7 +575,7 @@ Route::middleware(['auth', 'web', 'throttle:120,1'])->prefix('admin/api')->group
 
         // Product tự lọc theo partner_id qua global scope BelongsToPartner — allowedCategoryIds
         // chỉ thu hẹp thêm theo chi nhánh được phép, cùng cách RoomCardsService::getData() lọc
-        // danh sách phòng cho tài khoản không phải super_admin.
+        // danh sách sân cho tài khoản không phải super_admin.
         $query = \Modules\Product\App\Models\Product::query();
         if (! $user->isSuperAdmin()) {
             $allowedCategoryIds = $user->allowedCategoryIds() ?? [];
@@ -590,7 +590,7 @@ Route::middleware(['auth', 'web', 'throttle:120,1'])->prefix('admin/api')->group
         $product = $query->find($id);
 
         if (! $product) {
-            return response()->json(['message' => 'Không tìm thấy phòng.'], 404);
+            return response()->json(['message' => 'Không tìm thấy sân.'], 404);
         }
 
         $cfg = $product->room_config ?? [];
@@ -656,7 +656,7 @@ Route::middleware(['auth', 'web', 'throttle:120,1'])->prefix('admin/api')->group
         ]);
     })->name('admin.rooms.pricing-info');
 
-    // Lưu nhanh giá phòng ngay trong popup "Giá phòng" (rcCalSavePricing() trong
+    // Lưu nhanh giá sân ngay trong popup "Giá sân" (rcCalSavePricing() trong
     // _scripts.blade.php) — full_booking_discount/max_free_guests/extra_guest_fee/giá + giảm theo
     // số khung (bulk_discount_rules) + khuyến mãi gắn từng khung giờ (chỉ GẮN/GỠ khuyến mãi CÓ
     // SẴN qua 'available_promotions' của GET — KHÔNG tạo mới khuyến mãi ở đây, tạo mới vẫn phải
@@ -716,8 +716,8 @@ Route::middleware(['auth', 'web', 'throttle:120,1'])->prefix('admin/api')->group
         $product->room_config           = $cfg;
         $product->save();
 
-        // Chỉ update ĐÚNG khung giờ THUỘC phòng này và là slot "gốc" (date IS NULL) — chặn sửa
-        // nhầm slot của phòng khác dù lỡ gửi kèm id lạ. Khuyến mãi gắn theo khung giờ chỉ được
+        // Chỉ update ĐÚNG khung giờ THUỘC sân này và là slot "gốc" (date IS NULL) — chặn sửa
+        // nhầm slot của sân khác dù lỡ gửi kèm id lạ. Khuyến mãi gắn theo khung giờ chỉ được
         // GẮN/GỠ trong phạm vi 'available_promotions' đã trả ở GET (allowedPromotionOptions()) —
         // lọc lại promotion_ids gửi lên theo ĐÚNG phạm vi đó phòng khi bị sửa tay ngoài ý muốn.
         $promoQuery = \Modules\Promotion\App\Models\Promotion::where('is_active', true);
@@ -730,7 +730,7 @@ Route::middleware(['auth', 'web', 'throttle:120,1'])->prefix('admin/api')->group
         }
         $allowedPromotionIds = $promoQuery->pluck('id')->all();
 
-        // Trả lại has_discount MỚI của từng khung giờ vừa lưu — để popup "Giá phòng" tự cập nhật
+        // Trả lại has_discount MỚI của từng khung giờ vừa lưu — để popup "Giá sân" tự cập nhật
         // NGAY hiệu ứng viền cầu vồng (.is-discounted) trên view "Lịch" sau khi lưu (rcCalSavePricing()
         // trong _scripts.blade.php), không cần F5 lại trang mới thấy. Tính ĐÚNG công thức
         // RoomCardsService::buildTimeslotGrid() — is_active=true VÀ hôm nay nằm trong
@@ -801,7 +801,7 @@ Route::middleware(['auth', 'web', 'throttle:120,1'])->prefix('admin/api')->group
             'action'             => 'required|in:hold,release',
         ]);
 
-        // Chặn giữ/nhả nhầm khung giờ của phòng khác dù id gửi lên bị sửa tay.
+        // Chặn giữ/nhả nhầm khung giờ của sân khác dù id gửi lên bị sửa tay.
         $slot = \Modules\Product\App\Models\RoomTimeSlot::where('id', $data['room_time_slot_id'])
             ->where('room_id', $product->id)
             ->whereNull('date')
@@ -961,7 +961,7 @@ Route::middleware(['auth', 'web', 'throttle:120,1'])->prefix('admin/api')->group
         return response()->json(['ok' => true]);
     })->name('admin.rooms.unblock-slots');
 
-    // Deposit room note — lưu/xoá ghi chú cọc phòng cho đơn hàng
+    // Deposit room note — lưu/xoá ghi chú cọc sân cho đơn hàng
     Route::post('orders/{id}/deposit-room', function (\Illuminate\Http\Request $request, $id) {
         $user = auth()->user();
         if (! $user) {

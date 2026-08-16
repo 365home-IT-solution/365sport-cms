@@ -154,10 +154,10 @@
             </div>
 
             <div x-show="!dayMode">
-            {{-- Badge giờ nhận / trả phòng (chỉ hiện ở tab Theo giờ) --}}
+            {{-- Badge giờ nhận / trả sân (chỉ hiện ở tab Theo giờ) --}}
             <div class="mt-2.5 pt-2.5 border-t border-gray-100 space-y-2.5">
                 <div>
-                    <p class="text-[9px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">Giờ nhận phòng</p>
+                    <p class="text-[9px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">Giờ nhận sân</p>
                     <div class="flex flex-wrap gap-1.5">
                         <template x-for="h in hourBadges" :key="'in-' + h">
                             <button type="button" x-show="availableStartHourBadges.includes(h)"
@@ -169,7 +169,7 @@
                     </div>
                 </div>
                 <div>
-                    <p class="text-[9px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">Giờ trả phòng</p>
+                    <p class="text-[9px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">Giờ trả sân</p>
                     <div class="flex flex-wrap gap-1.5">
                         <template x-for="h in hourBadges" :key="'out-' + h">
                             <button type="button" x-show="availableEndHourBadges.includes(h)"

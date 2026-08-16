@@ -13,7 +13,7 @@
     </div>
     <div style="flex:1;min-width:0;">
         <div style="font-weight:600;font-size:0.92rem;color:#92400e;">
-            {{ $hkCount }} phòng đang chờ dọn vệ sinh
+            {{ $hkCount }} sân đang chờ dọn vệ sinh
         </div>
         <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;">
             @foreach(array_slice($hkRooms, 0, 8) as $room)
@@ -26,7 +26,7 @@
                 </span>
             @endforeach
             @if($hkCount > 8)
-                <span style="align-self:center;font-size:0.78rem;color:#92400e;">+{{ $hkCount - 8 }} phòng khác</span>
+                <span style="align-self:center;font-size:0.78rem;color:#92400e;">+{{ $hkCount - 8 }} sân khác</span>
             @endif
         </div>
     </div>
@@ -39,6 +39,6 @@
 @elseif($hkCanView)
 <div style="display:flex;align-items:center;gap:8px;padding:8px 16px;border-radius:10px;background:#f0fdf4;border:1px solid #bbf7d0;margin-bottom:18px;font-size:0.82rem;color:#166534;">
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
-    Tất cả phòng đã dọn xong, sẵn sàng nhận đặt mới.
+    Tất cả sân đã dọn xong, sẵn sàng nhận đặt mới.
 </div>
 @endif

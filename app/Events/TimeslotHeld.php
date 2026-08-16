@@ -10,7 +10,7 @@ use Illuminate\Broadcasting\PrivateChannel;
 use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
 use Illuminate\Foundation\Events\Dispatchable;
 
-// Bắn ngay khi 1 admin bấm chọn 1 ô (khung giờ + ngày) trên lưới đặt phòng — ShouldBroadcastNow
+// Bắn ngay khi 1 admin bấm chọn 1 ô (khung giờ + ngày) trên lưới đặt sân — ShouldBroadcastNow
 // (không qua hàng đợi) vì hold chỉ có ý nghĩa khi tới nơi NGAY LẬP TỨC, chờ queue worker xử lý là
 // vô nghĩa với 1 sự kiện tồn tại vài giây tới vài phút.
 class TimeslotHeld implements ShouldBroadcastNow
@@ -30,7 +30,7 @@ class TimeslotHeld implements ShouldBroadcastNow
     {
         return [
             new PrivateChannel('admin-timeslot-holds'),
-            // Kênh PUBLIC riêng theo từng phòng — để trang đặt phòng CỦA KHÁCH HÀNG (không đăng
+            // Kênh PUBLIC riêng theo từng sân — để trang đặt sân CỦA KHÁCH HÀNG (không đăng
             // nhập được vào kênh private admin ở trên) cũng nhận real-time ngay, không cần đợi
             // khách tự thao tác/F5 mới thấy khung giờ bị khóa (xem ProductDetail::echo listener).
             new Channel('timeslot-holds.' . $this->productId),

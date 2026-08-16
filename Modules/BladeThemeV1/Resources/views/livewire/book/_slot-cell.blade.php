@@ -1,6 +1,6 @@
 {{--
     1 ô "khung giờ x ngày" trong bảng đặt lịch — tách riêng để dùng chung cho cả bản mobile
-    (carousel từng phòng, book/_mobile.blade.php) và bản desktop (hiện tất cả phòng cùng lúc,
+    (carousel từng sân, book/_mobile.blade.php) và bản desktop (hiện tất cả sân cùng lúc,
     book/_desktop-grid.blade.php), tránh lặp lại ~150 dòng logic tính trạng thái/giá ở 2 nơi.
     Nhận vào qua @include: $room, $date, $roomTimeSlot. $today lấy từ scope cha (book.blade.php).
 --}}

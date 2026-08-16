@@ -61,9 +61,9 @@ trait ValidationRulesTrait
             'cccdBackExtra.*.file' => 'File CCCD người đi cùng (mặt sau) không hợp lệ.',
             'cccdBackExtra.*.mimes' => 'CCCD người đi cùng (mặt sau) chỉ chấp nhận định dạng JPG, PNG, WEBP.',
             'cccdBackExtra.*.max' => 'CCCD người đi cùng (mặt sau) không được vượt quá 5MB.',
-            'accept1.accepted' => 'Vui lòng đồng ý với điều khoản trên trước khi đặt phòng.',
-            'accept2.accepted' => 'Vui lòng đồng ý với điều khoản trên trước khi đặt phòng.',
-            'acceptRefundPolicy.accepted' => 'Vui lòng đồng ý với điều khoản trên trước khi đặt phòng.',
+            'accept1.accepted' => 'Vui lòng đồng ý với điều khoản trên trước khi đặt sân.',
+            'accept2.accepted' => 'Vui lòng đồng ý với điều khoản trên trước khi đặt sân.',
+            'acceptRefundPolicy.accepted' => 'Vui lòng đồng ý với điều khoản trên trước khi đặt sân.',
         ];
     }
 

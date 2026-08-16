@@ -1,13 +1,13 @@
 {{-- HEADER --}}
 <div class="ta-header">
     <div>
-        <div class="ta-sub-label">— 01 / Tổng quan đơn đặt phòng</div>
+        <div class="ta-sub-label">— 01 / Tổng quan đơn đặt sân</div>
         <h2 class="ta-title">Thống kê <em>BOOKING</em><br/><span id="ta-period-range">{{ $dateRange }}</span></h2>
     </div>
     <div class="ta-header-right">
         {{-- Mở nhanh popup "Tô đen / Khóa lịch" (book::block-timeslot-modal, đã nhúng sẵn ở
-             dashboard.blade.php) KHÔNG gắn sẵn phòng nào — khác nút "Khóa khung giờ" trong menu ⋮
-             từng thẻ phòng (rcOpenBlockModal(productId), mở SẴN đúng phòng đó). Dùng
+             dashboard.blade.php) KHÔNG gắn sẵn sân nào — khác nút "Khóa khung giờ" trong menu ⋮
+             từng thẻ sân (rcOpenBlockModal(productId), mở SẴN đúng sân đó). Dùng
              window.dispatchEvent thay vì Alpine @click/$dispatch — component modal là Livewire
              KHÁC (không chung x-data với hàng nút này), cùng cơ chế đã dùng cho rcOpenBlockModal/
              rcOpenLockGrid ở _scripts.blade.php. --}}

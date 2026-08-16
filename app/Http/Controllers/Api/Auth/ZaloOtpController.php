@@ -296,7 +296,7 @@ class ZaloOtpController extends Controller
      * Cập nhật thông tin khách hàng (yêu cầu token).
      * Body (multipart/form-data): fullname?, date_of_birth?, cccd_front?, cccd_back?,
      * companions[i][cccd_front]?, companions[i][cccd_back]?, companions[i][full_name]?
-     * (companions = CCCD người đi cùng lưu vào hồ sơ, tái sử dụng cho các lần đặt phòng
+     * (companions = CCCD người đi cùng lưu vào hồ sơ, tái sử dụng cho các lần đặt sân
      * qua đêm sau này — xem customer_companions).
      */
     public function update(Request $request): JsonResponse

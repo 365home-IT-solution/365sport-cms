@@ -23,9 +23,9 @@
     @endif
 
     <div class="max-w-7xl md:px-8 px-4 mx-auto booking-confirmation-modal">
-        <div id="seo-data" data-seo-title="{{ $product->name ?? 'Phòng' }}"
-            data-seo-description="{{ $short_description ?? 'Phòng' }}"
-            data-seo-keyword="{{ $product->seo_keywords ?? 'Phòng' }}">
+        <div id="seo-data" data-seo-title="{{ $product->name ?? 'Sân' }}"
+            data-seo-description="{{ $short_description ?? 'Sân' }}"
+            data-seo-keyword="{{ $product->seo_keywords ?? 'Sân' }}">
         </div>
         <div class="pt-6 md:pt-10 pb-6">
             <div>
@@ -95,7 +95,7 @@
                         </div>
                     </div>
 
-                    {{-- Ảnh phòng --}}
+                    {{-- Ảnh sân --}}
                     @php
                         $mainImg = $product->hasMedia('Ảnh bìa')
                             ? $product->getFirstMedia('Ảnh bìa')->getUrl()
@@ -428,7 +428,7 @@
                                 @if ($hasVideoPd)
                                     <div class="pd-mobile-slide" style="cursor:pointer;"
                                         @click="$dispatch('pd-open-video')">
-                                        <img src="{{ $mainImg }}" alt="{{ $product->name ?? 'Video phòng' }}">
+                                        <img src="{{ $mainImg }}" alt="{{ $product->name ?? 'Video sân' }}">
                                         <span class="pd-mobile-play-btn">
                                             <svg viewBox="0 0 24 24" fill="#111827">
                                                 <polygon points="6,4 20,12 6,20" />
@@ -450,7 +450,7 @@
                             @endif
                         </div>
 
-                        {{-- Ảnh phòng — desktop: lưới ảnh --}}
+                        {{-- Ảnh sân — desktop: lưới ảnh --}}
                         <div class="hidden md:grid relative grid-cols-4 grid-rows-2 gap-2 rounded-xl overflow-hidden mb-6"
                             style="height:420px;">
                             <div class="col-span-2 row-span-2 relative">
@@ -564,7 +564,7 @@
 
                 </div>{{-- /p-3 header+gallery wrapper --}}
 
-                <div class="grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-0 lg:gap-8 items-start">
+                <div class="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_380px] gap-0 lg:gap-8 items-start">
                     <div class="w-full">
                         <div class="p-3 overflow-hidden rounded-none lg:rounded-lg bg-white">
 
@@ -699,20 +699,20 @@
 
                             <hr class="border-gray-200 my-8">
 
-                            {{-- Video phòng (nút đã được render trong gallery, chỉ cần modal) --}}
+                            {{-- Video sân (nút đã được render trong gallery, chỉ cần modal) --}}
                             @php $videoButtonInGallery = true; @endphp
                             @include('bladethemev1::components.product-detail.video-room')
 
-                            {{-- Tiện nghi phòng --}}
+                            {{-- Tiện nghi sân --}}
                             @include('bladethemev1::components.product-detail.amenities')
                             <hr class="border-gray-200 my-8">
-                            {{-- Dịch vụ phòng --}}
+                            {{-- Dịch vụ sân --}}
                             @include('bladethemev1::components.product-detail.additional-services')
 
                             <hr class="border-gray-200 my-8">
 
                             @if ($bookingStyle == 1)
-                                {{-- Bảng giá phòng (ẩn trên mobile khi đến từ trang booking, luôn hiện trên desktop) --}}
+                                {{-- Bảng giá sân (ẩn trên mobile khi đến từ trang booking, luôn hiện trên desktop) --}}
                                 {{-- @if (!$fromBookingPage)
                                     @include('bladethemev1::components.product-detail.pricing-room')
                                 @else
@@ -723,11 +723,8 @@
 
                                 <!-- Chọn khung giờ -->
                                 @php
-                                    $pdSlotCount = count($timeSlots);
-                                    $pdSlotsPerPage = 5;
-                                    $pdTotalSlotPages = (int) ceil($pdSlotCount / max($pdSlotsPerPage, 1));
-                                    // Màu phòng (color_product) — dùng làm điểm nhấn (accent) cho khu vực
-                                    // lịch đặt phòng: viền cạnh tiêu đề, viền ô "Còn trống" trong legend,
+                                    // Màu sân (color_product) — dùng làm điểm nhấn (accent) cho khu vực
+                                    // lịch đặt sân: viền cạnh tiêu đề, viền ô "Còn trống" trong legend,
                                     // viền ô lịch (selectable) mặc định. KHÔNG đổi nền ô lịch — giữ trung
                                     // tính để không lẫn với màu trạng thái đã đặt/pending/khuyến mãi.
                                     $roomColor = $productColors[$product->id]['color'] ?? null;
@@ -740,7 +737,7 @@
                                                 @if($roomColor)
                                                     <span class="inline-block w-2.5 h-2.5 rounded-full" style="background-color: {{ $roomColor }};"></span>
                                                 @endif
-                                                Lịch đặt phòng
+                                                Lịch đặt sân
                                             </h2>
                                             <p class="text-sm text-gray-500 mt-0.5">Chọn khung giờ phù hợp với bạn</p>
                                         </div>
@@ -771,11 +768,11 @@
                                         </div>
                                     </div>
 
-                                    {{-- ── CSS cho lịch đặt phòng (selectable + mobile card) ── --}}
+                                    {{-- ── CSS cho lịch đặt sân (selectable + mobile card) ── --}}
                                     <style id="pd-booking-redesign">
-                                        /* ── selectable box: nền trung tính (không theo màu phòng, để
+                                        /* ── selectable box: nền trung tính (không theo màu sân, để
                                            không lẫn với màu trạng thái đã đặt/pending/khuyến mãi), chỉ
-                                           viền mặc định (còn trống) theo --room-accent nếu phòng có
+                                           viền mặc định (còn trống) theo --room-accent nếu sân có
                                            cấu hình màu (color_product) — xem $roomColor phía trên. ── */
                                         .selectable {
                                             position: relative;
@@ -959,7 +956,7 @@
                                         }
 
                                         .pd-dt-col-header {
-                                            width: 110px;
+                                            width: 130px;
                                             flex-shrink: 0;
                                             min-height: 50px;
                                             display: flex;
@@ -976,7 +973,10 @@
                                         }
 
                                         .pd-dt-slots-header-row {
-                                            flex: 1;
+                                            /* Chỉ hiện đúng 5 cột NGÀY/lần (100px x 5 + gap 8px x4 + padding
+                                               10px x2) — nhiều hơn phải cuộn ngang, không đẩy rộng trang.
+                                               Bề rộng thật do .pd-dt-slots-header-wrap (cha) quyết định. */
+                                            width: 100%;
                                             display: flex;
                                             gap: 8px;
                                             padding: 6px 10px;
@@ -985,15 +985,22 @@
                                             background: #fff;
                                             border: 1px solid #e5e7eb;
                                             border-radius: 14px;
+                                            overflow-x: hidden;
+                                            scrollbar-width: none;
+                                            -ms-overflow-style: none;
                                         }
 
                                         .pd-dt-slot-th {
-                                            flex: 1;
-                                            min-width: 90px;
+                                            width: 100px;
+                                            flex-shrink: 0;
                                             text-align: center;
                                             font-size: 11px;
                                             font-weight: 700;
                                             color: #111827;
+                                        }
+
+                                        .pd-dt-date-th.is-today {
+                                            color: var(--room-accent, #111827);
                                         }
 
                                         /* Khung (border/bo góc/nền) đứng yên cố định — chỉ phần NỘI DUNG bên
@@ -1006,7 +1013,7 @@
                                         }
 
                                         .pd-dt-dates-card {
-                                            width: 110px;
+                                            width: 130px;
                                             flex-shrink: 0;
                                             height: 460px;
                                             background: #fff;
@@ -1023,11 +1030,80 @@
                                             -ms-overflow-style: none;
                                         }
 
-                                        .pd-dt-dates-scroll::-webkit-scrollbar,
-                                        .pd-dt-slots-scroll::-webkit-scrollbar {
+                                        /* Khối khung giờ cuộn NGANG riêng bên trong card của nó (nhiều
+                                           khung giờ không còn đẩy rộng cả trang) — header ở trên
+                                           (.pd-dt-slots-header-row) không tự cuộn được (overflow-x:
+                                           hidden), scrollLeft của nó được đồng bộ theo scroll ngang của
+                                           khối này qua Alpine (@scroll bên dưới), y hệt cách cuộn dọc của
+                                           cột Ngày/khung giờ đã đồng bộ với nhau. */
+                                        .pd-dt-slots-scroll {
+                                            overflow-x: auto;
+                                            /* Thanh cuộn NGANG hiện rõ (mảnh) để khách biết còn ngày khác
+                                               xem được, không chỉ trông cậy vào nút mũi tên — thanh cuộn
+                                               DỌC vẫn ẩn (chỉ là bản phản chiếu của cột Khung giờ bên
+                                               trái, không phải nơi thao tác chính). */
+                                            scrollbar-width: thin;
+                                        }
+
+                                        .pd-dt-dates-scroll::-webkit-scrollbar {
                                             display: none;
                                             width: 0;
                                             height: 0;
+                                        }
+
+                                        .pd-dt-slots-scroll::-webkit-scrollbar {
+                                            height: 6px;
+                                            width: 0;
+                                        }
+
+                                        .pd-dt-slots-scroll::-webkit-scrollbar-thumb {
+                                            background: #d1d5db;
+                                            border-radius: 3px;
+                                        }
+
+                                        .pd-dt-slots-scroll::-webkit-scrollbar-track {
+                                            background: transparent;
+                                        }
+
+                                        /* Wrapper cùng max-width với thân bảng (.pd-dt-slots-outer/.pd-dt-slots-card)
+                                           để 2 khối luôn khớp bề rộng — nút Trước/Sau nổi ĐÈ LÊN rìa wrapper này
+                                           bằng position:absolute (không chiếm chỗ trong flex layout), xem ghi chú
+                                           tại chỗ dùng trong HTML. */
+                                        .pd-dt-slots-header-wrap {
+                                            position: relative;
+                                            flex: 1;
+                                            min-width: 0;
+                                            max-width: 560px;
+                                        }
+
+                                        .pd-dt-date-nav-btn {
+                                            position: absolute;
+                                            top: 50%;
+                                            transform: translateY(-50%);
+                                            z-index: 5;
+                                            width: 22px;
+                                            height: 22px;
+                                            display: flex;
+                                            align-items: center;
+                                            justify-content: center;
+                                            background: #fff;
+                                            border: 1px solid #e5e7eb;
+                                            border-radius: 999px;
+                                            box-shadow: 0 1px 3px rgba(0, 0, 0, .12);
+                                            color: #374151;
+                                            cursor: pointer;
+                                        }
+
+                                        .pd-dt-date-nav-prev { left: -9px; }
+                                        .pd-dt-date-nav-next { right: -9px; }
+
+                                        .pd-dt-date-nav-btn:hover {
+                                            background: #f3f4f6;
+                                        }
+
+                                        .pd-dt-date-nav-btn svg {
+                                            width: 11px;
+                                            height: 11px;
                                         }
 
                                         .pd-dt-date-row {
@@ -1051,6 +1127,7 @@
                                         .pd-dt-slots-outer {
                                             flex: 1;
                                             min-width: 0;
+                                            max-width: 560px;
                                         }
 
                                         .pd-dt-slots-card {
@@ -1079,11 +1156,15 @@
                                         }
 
                                         .pd-dt-slot-cell {
-                                            flex: 1;
-                                            min-width: 90px;
+                                            width: 100px;
+                                            flex-shrink: 0;
                                             display: flex;
                                             align-items: center;
                                             justify-content: center;
+                                        }
+
+                                        .pd-dt-time-row {
+                                            gap: 2px;
                                         }
 
                                         /* ── Mobile two-panel card ── */
@@ -1122,8 +1203,8 @@
                                         }
 
                                         .pd-col-header {
-                                            min-width: 72px;
-                                            width: 72px;
+                                            min-width: 80px;
+                                            width: 80px;
                                             flex-shrink: 0;
                                             height: 46px;
                                             display: flex;
@@ -1139,11 +1220,37 @@
                                             border-radius: 14px;
                                         }
 
+                                        /* Wrapper mang border/bg/bo góc (KHÔNG tự cuộn). Nút Trước/Sau KHÔNG còn
+                                           nổi đè lên rìa wrapper (từng đè lên chữ ngày ở màn hình hẹp) — nay nằm
+                                           trong 1 hàng điều hướng RIÊNG (.pd-date-nav-row) phía trên hàng ngày,
+                                           chiếm layout bình thường (không position:absolute) nên không thể che chữ. */
                                         .pd-slots-headers-wrap {
                                             flex: 1;
                                             min-width: 0;
                                         }
 
+                                        .pd-date-nav-row {
+                                            display: flex;
+                                            align-items: center;
+                                            justify-content: space-between;
+                                            gap: 6px;
+                                            margin-bottom: 4px;
+                                        }
+
+                                        .pd-date-nav-hint {
+                                            font-size: 9px;
+                                            color: #9ca3af;
+                                            text-align: center;
+                                            flex: 1;
+                                            min-width: 0;
+                                            white-space: nowrap;
+                                            overflow: hidden;
+                                            text-overflow: ellipsis;
+                                        }
+
+                                        /* padding PHẢI khớp CHÍNH XÁC .pd-slots-scroll (thân bảng) bên dưới — 2 nơi
+                                           lệch padding/gap từng gây lỗi "cuộn tới cuối bị lệch dần" đã gặp và sửa ở
+                                           nơi khác (dashboard admin/tsgrid). */
                                         .pd-slots-header-row {
                                             display: flex;
                                             gap: 3px;
@@ -1153,17 +1260,53 @@
                                             background: #fff;
                                             border: 1px solid #e5e7eb;
                                             border-radius: 14px;
+                                            overflow-x: hidden;
+                                            scrollbar-width: none;
+                                            -ms-overflow-style: none;
+                                        }
+
+                                        .pd-slots-header-row::-webkit-scrollbar {
+                                            display: none;
+                                            width: 0;
+                                            height: 0;
+                                        }
+
+                                        /* Ghi chú: các thuộc tính kích thước quan trọng của nút (width/height/vị trí)
+                                           được đặt INLINE trực tiếp trên thẻ <button> trong Blade thay vì chỉ dựa vào
+                                           class này — đã phát hiện rule class ở đây có lúc KHÔNG được áp dụng (cùng
+                                           lỗi lạ đã gặp với .tsgrid-slots-label), khiến nút to mặc định ~44px và đè
+                                           lên chữ ngày. Giữ class để style thị giác (màu/border/shadow) còn phần
+                                           kích thước/flex-shrink luôn có inline làm lưới an toàn. */
+                                        .pd-date-nav-btn {
+                                            flex-shrink: 0;
+                                            display: flex;
+                                            align-items: center;
+                                            justify-content: center;
+                                            background: #fff;
+                                            border: 1px solid #e5e7eb;
+                                            border-radius: 999px;
+                                            box-shadow: 0 1px 3px rgba(0, 0, 0, .15);
+                                            color: #374151;
+                                            padding: 0;
+                                        }
+
+                                        .pd-date-nav-btn svg {
+                                            width: 10px;
+                                            height: 10px;
                                         }
 
                                         .pd-slot-th {
-                                            flex: 1;
+                                            flex: 0 0 calc((100% - 12px) / 5);
                                             text-align: center;
                                             font-size: .55rem;
                                             font-weight: 700;
                                             letter-spacing: -.03em;
                                             line-height: 1.15;
-                                            min-width: 0;
                                             color: #111827;
+                                        }
+
+                                        .pd-slot-th.is-today {
+                                            color: var(--color-primary, #0f766e);
                                         }
 
                                         .pd-overnight-tag {
@@ -1201,10 +1344,11 @@
                                             background: #fff;
                                         }
 
+                                        /* Cột KHUNG GIỜ (dọc) — thay cho cột Ngày cũ. */
                                         .pd-dates-card {
                                             border-radius: 14px;
-                                            min-width: 72px;
-                                            width: 72px;
+                                            min-width: 80px;
+                                            width: 80px;
                                             flex-shrink: 0;
                                             border: 1px solid #e5e7eb;
                                             overflow: clip;
@@ -1218,7 +1362,7 @@
                                             align-items: center;
                                             justify-content: center;
                                             border-bottom: 1px solid #f3f4f6;
-                                            gap: 2px;
+                                            gap: 1px;
                                             padding: 0 4px;
                                         }
 
@@ -1227,26 +1371,11 @@
                                         }
 
                                         .pd-date-day {
-                                            font-size: .62rem;
-                                            color: #6b7280;
-                                            font-weight: 500;
-                                            line-height: 1;
-                                        }
-
-                                        .pd-date-num {
-                                            font-size: .78rem;
+                                            font-size: .58rem;
                                             font-weight: 700;
                                             color: #111827;
-                                            line-height: 1;
-                                        }
-
-                                        .pd-date-row.is-today {
-                                            background: #f3f4f6;
-                                        }
-
-                                        .pd-date-row.is-today .pd-date-day,
-                                        .pd-date-row.is-today .pd-date-num {
-                                            font-weight: 800;
+                                            line-height: 1.1;
+                                            white-space: nowrap;
                                         }
 
                                         .pd-slots-outer {
@@ -1262,10 +1391,29 @@
                                             background: #fff;
                                         }
 
+                                        /* Khối cuộn NGANG (ngày) riêng bên trong — padding PHẢI khớp CHÍNH XÁC
+                                           .pd-slots-header-row ở trên (đều 0 4px) để 2 khối luôn có cùng 1 chiều
+                                           rộng cuộn tối đa, không lệch dần khi cuộn tới cuối (đúng lỗi đã gặp và
+                                           sửa ở dashboard admin/tsgrid — xem ghi chú ở đó). Thanh cuộn hiện rõ
+                                           (mảnh) để khách biết còn ngày khác xem được. */
+                                        .pd-slots-scroll {
+                                            overflow-x: auto;
+                                            padding: 0 4px;
+                                            scrollbar-width: thin;
+                                        }
+
+                                        .pd-slots-scroll::-webkit-scrollbar {
+                                            height: 4px;
+                                        }
+
+                                        .pd-slots-scroll::-webkit-scrollbar-thumb {
+                                            background: #d1d5db;
+                                            border-radius: 2px;
+                                        }
+
                                         .pd-slots-row {
                                             display: flex;
                                             gap: 3px;
-                                            padding: 4px;
                                             height: 38px;
                                             align-items: center;
                                             border-bottom: 1px solid #f3f4f6;
@@ -1275,9 +1423,11 @@
                                             border-bottom: none;
                                         }
 
+                                        /* flex-basis tính theo % chiều rộng khung cuộn (không phải px cố định) để
+                                           LUÔN hiện đúng 5 cột/khung hình bất kể màn hình rộng bao nhiêu — 4 khoảng
+                                           gap 3px giữa 5 cột = 12px trừ đi trước khi chia 5. */
                                         .pd-slot-cell {
-                                            flex: 1;
-                                            min-width: 0;
+                                            flex: 0 0 calc((100% - 12px) / 5);
                                             display: flex;
                                             align-items: center;
                                             justify-content: center;
@@ -1293,55 +1443,11 @@
                                             width: 10px;
                                             height: 10px;
                                         }
-
-                                        /* ── Slot pagination strip ── */
-                                        .slot-page-strip {
-                                            display: flex;
-                                            align-items: center;
-                                            justify-content: space-between;
-                                            gap: 8px;
-                                            padding: 8px 14px;
-                                            background: #f3f4f6;
-                                            border-bottom: 1px solid #e5e7eb;
-                                        }
-
-                                        .slot-pg-btn {
-                                            display: inline-flex;
-                                            align-items: center;
-                                            gap: 4px;
-                                            background: #fff;
-                                            border: 1px solid #d1d5db;
-                                            color: #374151;
-                                            border-radius: 999px;
-                                            padding: 4px 12px;
-                                            font-size: .75rem;
-                                            font-weight: 600;
-                                            cursor: pointer;
-                                            transition: background .2s;
-                                        }
-
-                                        .slot-pg-btn:hover:not(:disabled) {
-                                            background: #e5e7eb;
-                                        }
-
-                                        .slot-pg-btn:disabled {
-                                            opacity: .4;
-                                            cursor: not-allowed;
-                                        }
-
-                                        .slot-pg-info {
-                                            color: #6b7280;
-                                            font-size: .75rem;
-                                            font-weight: 600;
-                                        }
                                     </style>
 
                                     {{-- ── Shared Alpine state (mobile + desktop) ── --}}
                                     <div x-data="{
                                         selectedSlots: @entangle('selectedSlots'),
-                                        slotPage: 0,
-                                        slotsPerPage: {{ $pdSlotsPerPage }},
-                                        totalSlotPages: {{ $pdTotalSlotPages }},
 
                                         toggleSlot(date, timeslotId, price, originalPrice, basePrice, increaseAmount, promoDiscount, startTime, endTime, status, roomId, roomName, timeslotLabel, overNight) {
                                             const key = `${date}-${timeslotId}`;
@@ -1356,30 +1462,51 @@
                                     }">
 
                                         {{-- ═════ MOBILE: Two-panel card (md:hidden) ═════ --}}
-                                        <div class="md:hidden mb-4 rounded-[20px] overflow-hidden shadow-lg">
+                                        <div class="md:hidden mb-4 rounded-[20px] overflow-hidden shadow-lg" x-data="{}">
 
-                                            {{-- Phân trang khung giờ (chỉ khi > 5 khung) --}}
-                                            @if ($pdSlotCount > $pdSlotsPerPage)
-                                                <div class="slot-page-strip">
-                                                    <button class="slot-pg-btn" type="button"
-                                                        @click="slotPage = Math.max(0, slotPage - 1)"
-                                                        :disabled="slotPage === 0">&#8249; <span>Quay
-                                                            lại</span></button>
-                                                    <span class="slot-pg-info"
-                                                        x-text="'Khung giờ ' + (slotPage * slotsPerPage + 1) + '–' + Math.min((slotPage + 1) * slotsPerPage, {{ $pdSlotCount }})"></span>
-                                                    <button class="slot-pg-btn" type="button"
-                                                        @click="slotPage = Math.min(totalSlotPages - 1, slotPage + 1)"
-                                                        :disabled="slotPage >= totalSlotPages - 1"><span>Xem
-                                                            thêm</span> &#8250;</button>
-                                                </div>
-                                            @endif
-
-                                            {{-- Header cột giờ (ngoài scroll) --}}
+                                            {{-- Header NGÀY (ngang) — đổi trục giống bản desktop: Khung giờ đứng dọc bên
+                                                 trái, Ngày nằm ngang ở đây (cuộn ngang xem thêm, kéo/trượt HOẶC bấm nút
+                                                 Trước/Sau). Không còn hệ thống phân trang "slotPage" cũ (dựng cho bản
+                                                 khung-giờ-ngang trước đây) — cuộn ngang tự nhiên đã thay thế. Nút
+                                                 position:absolute đè lên rìa wrapper (không phải flex-sibling của
+                                                 header-row) để không làm header rộng hơn thân bảng — CÙNG lý do/kỹ
+                                                 thuật đã áp dụng cho bản desktop (pd-dt-date-nav-btn). --}}
                                             <div class="pd-grid-header">
-                                                <div class="pd-col-header">Ngày
-                                                </div>
+                                                <div class="pd-col-header">Khung giờ</div>
                                                 <div class="pd-slots-headers-wrap">
-                                                    <div class="pd-slots-header-row">
+                                                    <div class="pd-date-nav-row">
+                                                        <button type="button" class="pd-date-nav-btn pd-date-nav-prev"
+                                                            style="width:22px !important;height:22px !important;min-width:22px !important;min-height:22px !important;"
+                                                            aria-label="Xem ngày trước"
+                                                            @click="$refs.pdmSlotsScroll.scrollBy({ left: -160, behavior: 'smooth' })">
+                                                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+                                                        </button>
+                                                        <span class="pd-date-nav-hint">Kéo hoặc bấm mũi tên để xem ngày khác</span>
+                                                        <button type="button" class="pd-date-nav-btn pd-date-nav-next"
+                                                            style="width:22px !important;height:22px !important;min-width:22px !important;min-height:22px !important;"
+                                                            aria-label="Xem thêm ngày"
+                                                            @click="$refs.pdmSlotsScroll.scrollBy({ left: 160, behavior: 'smooth' })">
+                                                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+                                                        </button>
+                                                    </div>
+                                                    <div class="pd-slots-header-row" x-ref="pdmHeaderScroll">
+                                                        @foreach ($dates as $date)
+                                                            @php $mhds = $date['carbon_date']->format('d/m'); @endphp
+                                                            <div class="pd-slot-th{{ $date['is_today'] ? ' is-today' : '' }}"
+                                                                style="flex:0 0 calc((100% - 12px) / 5);">
+                                                                {{ $date['day'] }}<br>{{ $mhds }}
+                                                            </div>
+                                                        @endforeach
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            {{-- Two-panel cuộn dọc (khung giờ) + ngang (ngày, đồng bộ với header trên) --}}
+                                            <div class="pd-mobile-scroll">
+                                                <div class="pd-grid-outer">
+
+                                                    {{-- Cột Khung giờ (dọc) --}}
+                                                    <div class="pd-dates-card">
                                                         @foreach ($timeSlots as $timeSlot)
                                                             @php
                                                                 $mhSt = \Carbon\Carbon::parse($timeSlot['start_time']);
@@ -1389,40 +1516,23 @@
                                                                     $mhEt->lt($mhSt) ||
                                                                     ($timeSlot['over_night'] ?? 0) == 1;
                                                             @endphp
-                                                            <div class="pd-slot-th"
-                                                                x-show="Math.floor({{ $loop->index }} / slotsPerPage) === slotPage">
-                                                                {{ $mhSt->format('H:i') }}<br>{{ $mhEt->format('H:i') }}
+                                                            <div class="pd-date-row">
+                                                                <span class="pd-date-day">{{ $mhSt->format('H:i') }}-{{ $mhEt->format('H:i') }}</span>
                                                                 @if ($mhOv)
                                                                     <span class="pd-overnight-tag">Qua đêm</span>
                                                                 @endif
                                                             </div>
                                                         @endforeach
                                                     </div>
-                                                </div>
-                                            </div>
 
-                                            {{-- Two-panel cuộn dọc --}}
-                                            <div class="pd-mobile-scroll">
-                                                <div class="pd-grid-outer">
-
-                                                    {{-- Cột Ngày --}}
-                                                    <div class="pd-dates-card">
-                                                        @foreach ($dates as $date)
-                                                            @php $mds = $date['carbon_date']->format('d/m'); @endphp
-                                                            <div
-                                                                class="pd-date-row{{ $date['is_today'] ? ' is-today' : '' }}">
-                                                                <span class="pd-date-day">{{ $date['day'] }}</span>
-                                                                <span class="pd-date-num">{{ $mds }}</span>
-                                                            </div>
-                                                        @endforeach
-                                                    </div>
-
-                                                    {{-- Cột Khung giờ --}}
+                                                    {{-- Lưới ô (ngang theo Ngày, khớp header trên) --}}
                                                     <div class="pd-slots-outer">
                                                         <div class="pd-slots-card">
-                                                            @foreach ($dates as $date)
+                                                            <div class="pd-slots-scroll" x-ref="pdmSlotsScroll"
+                                                                @scroll="$refs.pdmHeaderScroll.scrollLeft = $event.target.scrollLeft">
+                                                            @foreach ($timeSlots as $timeSlot)
                                                                 <div class="pd-slots-row">
-                                                                    @foreach ($timeSlots as $timeSlot)
+                                                                    @foreach ($dates as $date)
                                                                         @php
                                                                             $mPrice = $timeSlot['timeslot_price'] ?? 0;
                                                                             $mClasses = '';
@@ -1442,11 +1552,16 @@
                                                                                     $oItem->checkout_date,
                                                                                 );
                                                                                 if ($mCurrentDT->between($oIn, $oOut)) {
-                                                                                    if ($oItem->order) {
+                                                                                    // cancelled_at = khách đã tự huỷ đơn (xem
+                                                                                    // OrderCancellationService) — KHÔNG tính là chiếm
+                                                                                    // chỗ nữa dù status DB vẫn 'paid'/'deposit', tiếp
+                                                                                    // tục tìm order item KHÁC (có thể đã đặt lại sau đó).
+                                                                                    if ($oItem->order && is_null($oItem->order->cancelled_at)) {
                                                                                         $mStatus =
                                                                                             $oItem->order->status;
+                                                                                        break;
                                                                                     }
-                                                                                    break;
+                                                                                    continue;
                                                                                 }
                                                                             }
                                                                             if ($mStatus === 'pending') {
@@ -1596,8 +1711,7 @@
                                                                                 $mClasses .= ' promo-increase';
                                                                             }
                                                                         @endphp
-                                                                        <div class="pd-slot-cell"
-                                                                            x-show="Math.floor({{ $loop->index }} / slotsPerPage) === slotPage">
+                                                                        <div class="pd-slot-cell" style="flex:0 0 calc((100% - 12px) / 5);">
                                                                             <div class="selectable {{ $mClasses }}"
                                                                                 :class="selectedSlots.some(s => s
                                                                                     .key === '{{ $date['carbon_date']->format('Y-m-d') }}-{{ $timeSlot['timeslot_id'] }}'
@@ -1632,76 +1746,83 @@
                                                                     @endforeach
                                                                 </div>
                                                             @endforeach
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
+                                                            </div>{{-- /pd-slots-scroll --}}
+                                                        </div>{{-- /pd-slots-card --}}
+                                                    </div>{{-- /pd-slots-outer --}}
+                                                </div>{{-- /pd-grid-outer --}}
+                                            </div>{{-- /pd-mobile-scroll --}}
                                         </div>{{-- /mobile --}}
 
                                         {{-- ═════ DESKTOP: 2 khối tách rời, có khoảng cách (hidden md:block) ═════ --}}
                                         <div class="hidden md:block">
                                             {{-- Header (ngoài scroll) --}}
                                             <div class="pd-dt-header">
-                                                <div class="pd-dt-col-header">Thời gian</div>
-                                                <div class="pd-dt-slots-header-row">
-                                                    @foreach ($timeSlots as $timeSlot)
-                                                        @php
-                                                            $startTime = \Carbon\Carbon::parse(
-                                                                $timeSlot['start_time'],
-                                                            );
-                                                            $endTime = \Carbon\Carbon::parse(
-                                                                $timeSlot['end_time'],
-                                                            );
-                                                            $isOvernight =
-                                                                $endTime->isNextDay() ||
-                                                                $endTime->lt($startTime) ||
-                                                                $timeSlot['over_night'] == 1;
-                                                        @endphp
-                                                        <div class="pd-dt-slot-th">
-                                                            {{ $startTime->format('H:i') }} -
-                                                            {{ $endTime->format('H:i') }}
-                                                            <br>
-                                                            @if ($isOvernight)
-                                                                <svg class="w-4 h-4 inline"
-                                                                    style="color: #1e3a8a;"
-                                                                    xmlns="http://www.w3.org/2000/svg"
-                                                                    viewBox="0 0 24 24"
-                                                                    fill="currentColor">
-                                                                    <path fill-rule="evenodd"
-                                                                        d="M9.528 1.718a.75.75 0 0 1 .162.819A8.97 8.97 0 0 0 9 6a9 9 0 0 0 9 9 8.97 8.97 0 0 0 3.463-.69.75.75 0 0 1 .981.98 10.503 10.503 0 0 1-9.694 6.46c-5.799 0-10.5-4.7-10.5-10.5 0-4.368 2.667-8.112 6.46-9.694a.75.75 0 0 1 .818.162Z"
-                                                                        clip-rule="evenodd" />
-                                                                </svg>
-                                                                <span class="text-xs"
-                                                                    style="color: #1e3a8a;">(Qua
-                                                                    đêm)</span>
-                                                            @else
-                                                                <svg class="w-4 h-4 inline"
-                                                                    style="color: #eab308;"
-                                                                    xmlns="http://www.w3.org/2000/svg"
-                                                                    viewBox="0 0 16 16"
-                                                                    fill="currentColor">
-                                                                    <path
-                                                                        d="M8 1a.75.75 0 0 1 .75.75v1.5a.75.75 0 0 1-1.5 0v-1.5A.75.75 0 0 1 8 1ZM10.5 8a2.5 2.5 0 1 1-5 0 2.5 2.5 0 0 1 5 0ZM12.95 4.11a.75.75 0 1 0-1.06-1.06l-1.062 1.06a.75.75 0 0 0 1.061 1.062l1.06-1.061ZM15 8a.75.75 0 0 1-.75.75h-1.5a.75.75 0 0 1 0-1.5h1.5A.75.75 0 0 1 15 8ZM11.89 12.95a.75.75 0 0 0 1.06-1.06l-1.06-1.062a.75.75 0 0 0-1.062 1.061l1.061 1.06ZM8 12a.75.75 0 0 1 .75.75v1.5a.75.75 0 0 1-1.5 0v-1.5A.75.75 0 0 1 8 12ZM5.172 11.89a.75.75 0 0 0-1.061-1.062L3.05 11.89a.75.75 0 1 0 1.06 1.06l1.06-1.06ZM4 8a.75.75 0 0 1-.75.75h-1.5a.75.75 0 0 1 0-1.5h1.5A.75.75 0 0 1 4 8ZM4.11 5.172A.75.75 0 0 0 5.173 4.11L4.11 3.05a.75.75 0 1 0-1.06 1.06l1.06 1.06Z" />
-                                                                </svg>
-                                                            @endif
-                                                        </div>
-                                                    @endforeach
+                                                <div class="pd-dt-col-header">Khung giờ</div>
+                                                {{-- Header NGÀY (ngang) — chỉ hiện 5 ngày/lần (xem .pd-dt-slots-header-row
+                                                     max-width), cuộn ngang xem thêm (kéo/trượt HOẶC bấm nút Trước/Sau).
+                                                     Nút đặt position:absolute ĐÈ LÊN rìa wrapper (không phải flex-sibling
+                                                     của header-row) — nếu để nút là 1 flex item CẠNH header-row như bản
+                                                     cũ, nút sẽ cộng thêm bề rộng vào HÀNG NÀY khiến nó rộng hơn thân bảng
+                                                     bên dưới (không có nút tương ứng) → 2 khối lệch cột (đúng lỗi đã gặp).
+                                                     Bọc trong 1 wrapper cùng max-width với thân bảng, nút nổi đè lên rìa
+                                                     wrapper đó thì bề rộng thật của header-row không đổi, luôn khớp thân
+                                                     bảng. Đồng bộ với body qua x-ref có sẵn (KHÔNG đổi tên ref — giữ
+                                                     nguyên dây Alpine cũ, chỉ đổi nội dung). --}}
+                                                <div class="pd-dt-slots-header-wrap">
+                                                    <button type="button" class="pd-dt-date-nav-btn pd-dt-date-nav-prev"
+                                                        aria-label="Xem ngày trước"
+                                                        @click="$refs.pdSlotsScroll.scrollBy({ left: -560, behavior: 'smooth' })">
+                                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+                                                    </button>
+                                                    <div class="pd-dt-slots-header-row" x-ref="pdSlotsHeaderScroll">
+                                                        @foreach ($dates as $date)
+                                                            <div class="pd-dt-slot-th pd-dt-date-th {{ $date['is_today'] ? 'is-today' : '' }}">
+                                                                <div class="font-extrabold">{{ $date['day'] }}</div>
+                                                                <div class="text-[10px] text-gray-500 font-normal">
+                                                                    {{ $date['date'] }}</div>
+                                                            </div>
+                                                        @endforeach
+                                                    </div>
+                                                    <button type="button" class="pd-dt-date-nav-btn pd-dt-date-nav-next"
+                                                        aria-label="Xem thêm ngày"
+                                                        @click="$refs.pdSlotsScroll.scrollBy({ left: 560, behavior: 'smooth' })">
+                                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+                                                    </button>
                                                 </div>
                                             </div>
+                                            <!-- <p class="text-[11px] text-gray-400 mt-1 mb-2">Kéo ngang hoặc bấm mũi tên để xem thêm ngày khác</p> -->
 
                                             {{-- Thân: 2 card tách rời — khung (viền/bo góc) đứng yên, chỉ nội
                                                  dung bên trong mỗi card cuộn dọc, đồng bộ 2 chiều qua @scroll --}}
                                             <div class="pd-dt-grid-outer">
-                                                {{-- Cột Ngày --}}
+                                                {{-- Cột Khung giờ (dọc) — ref pdDatesScroll giữ nguyên tên (chỉ đổi
+                                                     nội dung), vẫn đồng bộ cuộn DỌC với body như cũ. --}}
                                                 <div class="pd-dt-dates-card">
                                                     <div class="pd-dt-dates-scroll" x-ref="pdDatesScroll"
                                                         @scroll="$refs.pdSlotsScroll.scrollTop = $event.target.scrollTop">
-                                                        @foreach ($dates as $date)
-                                                            <div class="pd-dt-date-row {{ $date['is_today'] ? 'is-today' : '' }}">
-                                                                <div class="font-extrabold">
-                                                                    {{ $date['day'] }}</div>
-                                                                <div class="text-[10px] text-gray-500 font-normal">
-                                                                    {{ $date['date'] }}</div>
+                                                        @foreach ($timeSlots as $timeSlot)
+                                                            @php
+                                                                $rowStartTime = \Carbon\Carbon::parse($timeSlot['start_time']);
+                                                                $rowEndTime = \Carbon\Carbon::parse($timeSlot['end_time']);
+                                                                $rowIsOvernight =
+                                                                    $rowEndTime->isNextDay() ||
+                                                                    $rowEndTime->lt($rowStartTime) ||
+                                                                    $timeSlot['over_night'] == 1;
+                                                            @endphp
+                                                            <div class="pd-dt-date-row pd-dt-time-row">
+                                                                <div class="font-extrabold text-xs">
+                                                                    {{ $rowStartTime->format('H:i') }} - {{ $rowEndTime->format('H:i') }}
+                                                                </div>
+                                                                @if ($rowIsOvernight)
+                                                                    <div class="text-[10px] font-normal flex items-center gap-1" style="color:#1e3a8a;">
+                                                                        <svg class="w-3 h-3 inline" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+                                                                            <path fill-rule="evenodd" d="M9.528 1.718a.75.75 0 0 1 .162.819A8.97 8.97 0 0 0 9 6a9 9 0 0 0 9 9 8.97 8.97 0 0 0 3.463-.69.75.75 0 0 1 .981.98 10.503 10.503 0 0 1-9.694 6.46c-5.799 0-10.5-4.7-10.5-10.5 0-4.368 2.667-8.112 6.46-9.694a.75.75 0 0 1 .818.162Z" clip-rule="evenodd" />
+                                                                        </svg>
+                                                                        Qua đêm
+                                                                    </div>
+                                                                @else
+                                                                    <div class="text-[10px] text-gray-500 font-normal">Trong ngày</div>
+                                                                @endif
                                                             </div>
                                                         @endforeach
                                                     </div>
@@ -1711,10 +1832,15 @@
                                                 <div class="pd-dt-slots-outer">
                                                     <div class="pd-dt-slots-card">
                                                         <div class="pd-dt-slots-scroll" x-ref="pdSlotsScroll"
-                                                            @scroll="$refs.pdDatesScroll.scrollTop = $event.target.scrollTop">
-                                                            @foreach ($dates as $date)
+                                                            @scroll="$refs.pdDatesScroll.scrollTop = $event.target.scrollTop; $refs.pdSlotsHeaderScroll.scrollLeft = $event.target.scrollLeft">
+                                                            {{-- Đổi trục: hàng = khung giờ, cột = ngày (yêu cầu người
+                                                                 dùng) — vòng lặp đổi chỗ cho nhau, KHÔNG đụng logic
+                                                                 tính giá/trạng thái từng ô bên trong (vẫn dùng đúng
+                                                                 $date + $timeSlot của chính nó, không phụ thuộc thứ
+                                                                 tự lồng). --}}
+                                                            @foreach ($timeSlots as $timeSlot)
                                                                 <div class="pd-dt-slots-row">
-                                                                    @foreach ($timeSlots as $timeSlot)
+                                                                    @foreach ($dates as $date)
                                                                         @php
                                                                             $price = $timeSlot['timeslot_price'] ?? 0;
                                                                             $classes = '';
@@ -1745,12 +1871,15 @@
                                                                                         $checkout,
                                                                                     )
                                                                                 ) {
-                                                                                    if ($orderItem->order) {
+                                                                                    // cancelled_at = khách đã tự huỷ đơn — không tính
+                                                                                    // là chiếm chỗ nữa, tiếp tục tìm order item khác.
+                                                                                    if ($orderItem->order && is_null($orderItem->order->cancelled_at)) {
                                                                                         $status =
                                                                                             $orderItem->order->status;
+                                                                                        $matchedItem = $orderItem;
+                                                                                        break;
                                                                                     }
-                                                                                    $matchedItem = $orderItem;
-                                                                                    break;
+                                                                                    continue;
                                                                                 }
                                                                             }
                                                                             if ($status === 'pending') {
@@ -2127,8 +2256,8 @@
                 </div>
                 @endif
 
-                {{-- Section 2 cột dưới lịch đặt phòng: cột 1 = Chi tiết thanh toán, cột 2 = Thời
-                     gian đã chọn (nhận phòng/trả phòng/tổng khung giờ). --}}
+                {{-- Section 2 cột dưới lịch đặt sân: cột 1 = Chi tiết thanh toán, cột 2 = Thời
+                     gian đã chọn (nhận sân/trả sân/tổng khung giờ). --}}
                 @if ($bookingStyle == 1)
                     <div class="w-full mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
                         {{-- Cột 1: Chi tiết thanh toán --}}
@@ -2206,7 +2335,7 @@
                                 {{-- Giảm giá Full booking --}}
                                 @if ($fullBookingDiscount > 0)
                                     <div class="flex items-center justify-between">
-                                        <span class="text-[#717171]">Giảm giá đặt Full phòng</span>
+                                        <span class="text-[#717171]">Giảm giá đặt Full sân</span>
                                         <span class="font-semibold text-primary">-{{ number_format($fullBookingDiscount, 0, ',', '.') }}đ</span>
                                     </div>
                                 @endif
@@ -2257,12 +2386,12 @@
                             @if (!empty($selectedSlots) && !empty($pdDisplayStart) && !empty($pdDisplayEnd))
                                 <div class="grid grid-cols-2 gap-3">
                                     <div class="rounded-xl border border-[#DDDDDD] p-3 text-center">
-                                        <p class="text-[10px] font-semibold uppercase tracking-wide text-[#717171] mb-1">Nhận phòng</p>
+                                        <p class="text-[10px] font-semibold uppercase tracking-wide text-[#717171] mb-1">Nhận sân</p>
                                         <p class="text-lg font-bold text-[#222222]">{{ \Carbon\Carbon::parse($pdDisplayStart)->format('H:i') }}</p>
                                         <p class="text-xs text-[#717171] mt-0.5">{{ \Carbon\Carbon::parse($pdDisplayStart)->format('d/m/Y') }}</p>
                                     </div>
                                     <div class="rounded-xl border border-[#DDDDDD] p-3 text-center">
-                                        <p class="text-[10px] font-semibold uppercase tracking-wide text-[#717171] mb-1">Trả phòng</p>
+                                        <p class="text-[10px] font-semibold uppercase tracking-wide text-[#717171] mb-1">Trả sân</p>
                                         <p class="text-lg font-bold text-[#222222]">{{ \Carbon\Carbon::parse($pdDisplayEnd)->format('H:i') }}</p>
                                         <p class="text-xs text-[#717171] mt-0.5">{{ \Carbon\Carbon::parse($pdDisplayEnd)->format('d/m/Y') }}</p>
                                     </div>
@@ -2271,7 +2400,7 @@
                                     {{ count($selectedSlots) }} khung giờ đã chọn
                                 </p>
                             @else
-                                <p class="text-sm text-[#717171] text-center py-6">Vui lòng chọn khung giờ ở lịch đặt phòng phía trên.</p>
+                                <p class="text-sm text-[#717171] text-center py-6">Vui lòng chọn khung giờ ở lịch đặt sân phía trên.</p>
                             @endif
                         </div>
                     </div>
@@ -2280,7 +2409,7 @@
                     <div class="text-left mt-4">
                         @if ($hasFullDayBooking)
                             <p class="text-primary text-xs">
-                                * Đã áp dụng ưu đãi đặc biệt cho Full phòng — các khuyến mãi khác không áp dụng khi đặt full phòng.
+                                * Đã áp dụng ưu đãi đặc biệt cho Full sân — các khuyến mãi khác không áp dụng khi đặt full sân.
                             </p>
                         @else
                             @php
@@ -2313,7 +2442,7 @@
              vẫn được Livewire cập nhật bình thường. --}}
         <div class="w-full lg:sticky lg:top-32" id="pd-booking-form" wire:ignore.self
             data-preselected="{{ $fromBookingPage ? '1' : '0' }}">
-            {{-- Thông tin đặt phòng --}}
+            {{-- Thông tin đặt sân --}}
             @include('bladethemev1::components.product-detail.infomation-book-room')
         </div>
     </div>

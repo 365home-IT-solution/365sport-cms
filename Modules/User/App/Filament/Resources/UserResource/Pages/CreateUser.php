@@ -27,7 +27,7 @@ class CreateUser extends CreateRecord
     // - 'employee' (Nhân viên): tạo ĐỒNG THỜI 1 User (đăng nhập) + 1 Employee (hồ sơ) liên kết.
     // - 'partner' (Chủ đối tác): CHỈ tạo 1 User, không có hồ sơ Employee. Chỉ super_admin được
     //   phép tạo loại này — đối tác/nhân viên đăng nhập không có quyền tạo đối tác khác, nên ép
-    //   'employee' bất kể giá trị gửi lên (phòng trường hợp field ẩn bị can thiệp từ client).
+    //   'employee' bất kể giá trị gửi lên (sân trường hợp field ẩn bị can thiệp từ client).
     protected function handleRecordCreation(array $data): Model
     {
         $authUser   = auth()->user();

@@ -14,7 +14,7 @@ return new class extends Migration
 
         Schema::create('room_additional_service_assigns', function (Blueprint $table) {
             $table->id();
-            $table->char('room_id', 26)->comment('ULID của phòng (products.id)');
+            $table->char('room_id', 26)->comment('ULID của sân (products.id)');
             $table->unsignedBigInteger('additional_service_id')->comment('ID dịch vụ bổ sung');
 
             $table->unique(['room_id', 'additional_service_id'], 'room_service_unique');

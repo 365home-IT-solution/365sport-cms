@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Đặt phòng thành công</title>
+    <title>Đặt sân thành công</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
         * {
@@ -382,9 +382,9 @@
             </div>
             @if($isDepositOrder)
             <h1 class="success-title">Đặt cọc thành công!</h1>
-            <p class="success-subtitle">Cọc {{ $order->deposit_percent }}% đã được xác nhận — vui lòng thanh toán phần còn lại khi nhận phòng</p>
+            <p class="success-subtitle">Cọc {{ $order->deposit_percent }}% đã được xác nhận — vui lòng thanh toán phần còn lại khi nhận sân</p>
             @else
-            <h1 class="success-title">Đặt phòng thành công!</h1>
+            <h1 class="success-title">Đặt sân thành công!</h1>
             <p class="success-subtitle">Cảm ơn bạn đã tin tưởng dịch vụ của chúng tôi</p>
             @endif
         </div>
@@ -454,7 +454,7 @@
             <div class="detail-section">
                 <h3 class="section-title">
                     <i class="fas fa-bed"></i>
-                    Chi tiết phòng đã đặt ({{ $order->items->count() }} khung giờ)
+                    Chi tiết sân đã đặt ({{ $order->items->count() }} khung giờ)
                 </h3>
 
                 @foreach($order->items as $index => $item)
@@ -466,7 +466,7 @@
                 <div class="room-card">
                     <div class="room-header">
                         <div>
-                            <div class="room-name">{{ $index + 1 }}. {{ $item->name ?? 'Phòng' }}</div>
+                            <div class="room-name">{{ $index + 1 }}. {{ $item->name ?? 'Sân' }}</div>
                             @if($checkinDateTime && $checkoutDateTime)
                             <div class="room-time">
                                 <i class="far fa-clock"></i>
@@ -500,10 +500,10 @@
             <div class="detail-section">
                 <h3 class="section-title">
                     <i class="fas fa-bed"></i>
-                    Thông tin phòng
+                    Thông tin sân
                 </h3>
                 <div class="room-card">
-                    <div class="room-name">Không có thông tin phòng</div>
+                    <div class="room-name">Không có thông tin sân</div>
                 </div>
             </div>
             @endif
@@ -537,7 +537,7 @@
                         $depositRemaining   = $depositFullAmount - $depositPaidAmount;
                     @endphp
                     <div class="price-row">
-                        <span>Tổng tiền phòng ({{ $order->items->count() > 1 ? $order->items->count() . ' đêm' : '1 đêm' }}):</span>
+                        <span>Tổng tiền sân ({{ $order->items->count() > 1 ? $order->items->count() . ' đêm' : '1 đêm' }}):</span>
                         <span>{{ number_format($depositFullAmount, 0, ',', '.') }}đ</span>
                     </div>
                     <div class="price-row" style="color:#f59e0b; background:#fffbeb; margin:0 -10px; padding:8px 10px; border-radius:5px;">
@@ -545,12 +545,12 @@
                         <span style="font-weight:700;">{{ number_format($depositPaidAmount, 0, ',', '.') }}đ</span>
                     </div>
                     <div class="price-row" style="color:#6b7280; border-top:1px dashed #e5e7eb; margin-top:8px; padding-top:8px;">
-                        <span>⏳ Còn lại thanh toán khi nhận phòng:</span>
+                        <span>⏳ Còn lại thanh toán khi nhận sân:</span>
                         <span style="font-weight:600;">{{ number_format($depositRemaining, 0, ',', '.') }}đ</span>
                     </div>
                     <div style="background:#fffbeb; border:1px solid #fbbf24; border-radius:8px; padding:12px; margin-top:12px; font-size:13px; color:#92400e;">
                         <i class="fas fa-info-circle"></i>
-                        Số tiền còn lại <strong>{{ number_format($depositRemaining, 0, ',', '.') }}đ</strong> sẽ được thanh toán khi bạn tra cứu đơn hoặc khi nhận phòng. Mã mở khóa cổng sẽ được cấp sau khi thanh toán đủ.
+                        Số tiền còn lại <strong>{{ number_format($depositRemaining, 0, ',', '.') }}đ</strong> sẽ được thanh toán khi bạn tra cứu đơn hoặc khi nhận sân. Mã mở khóa cổng sẽ được cấp sau khi thanh toán đủ.
                     </div>
                     @else
                     {{-- Full payment breakdown --}}
@@ -613,7 +613,7 @@
             </a>
             <a target="_blank" href="{{ route('booking.detail', ['code' => $order->order_code]) }}" class="btn btn-secondary">
                 <i class="fas fa-search"></i>
-                Tra cứu đơn đặt phòng ngay
+                Tra cứu đơn đặt sân ngay
             </a>
         </div>
     </div>

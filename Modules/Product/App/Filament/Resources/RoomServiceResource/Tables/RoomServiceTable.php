@@ -23,7 +23,7 @@ class RoomServiceTable
                     ->width(60),
 
                 TextColumn::make('product.name')
-                    ->label('Phòng')
+                    ->label('Sân')
                     ->searchable()
                     ->sortable(),
 
@@ -62,7 +62,7 @@ class RoomServiceTable
             ])
             ->filters([
                 SelectFilter::make('product_id')
-                    ->label('Phòng')
+                    ->label('Sân')
                     ->relationship('product', 'name'),
                 PartnerTableHelpers::filterThroughRelation('product'),
             ])

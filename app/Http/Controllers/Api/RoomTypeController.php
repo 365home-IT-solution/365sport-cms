@@ -37,7 +37,7 @@ class RoomTypeController extends Controller
         $roomType = RoomType::where('id', $id)->where('is_active', true)->first();
 
         if (! $roomType) {
-            return response()->json(['message' => 'Không tìm thấy loại phòng.'], 404);
+            return response()->json(['message' => 'Không tìm thấy loại sân.'], 404);
         }
 
         $province = $this->resolveProvince($request);
@@ -61,7 +61,7 @@ class RoomTypeController extends Controller
         ]);
     }
 
-    // Có province: lấy branches của tỉnh đó, lọc phòng theo room_type trong từng branch
+    // Có province: lấy branches của tỉnh đó, lọc sân theo room_type trong từng branch
     private function branchesWithProvince(int $roomTypeId, Province $province, ?array $wishlistedIds): array
     {
         return $province->branches()
@@ -106,7 +106,7 @@ class RoomTypeController extends Controller
             ->toArray();
     }
 
-    // Không có province: hiển thị tất cả phòng, group theo parent category
+    // Không có province: hiển thị tất cả sân, group theo parent category
     private function branchesWithoutProvince(int $roomTypeId, ?array $wishlistedIds): array
     {
         $products = Product::where('room_type_id', $roomTypeId)

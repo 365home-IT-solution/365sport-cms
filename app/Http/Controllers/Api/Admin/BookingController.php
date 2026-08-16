@@ -27,7 +27,7 @@ class BookingController extends Controller
 
     /**
      * POST /api/admin/orders
-     * Admin/lễ tân tạo đơn đặt phòng hộ khách — dùng chung 1 API cho cả 2 trường hợp:
+     * Admin/lễ tân tạo đơn đặt sân hộ khách — dùng chung 1 API cho cả 2 trường hợp:
      *   - Khách vãng lai: gửi buyer_name + buyer_phone, không có customer_id/customer_phone.
      *   - Khách đã là thành viên: gửi customer_id (hoặc customer_phone để tự tra), đơn được
      *     gắn customer_id như đơn khách tự đặt qua app.
@@ -117,7 +117,7 @@ class BookingController extends Controller
             $buyerPhone = trim($request->input('buyer_phone'));
         }
 
-        // ── 3. Load phòng + kiểm tra quyền theo đối tác ────────────────────────
+        // ── 3. Load sân + kiểm tra quyền theo đối tác ────────────────────────
         $room = Product::where('id', $request->input('room_id'))
             ->where('is_activated', true)
             ->with([
@@ -129,17 +129,17 @@ class BookingController extends Controller
             ->first();
 
         if (! $room) {
-            return response()->json(['message' => 'Phòng không tồn tại hoặc đã ngừng hoạt động.'], 404);
+            return response()->json(['message' => 'Sân không tồn tại hoặc đã ngừng hoạt động.'], 404);
         }
 
         // Nhân viên đối tác nền tảng (vd 365home) được đặt hộ cho MỌI đối tác — xem
-        // User::belongsToPlatformPartner(). Nhân viên đối tác thường chỉ được đặt phòng
+        // User::belongsToPlatformPartner(). Nhân viên đối tác thường chỉ được đặt sân
         // thuộc chính đối tác mình.
         if (! $admin->isSuperAdmin() && ! $admin->belongsToPlatformPartner() && $room->partner_id !== $admin->partner_id) {
-            return response()->json(['message' => 'Bạn không có quyền đặt phòng của đối tác khác.'], 403);
+            return response()->json(['message' => 'Bạn không có quyền đặt sân của đối tác khác.'], 403);
         }
 
-        // ── 4. Xây dựng items đặt phòng ──────────────────────────────────────
+        // ── 4. Xây dựng items đặt sân ──────────────────────────────────────
         $rtsCollection = collect();
         $slotSummary   = [];
 
@@ -353,7 +353,7 @@ class BookingController extends Controller
                 'full_amount'     => $finalAmount,
                 'deposit_percent' => $depositPercentToSave,
                 // Admin có thể tự nhập mô tả; không gửi thì fallback về mô tả tự sinh như trước.
-                'description'       => $request->input('description') ?: ('Đặt phòng (admin) - ' . $room->name),
+                'description'       => $request->input('description') ?: ('Đặt sân (admin) - ' . $room->name),
                 'short_description' => $request->input('short_description'),
                 'buyer_name'      => $buyerName,
                 'buyer_phone'     => $buyerPhone,
@@ -362,9 +362,9 @@ class BookingController extends Controller
                 'guest_count'     => $request->guest_count,
                 'note_for_admin'  => $request->input('note_for_admin'),
                 'category_id'     => $category?->id,
-                // Đơn gán theo đúng partner_id của PHÒNG đang đặt (không phải của admin đang tạo) —
+                // Đơn gán theo đúng partner_id của SÂN đang đặt (không phải của admin đang tạo) —
                 // nhân viên đối tác nền tảng có thể đặt hộ cho đối tác khác (đã check quyền ở bước 3),
-                // nên partner_id phải phản ánh đúng chủ sở hữu phòng.
+                // nên partner_id phải phản ánh đúng chủ sở hữu sân.
                 'partner_id'      => $room->partner_id,
                 'customer_id'     => $customer?->id,
                 // Ghi nhận admin/lễ tân đã tạo đơn này — dùng để tra lại đơn đặt hộ (xem Order::creator()).
@@ -546,11 +546,11 @@ class BookingController extends Controller
             ->first();
 
         if (! $room) {
-            return response()->json(['message' => 'Phòng không tồn tại hoặc đã ngừng hoạt động.'], 404);
+            return response()->json(['message' => 'Sân không tồn tại hoặc đã ngừng hoạt động.'], 404);
         }
 
         if (! $admin->isSuperAdmin() && ! $admin->belongsToPlatformPartner() && $room->partner_id !== $admin->partner_id) {
-            return response()->json(['message' => 'Bạn không có quyền đặt phòng của đối tác khác.'], 403);
+            return response()->json(['message' => 'Bạn không có quyền đặt sân của đối tác khác.'], 403);
         }
 
         return response()->json($this->computeBookingPreview($request, $room));

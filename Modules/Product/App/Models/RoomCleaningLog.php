@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Modules\Employee\Entities\Employee;
 use Modules\Payment\Entities\OrderItem;
 
-// Lịch sử "dọn vệ sinh" của từng phòng: 1 dòng/lượt — được tạo khi phòng hết giờ đặt (tự động,
+// Lịch sử "dọn vệ sinh" của từng sân: 1 dòng/lượt — được tạo khi sân hết giờ đặt (tự động,
 // xem app/Console/Commands/MarkRoomsForCleaningCommand.php) hoặc đánh dấu thủ công, và được cập
 // nhật (employee_id, cleaned_at) khi nhân viên xác nhận đã dọn xong (xem ProductAction).
 class RoomCleaningLog extends Model

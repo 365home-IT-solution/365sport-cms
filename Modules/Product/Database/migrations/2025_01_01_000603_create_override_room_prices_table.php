@@ -16,8 +16,8 @@ return new class extends Migration
             $table->id();
             $table->char('room_id', 26);
             $table->date('date')->comment('Ngày áp dụng ghi đè');
-            $table->time('checkin')->nullable()->comment('Giờ nhận phòng ghi đè');
-            $table->time('checkout')->nullable()->comment('Giờ trả phòng ghi đè');
+            $table->time('checkin')->nullable()->comment('Giờ nhận sân ghi đè');
+            $table->time('checkout')->nullable()->comment('Giờ trả sân ghi đè');
             $table->unsignedBigInteger('price_override')->nullable()->comment('Giá ghi đè VNĐ');
             $table->timestamps();
 

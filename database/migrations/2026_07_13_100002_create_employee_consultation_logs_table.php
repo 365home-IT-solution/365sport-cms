@@ -6,7 +6,7 @@ use Illuminate\Support\Facades\Schema;
 
 // Ghi nhận mỗi lượt lễ tân/nhân viên tư vấn khách hàng — dùng để tính lương theo lượt (xem
 // migration add_piece_rate_fields_to_salary_types_table + Employee::getFinalSalaryAttribute()).
-// Lượt dọn phòng đã có sẵn ở bảng room_cleaning_logs (employee_id + cleaned_at), không cần bảng
+// Lượt dọn sân đã có sẵn ở bảng room_cleaning_logs (employee_id + cleaned_at), không cần bảng
 // riêng; nhưng "tư vấn khách hàng" trước giờ chưa được ghi nhận ở đâu cả nên phải tạo bảng mới.
 return new class extends Migration
 {

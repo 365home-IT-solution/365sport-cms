@@ -28,7 +28,7 @@ return [
             'category_type' => 'Chọn loại hiển thị...',
         ],
         'options' => [
-            'product' => 'Phòng',
+            'product' => 'Sân',
             'post' => 'Bài viết',
         ],
         'icons' => [
@@ -51,7 +51,7 @@ return [
             'parent_id' => 'Chi nhánh gốc',
         ],
         'options' => [
-            'product' => 'Phòng',
+            'product' => 'Sân',
             'post' => 'Bài viết',
             'active' => 'Hiển thị',
             'inactive' => 'Ẩn'
@@ -73,7 +73,7 @@ return [
         'options' => [
             'active' => 'Hiển thị',
             'inactive' => 'Ẩn',
-            'product' => 'Phòng',
+            'product' => 'Sân',
             'post' => 'Bài viết'
         ],
     ],

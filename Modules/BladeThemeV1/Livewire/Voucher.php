@@ -15,14 +15,14 @@ class Voucher extends Component
      */
     public function mount(): void
     {
-        $this->logo = (new GeneralSettings())->brand_logo;
+        $this->logo = (new GeneralSettings())->brand_logo ?? '';
 
         $this->vouchers = [
             [
                 'label'       => 'Ưu đãi giờ vàng',
                 'timeRange'   => 'Áp dụng 10:00 – 16:00 hằng ngày',
                 'title'       => 'Giảm 30%',
-                'description' => 'Khi thuê phòng theo giờ',
+                'description' => 'Khi thuê sân theo giờ',
                 'code'        => 'GIOVANG30',
                 'note'        => 'Số lượng ưu đãi có hạn mỗi ngày',
                 'emoji'       => '☀️',
@@ -32,7 +32,7 @@ class Voucher extends Component
                 'label'       => 'Ưu đãi giờ khuya',
                 'timeRange'   => 'Áp dụng 22:00 – 06:00 hằng ngày',
                 'title'       => 'Giảm 20%',
-                'description' => 'Khi thuê phòng theo giờ',
+                'description' => 'Khi thuê sân theo giờ',
                 'code'        => 'GIOKHUYA20',
                 'note'        => 'Số lượng ưu đãi có hạn mỗi ngày',
                 'emoji'       => '🌙',
@@ -40,9 +40,9 @@ class Voucher extends Component
             ],
             [
                 'label'       => 'Quà tặng kèm',
-                'timeRange'   => 'Khi đặt phòng từ 3 giờ trở lên',
+                'timeRange'   => 'Khi đặt sân từ 3 giờ trở lên',
                 'title'       => 'Tặng bánh ngọt',
-                'description' => 'Cho mỗi lượt đặt phòng',
+                'description' => 'Cho mỗi lượt đặt sân',
                 'code'        => 'FREECAKE',
                 'note'        => 'Số lượng ưu đãi có hạn mỗi ngày',
                 'emoji'       => '🎂',
@@ -50,9 +50,9 @@ class Voucher extends Component
             ],
             [
                 'label'       => 'Quà tặng kèm',
-                'timeRange'   => 'Khi đặt phòng buổi tối',
+                'timeRange'   => 'Khi đặt sân buổi tối',
                 'title'       => 'Tặng nước ngọt',
-                'description' => 'Cho mỗi lượt đặt phòng',
+                'description' => 'Cho mỗi lượt đặt sân',
                 'code'        => 'FREEDRINK',
                 'note'        => 'Số lượng ưu đãi có hạn mỗi ngày',
                 'emoji'       => '🥤',

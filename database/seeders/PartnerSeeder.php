@@ -28,9 +28,9 @@ class PartnerSeeder extends Seeder
 {
     // Tạo N đối tác mẫu, mỗi đối tác có đủ dữ liệu nghiệp vụ (≥2 bản ghi/loại) thuộc phạm vi đã
     // lọc theo partner_id — để kiểm tra toàn diện việc cô lập dữ liệu giữa các đối tác:
-    // chi nhánh, phòng, nhân viên, coupon, khuyến mãi, đơn hàng, mã mở cửa, tài khoản TTLock, audit log.
+    // chi nhánh, sân, nhân viên, coupon, khuyến mãi, đơn hàng, mã mở cửa, tài khoản TTLock, audit log.
     //
-    // Tên các bản ghi nghiệp vụ (phòng/chi nhánh/coupon/dịch vụ...) KHÔNG gắn tên đối tác vào —
+    // Tên các bản ghi nghiệp vụ (sân/chi nhánh/coupon/dịch vụ...) KHÔNG gắn tên đối tác vào —
     // việc phân biệt dữ liệu của đối tác nào đã có badge màu riêng theo từng đối tác ở trang
     // super_admin (xem App\Filament\Support\PartnerTableHelpers), nên tên vẫn bình thường như một
     // đối tác thật tự đặt, không lộ ra ngoài trang khách hàng.
@@ -50,8 +50,8 @@ class PartnerSeeder extends Seeder
         $positionLeTan        = Position::firstOrCreate(['slug' => 'nhan-vien-le-tan'], ['name' => 'Nhân viên lễ tân', 'status' => true]);
         $positionNhanVien     = Position::firstOrCreate(['slug' => 'nhan-vien'], ['name' => 'Nhân viên', 'status' => true]);
 
-        // Cùng lý do như Department/Position ở trên — đoạn seed phòng bên dưới cũng giả định sẵn
-        // room_type_id 1/2 đã tồn tại, nhưng không có seeder nào tạo loại phòng cả.
+        // Cùng lý do như Department/Position ở trên — đoạn seed sân bên dưới cũng giả định sẵn
+        // room_type_id 1/2 đã tồn tại, nhưng không có seeder nào tạo loại sân cả.
         $roomTypeHomestay  = RoomType::firstOrCreate(['slug' => 'homestay'], ['name' => 'Homestay', 'is_active' => true]);
         $roomTypeKhachSan  = RoomType::firstOrCreate(['slug' => 'khach-san'], ['name' => 'Khách sạn', 'is_active' => true]);
 
@@ -164,7 +164,7 @@ class PartnerSeeder extends Seeder
                 );
             }
 
-            // 2 phòng, mỗi phòng 1 loại phòng (room_type_id) khác nhau và gán vào 1 chi nhánh khác nhau
+            // 2 sân, mỗi sân 1 loại sân (room_type_id) khác nhau và gán vào 1 chi nhánh khác nhau
             $roomTypeIds = [1 => $roomTypeHomestay->id, 2 => $roomTypeKhachSan->id];
             $roomTypeLabels = [1 => 'Homestay', 2 => 'Khách sạn'];
 
@@ -176,8 +176,8 @@ class PartnerSeeder extends Seeder
                     ['slug' => "phong-{$r}-partner-{$n}"],
                     [
                         'partner_id'   => $partner->id,
-                        'name'         => "Phòng {$roomLabel}",
-                        'description'  => "Phòng loại {$roomLabel}",
+                        'name'         => "Sân {$roomLabel}",
+                        'description'  => "Sân loại {$roomLabel}",
                         'price'        => 500000 + ($r * 100000),
                         'room_type_id' => $roomTypeIds[$r] ?? null,
                         'is_in_stock'  => true,
@@ -194,7 +194,7 @@ class PartnerSeeder extends Seeder
             }
 
             // 2 tiện ích riêng của đối tác (mỗi đối tác tự định nghĩa, không dùng chung danh mục
-            // tiện ích của đối tác khác) — gán cả 2 vào cả 2 phòng để test hiển thị.
+            // tiện ích của đối tác khác) — gán cả 2 vào cả 2 sân để test hiển thị.
             $amenityData = [
                 1 => ['type' => 'Phòng tắm', 'name' => 'Vòi sen nóng lạnh'],
                 2 => ['type' => 'Tiện nghi', 'name' => 'Điều hòa 2 chiều'],
@@ -211,7 +211,7 @@ class PartnerSeeder extends Seeder
                 }
             }
 
-            // 2 dịch vụ bổ sung riêng của đối tác (vd đưa đón sân bay, giặt ủi) — gán vào cả 2 phòng
+            // 2 dịch vụ bổ sung riêng của đối tác (vd đưa đón sân bay, giặt ủi) — gán vào cả 2 sân
             $additionServiceData = [
                 1 => ['name' => 'Đưa đón sân bay', 'price' => 200000],
                 2 => ['name' => 'Giặt ủi', 'price' => 50000],
@@ -228,7 +228,7 @@ class PartnerSeeder extends Seeder
                 }
             }
 
-            // 2 dịch vụ phòng + 2 điểm đặc biệt, mỗi phòng 1 cái (kế thừa partner_id qua product_id)
+            // 2 dịch vụ sân + 2 điểm đặc biệt, mỗi sân 1 cái (kế thừa partner_id qua product_id)
             foreach ($rooms as $idx => $room) {
                 RoomService::updateOrCreate(
                     ['product_id' => $room->id, 'name' => 'Dịch vụ Ăn sáng'],
@@ -237,7 +237,7 @@ class PartnerSeeder extends Seeder
 
                 RoomSpecial::updateOrCreate(
                     ['product_id' => $room->id, 'title' => 'Miễn phí WiFi tốc độ cao'],
-                    ['icon' => 'wifi', 'short_description' => 'Áp dụng cho toàn bộ phòng', 'sort_order' => $idx]
+                    ['icon' => 'wifi', 'short_description' => 'Áp dụng cho toàn bộ sân', 'sort_order' => $idx]
                 );
             }
 

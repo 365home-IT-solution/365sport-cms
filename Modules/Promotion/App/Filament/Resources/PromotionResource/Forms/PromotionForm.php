@@ -301,7 +301,7 @@ class PromotionForm
                             if (! $isIncrease) {
                                 $discountRoomTabs = [];
                                 foreach ($roomTimeSlots as $roomId => $slots) {
-                                    $roomName           = $slots->first()->room->name ?? 'Phòng ' . $roomId;
+                                    $roomName           = $slots->first()->room->name ?? 'Sân ' . $roomId;
                                     $discountRoomTabs[] = Tabs\Tab::make($roomName)
                                         ->badge($slots->count())
                                         ->schema([
@@ -316,7 +316,7 @@ class PromotionForm
                             if ($isIncrease) {
                                 $increaseRoomTabs = [];
                                 foreach ($roomTimeSlots as $roomId => $slots) {
-                                    $roomName           = $slots->first()->room->name ?? 'Phòng ' . $roomId;
+                                    $roomName           = $slots->first()->room->name ?? 'Sân ' . $roomId;
                                     $increaseRoomTabs[] = Tabs\Tab::make($roomName)
                                         ->badge($slots->count())
                                         ->schema([

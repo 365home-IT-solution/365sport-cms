@@ -26,9 +26,9 @@ class OrderController extends Controller
 
     /**
      * GET /api/admin/orders
-     * Danh sách đơn đặt phòng lọc theo đối tác của tài khoản đang đăng nhập — user thuộc đối
+     * Danh sách đơn đặt sân lọc theo đối tác của tài khoản đang đăng nhập — user thuộc đối
      * tác nào (users.partner_id) chỉ thấy đơn của các chi nhánh thuộc đối tác đó
-     * (orders.partner_id, gán theo chi nhánh lúc đặt phòng — xem BelongsToPartner/Order::creating).
+     * (orders.partner_id, gán theo chi nhánh lúc đặt sân — xem BelongsToPartner/Order::creating).
      * super_admin xem toàn bộ, không lọc.
      *
      * Mọi filter đọc được qua CẢ 2 cách tương đương — query param phẳng (?branch_id=...) HOẶC gộp
@@ -45,13 +45,13 @@ class OrderController extends Controller
      *                             lọc đơn thuộc (những) chi nhánh đó KÈM toàn bộ khu vực con của
      *                             nó. Có cả 2 (branch_id lẫn categories) thì categories thắng. Slug
      *                             không khớp chi nhánh nào → trả rỗng thay vì bỏ qua filter.
-     *  - filter[room_id]        : lọc đơn có ít nhất 1 item thuộc phòng này (order_items.product_id)
+     *  - filter[room_id]        : lọc đơn có ít nhất 1 item thuộc sân này (order_items.product_id)
      *  - filter[status]         : pending|paid|deposit|cancelled|failed|refunded|shipped...
      *  - filter[payment_method] : PayOS|cod
      *  - filter[search]         : order_code / buyer_name / buyer_phone
      *  - filter[from], filter[to]       : lọc theo ngày TẠO đơn — created_at (yyyy-mm-dd)
-     *  - filter[checkin_date]   : lọc theo ngày NHẬN phòng (order_items.checkin_date, yyyy-mm-dd)
-     *  - filter[checkout_date]  : lọc theo ngày TRẢ phòng (order_items.checkout_date, yyyy-mm-dd)
+     *  - filter[checkin_date]   : lọc theo ngày NHẬN sân (order_items.checkin_date, yyyy-mm-dd)
+     *  - filter[checkout_date]  : lọc theo ngày TRẢ sân (order_items.checkout_date, yyyy-mm-dd)
      *    Gửi CẢ HAI cùng lúc = lọc đơn có 1 item khớp ĐÚNG cặp nhận-trả này (không phải 2 item
      *    khác nhau) — vd filter[checkin_date]=2026-08-01&filter[checkout_date]=2026-08-03.
      *  - per_page (không nằm trong filter) : mặc định 10
@@ -103,7 +103,7 @@ class OrderController extends Controller
             })
             ->when(filled($f('from')), fn ($q) => $q->whereDate('created_at', '>=', $f('from')))
             ->when(filled($f('to')), fn ($q) => $q->whereDate('created_at', '<=', $f('to')))
-            // Ngày nhận/trả phòng nằm ở order_items, không phải Order — gộp chung 1 whereHas khi
+            // Ngày nhận/trả sân nằm ở order_items, không phải Order — gộp chung 1 whereHas khi
             // gửi cả 2 để đảm bảo khớp ĐÚNG 1 item (nhận đúng ngày NÀY và trả đúng ngày ĐÓ), thay
             // vì 2 whereHas riêng (có thể khớp 2 item khác nhau trong cùng đơn multi-room/multi-slot).
             ->when(filled($f('checkin_date')) || filled($f('checkout_date')), function ($q) use ($f) {
@@ -156,17 +156,17 @@ class OrderController extends Controller
 
     /**
      * GET /api/admin/orders/{order_code}
-     * Chi tiết đầy đủ 1 đơn — items (phòng/khung giờ/giá), dịch vụ đã đặt, CCCD khách chính + khách
+     * Chi tiết đầy đủ 1 đơn — items (sân/khung giờ/giá), dịch vụ đã đặt, CCCD khách chính + khách
      * đi cùng (ảnh ĐÃ LƯU, xem trực tiếp không cần gửi kèm request cập nhật như trước), thông tin
-     * cọc, mốc thời gian thanh toán/nhận-trả phòng, người tạo đơn. Cùng phạm vi truy cập với
+     * cọc, mốc thời gian thanh toán/nhận-trả sân, người tạo đơn. Cùng phạm vi truy cập với
      * index()/update() — 404 nếu đơn không tồn tại hoặc không thuộc đối tác của tài khoản (không
      * trả 403, tránh lộ sự tồn tại của đơn ngoài phạm vi).
      *
      * 'guest_surcharge': {guest_count, threshold, extra_guests, fee_per_person, nights, total, label}
-     * — phụ thu do khách vượt ngưỡng miễn phí của phòng (products.room_config), TÍNH LẠI mỗi lần gọi
+     * — phụ thu do khách vượt ngưỡng miễn phí của sân (products.room_config), TÍNH LẠI mỗi lần gọi
      * từ order.guest_count + order_items hiện có (không đọc số đã cộng sẵn vào 'amount' lúc tạo/sửa
      * đơn — số đó không persist riêng), cùng công thức với client (xem OrderController::buildDetail()
-     * phía app khách) để 2 nơi luôn khớp số. null nếu phòng không cấu hình phụ thu hoặc không vượt
+     * phía app khách) để 2 nơi luôn khớp số. null nếu sân không cấu hình phụ thu hoặc không vượt
      * ngưỡng — xem buildGuestSurchargeInfo().
      */
     public function show(Request $request, string $orderCode): JsonResponse
@@ -182,7 +182,7 @@ class OrderController extends Controller
                 'items.product.media',
                 // Suy timeslot_id cho từng item (đơn theo giờ) — order_items không lưu timeslot_id
                 // trực tiếp, phải khớp ngược qua giờ bắt đầu (checkin_date) với RoomTimeSlot lặp
-                // lại (date IS NULL) của phòng, cùng cách làm với update() ở trên.
+                // lại (date IS NULL) của sân, cùng cách làm với update() ở trên.
                 'items.product.roomTimeSlots' => fn ($q) => $q->whereNull('date'),
                 'items.product.roomTimeSlots.timeSlot',
                 'services',
@@ -258,7 +258,7 @@ class OrderController extends Controller
      *   - buyer_name, buyer_phone                         : thông tin người đặt
      *   - status     : sửa được bất kể payment_method (kể cả đơn PayOS — trạng thái bình thường do
      *                  webhook thanh toán tự cập nhật, nhưng admin vẫn có thể gõ tay đè nếu cần)
-     *   - surcharge  : phụ thu sửa tay (Order.surcharge — cộng thêm ngoài giá phòng/dịch vụ)
+     *   - surcharge  : phụ thu sửa tay (Order.surcharge — cộng thêm ngoài giá sân/dịch vụ)
      *   - amount     : tổng tiền đơn sửa tay — ghi đè trực tiếp số cuối cùng, ÁP DỤNG SAU CÙNG nên
      *                  luôn thắng số tự tính lại ở phần "đổi khung giờ" bên dưới nếu gửi chung.
      *   'status'/'surcharge'/'amount' sửa được BẤT KỂ trạng thái/payment_method đơn (kể cả đã
@@ -275,17 +275,17 @@ class OrderController extends Controller
      *   - type: slot|daily|monthly + slots[]/checkin_date+checkout_date như lúc tạo đơn.
      *   - Xoá TOÀN BỘ order_items cũ, dựng lại theo dữ liệu mới (dùng lại đúng engine tính giá ở
      *     BuildsRoomBooking — promotions, bulk/full-booking discount), tính lại 'amount'/'full_amount'
-     *     = giá phòng mới + phụ thu khách + tổng dịch vụ + surcharge hiện có (hoặc vừa sửa ở field
+     *     = giá sân mới + phụ thu khách + tổng dịch vụ + surcharge hiện có (hoặc vừa sửa ở field
      *     'surcharge' bên trên) — TRỪ KHI có gửi kèm 'amount' thủ công (Phase cuối, luôn thắng).
-     *   - room_id (tùy chọn, CHỈ có tác dụng khi gửi kèm 'type'): ĐỔI SANG PHÒNG KHÁC — id phòng đích
-     *     (products.id), phải is_activated=true. Không gửi -> giữ nguyên phòng hiện có của đơn (hành
+     *   - room_id (tùy chọn, CHỈ có tác dụng khi gửi kèm 'type'): ĐỔI SANG SÂN KHÁC — id sân đích
+     *     (products.id), phải is_activated=true. Không gửi -> giữ nguyên sân hiện có của đơn (hành
      *     vi cũ, chỉ đổi khung giờ/ngày). Cùng quyền hạn với BookingController::store() — nhân viên
-     *     đối tác thường CHỈ đổi sang phòng cùng đối tác (room.partner_id === admin.partner_id), nhân
-     *     viên đối tác nền tảng (User::belongsToPlatformPartner()) đổi được sang phòng của đối tác bất
+     *     đối tác thường CHỈ đổi sang sân cùng đối tác (room.partner_id === admin.partner_id), nhân
+     *     viên đối tác nền tảng (User::belongsToPlatformPartner()) đổi được sang sân của đối tác bất
      *     kỳ, super_admin không giới hạn. slots[]/checkin_date+checkout_date phải khớp cấu hình khung
-     *     giờ/giá của PHÒNG MỚI (không phải phòng cũ) — dùng GET /api/admin/rooms/{room_id}/time-slots
-     *     hoặc /dates trước để lấy đúng dữ liệu khả dụng của phòng đích. Đổi phòng khác chi nhánh/đối
-     *     tác sẽ tự cập nhật lại category_id/partner_id của đơn theo phòng mới.
+     *     giờ/giá của SÂN MỚI (không phải sân cũ) — dùng GET /api/admin/rooms/{room_id}/time-slots
+     *     hoặc /dates trước để lấy đúng dữ liệu khả dụng của sân đích. Đổi sân khác chi nhánh/đối
+     *     tác sẽ tự cập nhật lại category_id/partner_id của đơn theo sân mới.
      *   - guest_count gửi kèm 'type' sẽ áp cho cả items mới lẫn Order; gửi RIÊNG guest_count (không
      *     kèm 'type') chỉ cập nhật số khách trên items hiện có, KHÔNG tính lại giá.
      *   - services gửi kèm sẽ THAY THẾ toàn bộ dịch vụ cũ (xoá hết, tạo lại theo danh sách mới).
@@ -293,7 +293,7 @@ class OrderController extends Controller
      *     trước khi dựng lại, trong cùng 1 transaction — lỗi trùng sẽ rollback về y hệt trước đó).
      *   - payment_type: CHỈ có tác dụng khi type=daily. Không gửi -> giữ nguyên deposit_percent hiện
      *     có (không đụng gì, tránh vô tình "mất cọc" khi admin chỉ định sửa khung giờ khác). Gửi
-     *     payment_type=deposit -> tính lại % cọc theo cấu hình phòng (room.deposit_min_nights/
+     *     payment_type=deposit -> tính lại % cọc theo cấu hình sân (room.deposit_min_nights/
      *     deposit_multi_night), lỗi 422 nếu không đủ điều kiện (số đêm chưa tới mức tối thiểu) hoặc
      *     payment_method hiện tại của đơn là cod (đặt cọc bắt buộc qua PayOS). Gửi payment_type=full
      *     -> xoá cọc, chuyển hẳn về thanh toán đủ (deposit_percent = null). LƯU Ý: 'amount'/
@@ -438,8 +438,8 @@ class OrderController extends Controller
 
         // ── Đổi khung giờ/ngày (chỉ khi có gửi 'type') ─────────────────────────
         if ($request->filled('type')) {
-            // room_id gửi kèm 'type' -> ĐỔI PHÒNG (dùng phòng đích thay vì phòng hiện có của đơn).
-            // Không gửi -> hành vi cũ, chỉ đổi khung giờ/ngày trong cùng phòng.
+            // room_id gửi kèm 'type' -> ĐỔI SÂN (dùng sân đích thay vì sân hiện có của đơn).
+            // Không gửi -> hành vi cũ, chỉ đổi khung giờ/ngày trong cùng sân.
             $isRoomChange = $request->filled('room_id');
             $productId    = $isRoomChange ? (string) $request->input('room_id') : $order->items->first()?->product_id;
 
@@ -456,21 +456,21 @@ class OrderController extends Controller
             if (! $room) {
                 return response()->json([
                     'message' => $isRoomChange
-                        ? 'Phòng muốn chuyển đến không tồn tại hoặc đã ngừng hoạt động.'
-                        : 'Phòng của đơn này không còn tồn tại hoặc đã ngừng hoạt động.',
+                        ? 'Sân muốn chuyển đến không tồn tại hoặc đã ngừng hoạt động.'
+                        : 'Sân của đơn này không còn tồn tại hoặc đã ngừng hoạt động.',
                 ], 422);
             }
 
             // Cùng quyền hạn với BookingController::store() bước 3 — nhân viên đối tác thường chỉ
-            // đổi được sang phòng cùng đối tác mình, nhân viên đối tác nền tảng (365home) đổi được
-            // sang phòng của bất kỳ đối tác nào, super_admin không giới hạn.
+            // đổi được sang sân cùng đối tác mình, nhân viên đối tác nền tảng (365home) đổi được
+            // sang sân của bất kỳ đối tác nào, super_admin không giới hạn.
             if ($isRoomChange && ! $admin->isSuperAdmin() && ! $admin->belongsToPlatformPartner() && $room->partner_id !== $admin->partner_id) {
-                return response()->json(['message' => 'Bạn không có quyền chuyển sang phòng của đối tác khác.'], 403);
+                return response()->json(['message' => 'Bạn không có quyền chuyển sang sân của đối tác khác.'], 403);
             }
 
-            // Đổi phòng khác chi nhánh/đối tác -> đơn phải theo đúng category_id/partner_id của
-            // phòng MỚI (cùng cách gán lúc tạo đơn ở BookingController::store()), không giữ theo
-            // phòng cũ nữa.
+            // Đổi sân khác chi nhánh/đối tác -> đơn phải theo đúng category_id/partner_id của
+            // sân MỚI (cùng cách gán lúc tạo đơn ở BookingController::store()), không giữ theo
+            // sân cũ nữa.
             if ($isRoomChange) {
                 $newCategory = $room->categories()->first();
                 for ($i = 0; $i < 5 && $newCategory && $newCategory->parent_id; $i++) {
@@ -494,7 +494,7 @@ class OrderController extends Controller
             // Chụp lại (ngày, timeslot_id) của items CŨ trước khi transaction xoá — dùng để bắn
             // realtime "giải phóng" sau khi commit thành công. order_items không lưu timeslot_id
             // trực tiếp nên suy ngược qua giờ bắt đầu (checkin_date) khớp với RoomTimeSlot lặp lại
-            // (date IS NULL) của phòng — best-effort cho mục đích hiển thị realtime, không ảnh
+            // (date IS NULL) của sân — best-effort cho mục đích hiển thị realtime, không ảnh
             // hưởng tính đúng đắn dữ liệu nếu suy sai (khoá DB lúc submit vẫn là chốt chặn chính).
             $recurringSlotsByStartTime = $room->roomTimeSlots
                 ->filter(fn ($rts) => $rts->timeSlot && is_null($rts->date))
@@ -622,7 +622,7 @@ class OrderController extends Controller
             });
 
             // Bắn realtime SAU KHI transaction đã commit thành công — khung giờ mới bị chiếm phải
-            // báo ngay để ai khác đang xem lịch phòng này không cố chọn trùng (dù khoá DB lúc submit
+            // báo ngay để ai khác đang xem lịch sân này không cố chọn trùng (dù khoá DB lúc submit
             // vẫn chặn đúng, đây chỉ để UI cập nhật sớm, giống hệt BookingController::store()).
             $realtimeService = app(SlotRealtimeService::class);
 
@@ -701,16 +701,16 @@ class OrderController extends Controller
 
     /**
      * POST /api/admin/orders/{order_code}/preview
-     * Tính lại giá cho 1 đơn ĐANG SỬA (đổi phòng/khung giờ/khách/dịch vụ) — body GIỐNG HỆT phần
+     * Tính lại giá cho 1 đơn ĐANG SỬA (đổi sân/khung giờ/khách/dịch vụ) — body GIỐNG HỆT phần
      * "Đổi khung giờ/ngày" của PUT|POST /api/admin/orders/{order_code} (type, room_id, guest_count,
      * slots[]/checkin_date+checkout_date, services[], payment_type) nhưng KHÔNG ghi gì vào DB (không
      * xoá/tạo lại order_items, không đổi Order) — dùng cho FE hiển thị giá mới trước khi bấm "Lưu".
      * Gọi lại liên tục không có tác dụng phụ (idempotent).
      *
      * Khác update() ở đúng 2 điểm để tính đúng SỐ mà không cần đụng DB:
-     *   - room_id/guest_count vẫn tuỳ chọn, mặc định lấy theo phòng/số khách HIỆN CÓ của đơn giống
+     *   - room_id/guest_count vẫn tuỳ chọn, mặc định lấy theo sân/số khách HIỆN CÓ của đơn giống
      *     update() — nhưng 'type' + slots[]/checkin_date+checkout_date LUÔN bắt buộc (không suy được
-     *     lịch cũ ngược lại thành slots[] một cách an toàn cho mọi trường hợp phòng đổi cấu hình khung
+     *     lịch cũ ngược lại thành slots[] một cách an toàn cho mọi trường hợp sân đổi cấu hình khung
      *     giờ), khác update() vốn cho bỏ qua 'type' để giữ nguyên lịch — preview chỉ dùng khi FE đang
      *     đổi lịch, không dùng để xem giá không đổi gì.
      *   - Kiểm tra trùng khung giờ (trong buildSlotItems/buildDailyItems) tự loại trừ chính order_items
@@ -767,7 +767,7 @@ class OrderController extends Controller
 
         $request->validate($rules);
 
-        // room_id không gửi -> dùng đúng phòng hiện có của đơn, giống update().
+        // room_id không gửi -> dùng đúng sân hiện có của đơn, giống update().
         $isRoomChange = $request->filled('room_id');
         $productId    = $isRoomChange ? (string) $request->input('room_id') : $order->items->first()?->product_id;
 
@@ -784,13 +784,13 @@ class OrderController extends Controller
         if (! $room) {
             return response()->json([
                 'message' => $isRoomChange
-                    ? 'Phòng muốn chuyển đến không tồn tại hoặc đã ngừng hoạt động.'
-                    : 'Phòng của đơn này không còn tồn tại hoặc đã ngừng hoạt động.',
+                    ? 'Sân muốn chuyển đến không tồn tại hoặc đã ngừng hoạt động.'
+                    : 'Sân của đơn này không còn tồn tại hoặc đã ngừng hoạt động.',
             ], 422);
         }
 
         if ($isRoomChange && ! $admin->isSuperAdmin() && ! $admin->belongsToPlatformPartner() && $room->partner_id !== $admin->partner_id) {
-            return response()->json(['message' => 'Bạn không có quyền chuyển sang phòng của đối tác khác.'], 403);
+            return response()->json(['message' => 'Bạn không có quyền chuyển sang sân của đối tác khác.'], 403);
         }
 
         // guest_count không gửi -> giữ nguyên số khách hiện có của đơn, giống update() — buildSlotItems/
@@ -964,17 +964,17 @@ class OrderController extends Controller
                 'name' => $order->category->name,
             ] : null,
             'rooms'        => $order->items->pluck('product.name')->filter()->unique()->values(),
-            // id phòng (products.id) của item ĐẦU TIÊN — cùng giả định "đơn thường 1 phòng" như
+            // id sân (products.id) của item ĐẦU TIÊN — cùng giả định "đơn thường 1 sân" như
             // product_image bên dưới, đủ dùng để FE gọi thẳng GET /admin/rooms/{id}/time-slots từ
-            // chi tiết đơn mà không phải tra cứu id phòng qua API khác.
+            // chi tiết đơn mà không phải tra cứu id sân qua API khác.
             'product_id' => $order->items->first()?->product_id,
-            // slot = đặt theo khung giờ, daily = đặt theo ngày — suy từ Product.styles của phòng ở
-            // item ĐẦU TIÊN (đơn multi-room hiếm khi lẫn lộn 2 kiểu phòng), cùng quy ước với mọi
+            // slot = đặt theo khung giờ, daily = đặt theo ngày — suy từ Product.styles của sân ở
+            // item ĐẦU TIÊN (đơn multi-room hiếm khi lẫn lộn 2 kiểu sân), cùng quy ước với mọi
             // nơi khác trong hệ thống (styles=1 => slot, styles=2 => daily, xem BuildsRoomBooking).
             'type' => ((int) ($order->items->first()?->product?->styles ?? 1)) === 2 ? 'daily' : 'slot',
-            // Ảnh đại diện đơn — ảnh chính của phòng ở item ĐẦU TIÊN (đơn multi-room hiếm khi khác
-            // chi nhánh/loại phòng nhau, đủ dùng làm thumbnail cho danh sách, xem chi tiết đủ ảnh
-            // từng phòng qua GET /api/admin/orders/{order_code}).
+            // Ảnh đại diện đơn — ảnh chính của sân ở item ĐẦU TIÊN (đơn multi-room hiếm khi khác
+            // chi nhánh/loại sân nhau, đủ dùng làm thumbnail cho danh sách, xem chi tiết đủ ảnh
+            // từng sân qua GET /api/admin/orders/{order_code}).
             'product_image' => $this->productImageUrl($order->items->first()?->product),
             'checkin_date' => $order->items->pluck('checkin_date')->filter()->min(),
             'checkout_date' => $order->items->pluck('checkout_date')->filter()->max(),
@@ -1009,7 +1009,7 @@ class OrderController extends Controller
                 'remaining_amount' => (int) $order->full_amount - $order->depositDueAmount(),
             ] : null,
             // Không lặp lại product_id/product_name/product_image/quantity ở từng item — thông tin
-            // phòng đã có sẵn ở cấp đơn ('rooms', 'product_image' trong toListItem()); items[] chỉ
+            // sân đã có sẵn ở cấp đơn ('rooms', 'product_image' trong toListItem()); items[] chỉ
             // còn đúng phần khách chọn theo khung giờ/ngày.
             'items' => $order->items->map(fn ($item) => [
                 'id'            => $item->id,
@@ -1044,11 +1044,11 @@ class OrderController extends Controller
         ];
     }
 
-    // Phụ thu khách vượt ngưỡng miễn phí của phòng (products.room_config: extra_guest_fee/
+    // Phụ thu khách vượt ngưỡng miễn phí của sân (products.room_config: extra_guest_fee/
     // max_free_guests) — TÍNH LẠI từ dữ liệu đã lưu (order.guest_count + order_items), không đọc số
     // đã cộng vào 'amount' lúc tạo/sửa đơn (không persist riêng), cùng công thức với client
     // (OrderController::buildDetail() -> countNights()/guest_surcharge), để 2 nơi luôn khớp số.
-    // Trả null nếu phòng không cấu hình phụ thu hoặc guest_count không vượt ngưỡng.
+    // Trả null nếu sân không cấu hình phụ thu hoặc guest_count không vượt ngưỡng.
     private function buildGuestSurchargeInfo(Order $order): ?array
     {
         $product = $order->items->first()?->product;
@@ -1090,7 +1090,7 @@ class OrderController extends Controller
 
     // Suy timeslot_id của 1 order_item (đơn theo giờ) — order_items không lưu timeslot_id trực
     // tiếp, khớp ngược qua giờ bắt đầu (checkin_date, HH:mm:ss) với RoomTimeSlot lặp lại (date IS
-    // NULL) của phòng, cùng cách làm với đoạn "Đổi khung giờ/ngày" ở update(). Đơn theo ngày
+    // NULL) của sân, cùng cách làm với đoạn "Đổi khung giờ/ngày" ở update(). Đơn theo ngày
     // (daily) hoặc item không xác định được khung giờ khớp -> null.
     private function resolveItemTimeslotId($item): ?int
     {
@@ -1105,7 +1105,7 @@ class OrderController extends Controller
         return $rts?->timeslot_id;
     }
 
-    // Ảnh chính của phòng (Spatie MediaLibrary — cùng thứ tự ưu tiên collection với
+    // Ảnh chính của sân (Spatie MediaLibrary — cùng thứ tự ưu tiên collection với
     // BuildsRoomCard::getMainImageUrl(), dùng cho room card khách hàng, để 2 nơi luôn khớp nhau).
     private function productImageUrl(?Product $product): ?string
     {

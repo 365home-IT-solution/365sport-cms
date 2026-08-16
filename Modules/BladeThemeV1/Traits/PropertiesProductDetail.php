@@ -49,6 +49,12 @@ trait PropertiesProductDetail
     // 'deposit' = cọc theo %, 'full' = thanh toán 100%
     public string $paymentOption = 'deposit';
 
+    // Khách chọn trả bằng gói nhiều buổi đã mua (App\Models\CustomerPackage) thay vì trả tiền —
+    // xem ProductDetail::getAvailablePackage()/confirmBooking(). CHỈ áp dụng cho bookingStyle=1
+    // (khung giờ rời rạc, "1 buổi = 1 khung giờ") — sân "theo ngày" (style=2) không có khái niệm
+    // buổi rời rạc nên không hỗ trợ trả bằng gói.
+    public bool $usePackage = false;
+
     // Auth-prefill: set server-side via prefillFromAuth(), never trust client-set values
     public bool    $isAuthUser    = false;
     public ?string $authUserId    = null; // UUID of authenticated customer
@@ -56,13 +62,13 @@ trait PropertiesProductDetail
     public string  $authCccdBack  = '';   // stored path from customer profile
 
     // Lỗi phát sinh trong confirmBooking() (CCCD không hợp lệ, chưa đủ tuổi, v.v.) — hiển thị
-    // ngay trong modal xác nhận đặt phòng thay vì toast 'notify' (bị che khuất sau modal do
+    // ngay trong modal xác nhận đặt sân thay vì toast 'notify' (bị che khuất sau modal do
     // z-index thấp hơn).
     public string $bookingConfirmError = '';
 
     
     /** 
-     * Kiểu hiển thị form đặt phòng:
+     * Kiểu hiển thị form đặt sân:
      * 1 = Bảng slot theo giờ (calendar table, trạng thái, tổng tiền tạm tính)
      * 2 = Chọn ngày bắt đầu / kết thúc (daterange picker)
      * Được set tự động từ $product->styles trong initializeProductData()

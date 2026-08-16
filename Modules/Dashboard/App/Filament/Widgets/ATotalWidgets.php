@@ -130,8 +130,8 @@ class ATotalWidgets extends BaseWidget
             $recentProducts = Product::where('created_at', '>=', $lastWeek)->count();
             $latestProduct = Product::latest('created_at')->first();
 
-            return Stat::make(__('Tổng số Phòng'), $totalProducts)
-//                ->description(__('Số phòng được tạo trong 1 tuần', ['count' => $recentProducts]))
+            return Stat::make(__('Tổng số Sân'), $totalProducts)
+//                ->description(__('Số sân được tạo trong 1 tuần', ['count' => $recentProducts]))
                 ->descriptionIcon('heroicon-m-shopping-bag')
                 ->chart($this->getChartData(Product::class))
                 ->color('success')

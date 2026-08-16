@@ -46,8 +46,8 @@ class Header extends Component
         $this->headerMainConfig = $this->getChildSectionConfigs(HeaderSection::HEADER_MAIN->value);
         $this->logoConfig = $this->getChildSectionConfigs(HeaderSection::LOGO->value);
         $this->navConfig = $this->getChildSectionConfigs(HeaderSection::NAVIGATION_BAR->value);
-        $this->logo = $this->generalSettings->brand_logo;
-        $this->logoLightVersion = $this->generalSettings->brand_logo_light_version;
+        $this->logo = $this->generalSettings->brand_logo ?? '';
+        $this->logoLightVersion = $this->generalSettings->brand_logo_light_version ?? '';
         $this->actionConfig = $this->getChildSectionConfigs(HeaderSection::ACTIONS->value);
         $this->cartConfig = $this->getChildSectionConfigs(HeaderSection::CART->value);
         $this->menu = ThemeCache::menuForHeader();

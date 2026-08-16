@@ -9,7 +9,7 @@ return new class extends Migration
     public function up(): void
     {
         // CCCD người đi cùng đã LƯU SẴN vào hồ sơ khách hàng đăng nhập — tái sử dụng cho nhiều lần
-        // đặt phòng qua đêm sau này, thay vì phải upload lại mỗi lần đặt (khác với luồng guest
+        // đặt sân qua đêm sau này, thay vì phải upload lại mỗi lần đặt (khác với luồng guest
         // không đăng nhập, upload CCCD người đi cùng riêng cho từng đơn qua order_guest_cccds).
         // Chỉ tạo bảng + model trong đợt này — API thêm/sửa/xoá companion làm sau.
         Schema::create('customer_companions', function (Blueprint $table) {

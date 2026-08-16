@@ -10,24 +10,24 @@ use Modules\Category\Entities\Category;
 use Modules\Payment\Entities\OrderItem;
 
 /**
- * CÔNG SUẤT PHÒNG (tỉ lệ lấp đầy) theo kỳ — tính theo SỐ PHÒNG CÓ ĐƠN, dựa trên NGÀY Ở THỰC TẾ
+ * CÔNG SUẤT SÂN (tỉ lệ lấp đầy) theo kỳ — tính theo SỐ SÂN CÓ ĐƠN, dựa trên NGÀY Ở THỰC TẾ
  * (order_items.checkin_date/checkout_date), KHÔNG dùng orders.created_at (ngày đặt) — 1 đơn đặt
  * ngày 1/7 nhưng ở từ 20/7-25/7 phải tính là "có đặt" vào các ngày 20-25/7, không phải ngày 1/7.
  * Cùng cơ sở dữ liệu (checkin/checkout range overlap) với RoomController::dailyBookedDates() và
  * OverviewService::computeOccupiedDays() — nhưng khác 2 điểm:
  *  - KHÔNG cộng dồn theo room-nights như occupancyTrend() (occupied nights / tổng nights) — chỉ
- *    đếm SỐ PHÒNG có phủ ngày đó, mỗi phòng tính tối đa 1 lần/ngày dù có nhiều đơn.
+ *    đếm SỐ SÂN có phủ ngày đó, mỗi sân tính tối đa 1 lần/ngày dù có nhiều đơn.
  *  - KHÔNG bỏ sót đặt theo khung giờ không qua đêm (checkin/checkout cùng 1 ngày) như
  *    computeOccupiedDays() đang bị (do method đó ép cả 2 mốc về startOfDay() rồi so sánh <=).
  * Chuỗi theo ngày/tháng CỘNG DỒN từ đầu kỳ (mỗi điểm = luỹ kế đến hết ngày/tháng đó, không phải
  * riêng ngày/tháng đó) — đường luôn đi lên hoặc đi ngang, không giảm; điểm cuối cùng của series
- * luôn bằng đúng `rate_pct` tổng (= % phòng có ít nhất 1 ngày được đặt trong TOÀN kỳ đã chọn).
+ * luôn bằng đúng `rate_pct` tổng (= % sân có ít nhất 1 ngày được đặt trong TOÀN kỳ đã chọn).
  */
 class OccupancyService
 {
     // Trạng thái KHÔNG tính là "có đặt" — khớp enum thật của orders.status (xem migration
     // 2026_07_22_000001_add_order_status_lifecycle_to_orders_table): pending/deposit/paid vẫn
-    // tính là phòng đã được đặt (dù chưa/đã thanh toán xong), chỉ loại các đơn không thành.
+    // tính là sân đã được đặt (dù chưa/đã thanh toán xong), chỉ loại các đơn không thành.
     private const EXCLUDED_STATUSES = ['failed', 'cancelled_payment', 'refunded'];
 
     /** Số ngày tối đa để vẫn chia theo TỪNG NGÀY; dài hơn thì gộp theo THÁNG (vd: năm nay/năm trước) */
@@ -63,9 +63,9 @@ class OccupancyService
     }
 
     /**
-     * rate_pct = số phòng (trong $productIds) có ≥1 NGÀY được đặt phủ trong [$start,$end] / tổng
-     *            số phòng — dựa theo checkin_date/checkout_date, không phải created_at.
-     * series[i].pct = số phòng có đặt phủ đúng ngày/tháng đó / tổng số phòng (không cộng dồn).
+     * rate_pct = số sân (trong $productIds) có ≥1 NGÀY được đặt phủ trong [$start,$end] / tổng
+     *            số sân — dựa theo checkin_date/checkout_date, không phải created_at.
+     * series[i].pct = số sân có đặt phủ đúng ngày/tháng đó / tổng số sân (không cộng dồn).
      */
     private static function occupancyByOrderCount(array $productIds, Carbon $start, Carbon $end): array
     {
@@ -118,7 +118,7 @@ class OccupancyService
             }
         }
 
-        // Luỹ kế theo thời gian: mỗi điểm = SỐ PHÒNG đã có đơn TÍNH TỪ ĐẦU KỲ đến hết ngày/tháng
+        // Luỹ kế theo thời gian: mỗi điểm = SỐ SÂN đã có đơn TÍNH TỪ ĐẦU KỲ đến hết ngày/tháng
         // đó (không phải riêng ngày/tháng đó) — nên đường luôn đi lên hoặc đi ngang, không bao giờ
         // giảm, và điểm sau luôn ≥ điểm ngay trước nó.
         $cumulativeRoomIds = [];
@@ -184,7 +184,7 @@ class OccupancyService
             $childIds = Category::where('parent_id', $branch->id)->pluck('id')->toArray();
             $catIds   = array_merge([$branch->id], $childIds);
 
-            // Truyền $catIds làm branchCategoryIds để scopedProductIds() tự thu hẹp đúng phòng
+            // Truyền $catIds làm branchCategoryIds để scopedProductIds() tự thu hẹp đúng sân
             // của riêng chi nhánh này (đã gồm sẵn logic phân quyền super_admin/partner/allowed).
             $productIds = OverviewService::scopedProductIds($user, $catIds);
             $totalRooms = count($productIds);

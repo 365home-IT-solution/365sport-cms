@@ -44,17 +44,17 @@ class ProductTable extends Table
                 TextColumn::make('categories.name')
                     ->label(__('product::product.table.label.categories'))
                     ->searchable(),
-                // Chi nhánh chưa đăng ký tài khoản TTLock thì "Tình trạng phòng"/"Khóa ngoài"/"Khóa
+                // Chi nhánh chưa đăng ký tài khoản TTLock thì "Tình trạng sân"/"Khóa ngoài"/"Khóa
                 // trong" không có ý nghĩa gì (không dùng khóa điện tử, không theo dõi qua hệ thống
                 // này) — Filament không cho ẩn hẳn 1 CỘT theo TỪNG DÒNG (chỉ ẩn được cả cột, coi
                 // header table.blade.php: $getVisibleColumns() được gọi 1 LẦN duy nhất TRƯỚC vòng
                 // lặp dòng, không phải theo từng $record).
-                // Với tài khoản chi nhánh (chỉ thấy phòng của (các) chi nhánh mình qua
+                // Với tài khoản chi nhánh (chỉ thấy sân của (các) chi nhánh mình qua
                 // allowedBranchIds()), nếu KHÔNG chi nhánh nào của họ có TTLock kích hoạt thì ẩn
                 // hẳn 3 cột này (->hidden(), tính 1 lần cho cả cột). Super admin / chủ đối tác xem
                 // nhiều chi nhánh trộn lẫn thì vẫn giữ cột, hiện "—" cho từng dòng không có TTLock.
                 TextColumn::make('housekeeping_status')
-                    ->label('Tình trạng phòng')
+                    ->label('Tình trạng sân')
                     ->hidden(fn () => self::shouldHideTTLockColumns())
                     ->toggleable()
                     ->badge()
@@ -128,7 +128,7 @@ class ProductTable extends Table
                     ->dateTime()
                     ->sortable(),
                 PartnerTableHelpers::column()
-                    // Mặc định ẩn ở "Thiết lập Phòng" (đỡ rối cho đối tác 1-chi-nhánh), vẫn bật
+                    // Mặc định ẩn ở "Thiết lập Sân" (đỡ rối cho đối tác 1-chi-nhánh), vẫn bật
                     // lại được qua nút "Cột" khi cần (vd super_admin muốn xem nhanh theo đối tác).
                     ->toggleable(isToggledHiddenByDefault: true),
             ])

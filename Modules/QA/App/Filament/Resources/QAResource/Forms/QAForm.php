@@ -127,7 +127,7 @@ class QAForm
                                                             ]);
 
                                                             if ($response->failed()) {
-                                                                // Thử với mô hình dự phòng nếu mô hình đầu tiên thất bại
+                                                                // Thử với mô hình dự sân nếu mô hình đầu tiên thất bại
                                                                 $response = Http::withHeaders([
                                                                     'Authorization' => 'Bearer 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',
                                                                     'Content-Type' => 'application/json',

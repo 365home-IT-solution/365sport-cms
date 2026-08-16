@@ -1,5 +1,5 @@
 <div wire:ignore class="w-full mx-auto px-8">
-    <h2 class="mt-4 mb-2 text-center text-4xl font-bold">Lịch đặt phòng</h2>
+    <h2 class="mt-4 mb-2 text-center text-4xl font-bold">Lịch đặt sân</h2>
     {{--     Chú thích      --}}
     <div class="grid grid-cols-2 lg:flex justify-center items-center gap-8 text-sm font-medium mb-4">
         <div class="flex items-center gap-1">
@@ -22,7 +22,7 @@
             <span>Túi mù</span>
         </div>
     </div>
-    {{--     Bảng đặt phòng      --}}
+    {{--     Bảng đặt sân      --}}
     <div class="overflow-auto border w-full max-h-[350px] shadow bg-white">
         <table class="w-full text-[10px]  text-center min-w-[900px] overflow-y-auto ">
             <thead class="bg-gray-100">
@@ -33,7 +33,7 @@
                 </th>
             </tr>
             <tr>
-                <th colspan="2" class="py-2 px-3 min-w-[150px] border">Tên phòng</th>
+                <th colspan="2" class="py-2 px-3 min-w-[150px] border">Tên sân</th>
                 @foreach($roomTimeSlots as $room)
                     <th colspan="{{ count($room['time_slots']) }}" class="py-2 px-3 border {{ in_array($room['pname'], ['Cook & Chill', 'Pink Paradise', 'GameHub']) ? 'bg-yellow-100' : '' }}">
                         {{ $room['pname'] }}
@@ -122,7 +122,7 @@
         </div>
 
         <div class="w-full text-right">
-            <button class="py-1 px-4 rounded-full font-bold bg-primary text-white w-full md:w-auto">Đặt phòng</button>
+            <button class="py-1 px-4 rounded-full font-bold bg-primary text-white w-full md:w-auto">Đặt sân</button>
         </div>
     </div>
 
@@ -164,14 +164,14 @@
                         return;
                     }
 
-                    // Nếu chưa có phòng nào được chọn, cho phép chọn
+                    // Nếu chưa có sân nào được chọn, cho phép chọn
                     if (currentActiveRooms.length === 0) {
                         cell.classList.add('active');
                         updateTotalPrice();
                         return;
                     }
 
-                    // Nếu đã có phòng được chọn, chỉ cho phép chọn cùng phòng
+                    // Nếu đã có sân được chọn, chỉ cho phép chọn cùng sân
                     if (currentActiveRooms.includes(roomId)) {
                         // Kiểm tra logic ngày: phải chọn hết khung giờ available của ngày hiện tại
                         if (canSelectThisTimeSlot(roomId, dateKey)) {
@@ -182,8 +182,8 @@
                             // alert('Vui lòng chọn hết tất cả khung giờ available của ngày hiện tại trước!');
                         }
                     } else {
-                        console.log('Bạn chỉ có thể chọn khung giờ của cùng một phòng!');
-                        // alert('Vui lòng bỏ chọn khung giờ hiện tại trước khi chọn phòng khác!');
+                        console.log('Bạn chỉ có thể chọn khung giờ của cùng một sân!');
+                        // alert('Vui lòng bỏ chọn khung giờ hiện tại trước khi chọn sân khác!');
                     }
                 });
             });
@@ -216,7 +216,7 @@
             return true; // Đã chọn hết khung giờ available của tất cả ngày trước đó
         }
 
-        // Lấy danh sách các ngày đã chọn cho một phòng
+        // Lấy danh sách các ngày đã chọn cho một sân
         function getSelectedDatesForRoom(roomId) {
             const selectedCells = document.querySelectorAll(`.selectable.active[data-room-id="${roomId}"]`);
             const dates = [];
@@ -231,9 +231,9 @@
             return dates.sort(); // Sắp xếp theo thứ tự ngày
         }
 
-        // Kiểm tra xem một ngày của phòng đã được chọn hết khung giờ available chưa
+        // Kiểm tra xem một ngày của sân đã được chọn hết khung giờ available chưa
         function isDateFullySelected(roomId, dateKey) {
-            // Lấy tất cả ô available của phòng và ngày này (không phải booked, không phải inactive)
+            // Lấy tất cả ô available của sân và ngày này (không phải booked, không phải inactive)
             const availableCells = document.querySelectorAll(
                 `.selectable[data-room-id="${roomId}"][data-date="${dateKey}"]`
             );
@@ -259,7 +259,7 @@
             return selectedCells.length === availableActiveCells.length && availableActiveCells.length > 0;
         }
 
-        // Lấy danh sách các phòng đang có ô được chọn
+        // Lấy danh sách các sân đang có ô được chọn
         function getCurrentActiveRooms() {
             const activeCells = document.querySelectorAll('.selectable.active');
             const activeRooms = [];

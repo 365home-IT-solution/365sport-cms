@@ -9,7 +9,7 @@ use Illuminate\Support\Str;
 use Modules\Product\App\Models\Product;
 
 /**
- * Dữ liệu mẫu cho tính năng đánh giá sao — seed ~24 đánh giá cho vài phòng đang active để có
+ * Dữ liệu mẫu cho tính năng đánh giá sao — seed ~24 đánh giá cho vài sân đang active để có
  * đủ dữ liệu test giao diện (lưới 2 cột, modal "xem tất cả", phân trang cuộn vô hạn...).
  * Chạy: php artisan db:seed --class=RoomRatingSeeder
  */
@@ -23,12 +23,12 @@ class RoomRatingSeeder extends Seeder
     ];
 
     private const COMMENTS = [
-        'Phòng rất tốt, sạch sẽ và đúng như hình ảnh. Sẽ quay lại lần sau!',
+        'Sân rất tốt, sạch sẽ và đúng như hình ảnh. Sẽ quay lại lần sau!',
         'Chủ nhà thân thiện, phản hồi tin nhắn nhanh. Vị trí thuận tiện di chuyển.',
         'Không gian thoáng mát, nội thất đầy đủ tiện nghi. Rất hài lòng với trải nghiệm này.',
-        'Giá cả hợp lý so với chất lượng phòng. Wifi mạnh, tiện cho công việc.',
-        'Phòng đẹp hơn mong đợi, view thoáng. Nhân viên dọn dẹp kỹ càng trước khi nhận phòng.',
-        'Nhận phòng đúng giờ, hướng dẫn rõ ràng. Sẽ giới thiệu cho bạn bè.',
+        'Giá cả hợp lý so với chất lượng sân. Wifi mạnh, tiện cho công việc.',
+        'Sân đẹp hơn mong đợi, view thoáng. Nhân viên dọn dẹp kỹ càng trước khi nhận sân.',
+        'Nhận sân đúng giờ, hướng dẫn rõ ràng. Sẽ giới thiệu cho bạn bè.',
         'Trải nghiệm tuyệt vời, giường ngủ êm ái. Khu vực yên tĩnh, phù hợp nghỉ dưỡng.',
         'Có chút khó khăn khi tìm đường vào ban đêm nhưng chủ nhà hỗ trợ nhiệt tình.',
         'Phòng tắm sạch sẽ, đầy đủ đồ dùng cá nhân. Rất đáng tiền.',
@@ -55,7 +55,7 @@ class RoomRatingSeeder extends Seeder
             $this->seedForProduct($product, $count);
         }
 
-        $this->command?->info('Đã tạo xong dữ liệu đánh giá mẫu cho ' . $products->count() . ' phòng.');
+        $this->command?->info('Đã tạo xong dữ liệu đánh giá mẫu cho ' . $products->count() . ' sân.');
     }
 
     private function seedForProduct(Product $product, int $count): void

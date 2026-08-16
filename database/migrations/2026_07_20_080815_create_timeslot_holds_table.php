@@ -13,7 +13,7 @@ return new class extends Migration
     {
         // Giữ chỗ tạm real-time cho lưới NGÀY × KHUNG GIỜ ở admin — 1 dòng = 1 khung giờ (room_time_
         // slot_id + date) đang được 1 admin thao tác chọn, hết hạn sau vài phút nếu không hoàn tất
-        // đặt phòng (dọn bằng expires_at, không cần job riêng — xem TimeslotHoldService).
+        // đặt sân (dọn bằng expires_at, không cần job riêng — xem TimeslotHoldService).
         Schema::create('timeslot_holds', function (Blueprint $table) {
             $table->id();
             $table->unsignedBigInteger('room_time_slot_id');

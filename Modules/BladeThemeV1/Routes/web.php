@@ -75,7 +75,6 @@ Route::get('/branch/{slug}', [BladeThemeV1Controller::class, 'bookingBoard'])->n
 Route::get('/room/{slug}/', [BladeThemeV1Controller::class, 'productDetail'])->name('product.detail');
 //Route::get('/local/home-{slug}/', [BladeThemeV1Controller::class, 'categoryDetail'])->name('category.detail');
 Route::get('/mau-giao-dien/{slug}', [BladeThemeV1Controller::class, 'templateDetail'])->name('template.detail');
-Route::get('/gio-hang', [BladeThemeV1Controller::class, 'cartPage'])->name('cart.page');
 Route::get('/thanh-toan', [BladeThemeV1Controller::class, 'paymentPage'])->name('payment.page');
 Route::get('/kiem-tra-ten-mien', [BladeThemeV1Controller::class, 'domainLookupDetail'])->name('domain-lookup.detail');
 Route::get('/api/check-domain', function (\Illuminate\Http\Request $request) {
@@ -92,6 +91,11 @@ Route::get('/api/check-domain', function (\Illuminate\Http\Request $request) {
     return $response->json();
 });
 Route::get('/thong-tin-dat-phong/{code}', [BladeThemeV1Controller::class, 'bookingDetail'])->name('booking.detail');
+// Khách tự huỷ đơn/xin hoàn tiền online (xem OrderCancellationService) — trang tra cứu đơn
+// (booking-detail.blade.php) là Blade thuần (không Livewire) nên dùng form POST thường thay vì
+// wire:click; account-page.blade.php (Livewire) gọi thẳng AccountPage::cancelOrder() không qua
+// route này.
+Route::post('/thong-tin-dat-phong/{code}/huy', [BladeThemeV1Controller::class, 'cancelBooking'])->name('booking.cancel');
 Route::get('/tai-khoan', [BladeThemeV1Controller::class, 'accountPage'])->name('account.page');
 Route::get('/yeu-thich', [BladeThemeV1Controller::class, 'favoritesPage'])->name('favorites.page');
 Route::get('/dang-nhap', [BladeThemeV1Controller::class, 'loginPage'])->name('login.page');

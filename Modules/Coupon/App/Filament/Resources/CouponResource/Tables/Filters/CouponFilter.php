@@ -23,8 +23,8 @@ class CouponFilter
            SelectFilter::make('apply_type')
                 ->label('Phạm vi')
                 ->options([
-                    'all_rooms' => 'Tất cả phòng',
-                    'specific_room' => 'Phòng cụ thể',
+                    'all_rooms' => 'Tất cả sân',
+                    'specific_room' => 'Sân cụ thể',
                     'specific_slot' => 'Khung giờ cụ thể',
                 ]),
 

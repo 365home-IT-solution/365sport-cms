@@ -22,7 +22,7 @@ class AccessCodeService
             ->lockForUpdate();
 
         if ($checkinDate && $checkoutDate) {
-            // Mã phải còn hiệu lực trong toàn bộ khoảng thời gian ở phòng
+            // Mã phải còn hiệu lực trong toàn bộ khoảng thời gian ở sân
             // valid_from <= checkin (hoặc không giới hạn ngày bắt đầu)
             $query->where(function ($q) use ($checkinDate) {
                 $q->whereNull('valid_from')
@@ -61,7 +61,7 @@ class AccessCodeService
      */
     public function assignCodeToOrder($orderId, $categoryId, $checkinDate = null, $checkoutDate = null, $product = null)
     {
-        // Phòng dùng mật khẩu thủ công → không cần mã TTLock/access code
+        // Sân dùng mật khẩu thủ công → không cần mã TTLock/access code
         if ($product && $product->has_manual_lock) {
             return null;
         }
@@ -123,7 +123,7 @@ class AccessCodeService
                 $code = $this->getValidCodeForBranch($categoryId, $checkinDate, $checkoutDate);
                 if (!$code) {
                     throw new \Exception(
-                        "Chi nhánh này chưa được cấu hình tài khoản TTLock và không có mã dự phòng nào trong hệ thống."
+                        "Chi nhánh này chưa được cấu hình tài khoản TTLock và không có mã dự sân nào trong hệ thống."
                     );
                 }
                 $code->assignToOrder($orderId);
@@ -152,7 +152,7 @@ class AccessCodeService
                 $code = $this->getValidCodeForBranch($categoryId, $checkinDate, $checkoutDate);
                 if (!$code) {
                     throw new \Exception(
-                        "TTLock API không phản hồi và không có mã dự phòng nào trong hệ thống.\n"
+                        "TTLock API không phản hồi và không có mã dự sân nào trong hệ thống.\n"
                         . "Vui lòng thử lại sau vài giây hoặc thêm mã thủ công trong mục Pass Cổng."
                     );
                 }

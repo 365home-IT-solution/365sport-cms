@@ -25,9 +25,9 @@ class UnlockController extends BaseUnlockController
      * xem processUnlock()/handleTTLockUnlock() ở lớp cha. Chỉ khác phần xác thực: thay vì xác thực
      * chủ đơn (owner token hoặc SĐT khách vãng lai), ở đây xác thực bằng quyền admin theo đối tác.
      *
-     * Vẫn giữ nguyên điều kiện đơn phải 'paid'/'deposit', nhưng BỎ QUA cửa sổ giờ nhận/trả phòng
+     * Vẫn giữ nguyên điều kiện đơn phải 'paid'/'deposit', nhưng BỎ QUA cửa sổ giờ nhận/trả sân
      * (truyền $bypassTimeWindow = true cho processUnlock()) — admin được phép mở cổng ngay dù ngoài
-     * khung giờ đặt, không bị chặn bởi thông báo "Ngoài thời gian đặt phòng..." như khách tự mở.
+     * khung giờ đặt, không bị chặn bởi thông báo "Ngoài thời gian đặt sân..." như khách tự mở.
      */
     public function unlock(Request $request, string $orderCode): JsonResponse
     {
@@ -59,7 +59,7 @@ class UnlockController extends BaseUnlockController
      *
      * Đây KHÔNG phải admin tự mở cổng ngay — đây là API cấp quyền cho CHÍNH KHÁCH HÀNG của đơn được
      * tự mở cổng qua app (UnlockController::unlock()/unlockGuest() ở lớp cha) vào BẤT KỲ lúc nào,
-     * không bị giới hạn theo khung giờ nhận/trả phòng (±30 phút) — dùng khi khách đến sớm hoặc về
+     * không bị giới hạn theo khung giờ nhận/trả sân (±30 phút) — dùng khi khách đến sớm hoặc về
      * muộn. Là API TOGGLE: gọi lại lần nữa sẽ khoá lại theo giờ. Muốn admin tự mở cổng ngay lập tức
      * hộ khách thì dùng unlock() ở trên (đã tự động bypass khung giờ cho riêng lần mở đó).
      */
@@ -89,7 +89,7 @@ class UnlockController extends BaseUnlockController
         if (! $product || ! $product->lock_id) {
             return response()->json([
                 'success' => false,
-                'message' => 'Phòng này không có TTLock.',
+                'message' => 'Sân này không có TTLock.',
             ], 422);
         }
 

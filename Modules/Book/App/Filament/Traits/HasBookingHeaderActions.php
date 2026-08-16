@@ -33,7 +33,7 @@ trait HasBookingHeaderActions
                 }),
 
             Action::make('create_room')
-                ->label('Tạo phòng mới')
+                ->label('Tạo sân mới')
                 ->icon('heroicon-o-plus-circle')
                 ->url(fn () => route('filament.admin.resources.products.create'))
                 ->openUrlInNewTab(),
@@ -117,8 +117,8 @@ trait HasBookingHeaderActions
                                 ->label('Áp dụng cho')
                                 ->required()
                                 ->options([
-                                    'all_rooms' => '🌐 Tất cả khung giờ của tất cả phòng',
-                                    'specific_room' => '🏠 Tất cả khung giờ của 1 phòng cụ thể',
+                                    'all_rooms' => '🌐 Tất cả khung giờ của tất cả sân',
+                                    'specific_room' => '🏠 Tất cả khung giờ của 1 sân cụ thể',
                                     'specific_slot' => '🎯 Các khung giờ cụ thể',
                                 ])
                                 ->default('all_rooms')
@@ -129,7 +129,7 @@ trait HasBookingHeaderActions
                                 }),
 
                             Select::make('room_id')
-                                ->label('Chọn phòng')
+                                ->label('Chọn sân')
                                 ->options(fn () => $this->allowedRoomOptions())
                                 ->searchable()
                                 ->preload()

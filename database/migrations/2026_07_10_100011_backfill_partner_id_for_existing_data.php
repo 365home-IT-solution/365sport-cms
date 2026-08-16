@@ -31,7 +31,7 @@ return new class extends Migration
 
         $createdBy = DB::table('users')->where('email', 'support@goldenbeeltd.vn')->value('id');
 
-        // Dữ liệu tạo trước khi có khái niệm "đối tác" CHÍNH LÀ chi nhánh/phòng của nền tảng
+        // Dữ liệu tạo trước khi có khái niệm "đối tác" CHÍNH LÀ chi nhánh/sân của nền tảng
         // 365Home (không phải 1 đối tác thứ 3 thật), nên gán thẳng tên "365Home" thay vì tên tạm
         // "Đối tác mặc định". KHÔNG gán verification_status/is_platform_partner ở ĐÂY — 2 cột này
         // do các migration SAU (2026_07_11_140001 / 2026_07_13_120001) mới tạo ra; trên database

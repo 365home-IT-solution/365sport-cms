@@ -11,7 +11,7 @@
                             </tr>
                             <tr>
                                 <th colspan="2" class="py-1 px-2 min-w-[110px] border sticky-col-header">Tên
-                                    phòng</th>
+                                    sân</th>
                                 @foreach ($category['products'] as $room)
                                 @if(($room->styles ?? 1) == 1)
                                 @php

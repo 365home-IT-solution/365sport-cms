@@ -1,5 +1,5 @@
 {{--
-    Skeleton hiện khi Livewire đang tải dữ liệu lịch đặt phòng (đổi chi nhánh — loadBranch(), hoặc
+    Skeleton hiện khi Livewire đang tải dữ liệu lịch đặt sân (đổi chi nhánh — loadBranch(), hoặc
     đổi tab danh mục — setActiveCategoryTab()) — thay cho việc chỉ làm mờ opacity nội dung cũ, tạo
     cảm giác mượt/có phản hồi ngay thay vì đứng hình chờ. Dùng wire:loading.flex/.remove ở
     book.blade.php để ẩn/hiện khối này thay chỗ nội dung thật trong lúc chờ.
@@ -29,7 +29,7 @@
         </div>
     </div>
 
-    {{-- Desktop (>= lg): cột ngày + 3 cột phòng, giống bố cục .book-dt-body thật --}}
+    {{-- Desktop (>= lg): cột ngày + 3 cột sân, giống bố cục .book-dt-body thật --}}
     <div class="hidden lg:flex book-skeleton-desktop">
         <div class="book-skeleton-dates-col-lg">
             <span class="book-skel book-skeleton-col-header-lg"></span>

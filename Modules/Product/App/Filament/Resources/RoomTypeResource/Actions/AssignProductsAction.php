@@ -13,19 +13,19 @@ class AssignProductsAction
     public static function make(): Action
     {
         return Action::make('assign_products')
-            ->label('Gán phòng')
+            ->label('Gán sân')
             ->icon('heroicon-o-home')
             ->color('success')
-            ->modalHeading(fn ($record) => 'Gán phòng cho loại: ' . $record->name)
+            ->modalHeading(fn ($record) => 'Gán sân cho loại: ' . $record->name)
             ->modalSubmitActionLabel('Lưu')
             ->modalWidth('lg')
             ->form([
                 Select::make('product_ids')
-                    ->label('Chọn phòng')
+                    ->label('Chọn sân')
                     ->multiple()
                     ->searchable()
                     ->options(fn () => Product::orderBy('name')->pluck('name', 'id')->toArray())
-                    ->placeholder('Tìm theo tên phòng...'),
+                    ->placeholder('Tìm theo tên sân...'),
             ])
             ->fillForm(fn ($record) => [
                 'product_ids' => $record->products()->pluck('id')->toArray(),

@@ -14,10 +14,10 @@
                 Tra cứu trực tuyến 24/7
             </div>
             <h1 class="text-4xl sm:text-5xl font-semibold tracking-tight text-gray-900">
-                Tra cứu đơn đặt phòng
+                Tra cứu đơn đặt sân
             </h1>
             <p class="text-lg text-gray-500 font-normal max-w-xl mx-auto leading-relaxed">
-                Nhập số điện thoại bạn đã sử dụng khi đặt phòng để xem chi tiết booking, mã check-in và trạng thái
+                Nhập số điện thoại bạn đã sử dụng khi đặt sân để xem chi tiết booking, mã check-in và trạng thái
                 thanh toán.
             </p>
         </div>
@@ -107,7 +107,7 @@
                 {{-- Cố định số card/hàng theo breakpoint (không dùng auto-fill — số cột phụ thuộc
                      bề rộng cửa sổ thực tế, ở màn hẹp vẫn có thể chỉ ra 1 cột dù còn dư chỗ). Lên
                      hẳn 4 cột ở xl (≥1280px) — thử ở lg (1024px, card ~230px) bị chật: nhãn "Trả
-                     phòng" bị cắt, tên phòng/địa chỉ vỡ dòng xấu — nên giữ 3 cột tới hết lg. --}}
+                     sân" bị cắt, tên sân/địa chỉ vỡ dòng xấu — nên giữ 3 cột tới hết lg. --}}
                 <div class="grid gap-5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                 @foreach($orders as $order)
                 @php
@@ -152,13 +152,13 @@
 
                 <div
                     class="bg-white rounded-3xl border border-gray-100 shadow-[0_4px_24px_rgba(0,0,0,0.07)] overflow-hidden flex flex-col relative">
-                    {{-- Thanh màu primary của theme ở đỉnh card, ngay trên mã đặt phòng --}}
+                    {{-- Thanh màu primary của theme ở đỉnh card, ngay trên mã đặt sân --}}
                     <div class="h-1.5 w-full bg-primary"></div>
 
                     <!-- Card Header -->
                     <div class="px-5 pt-4 pb-3 flex justify-between items-start">
                         <div>
-                            <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-1">Mã đặt phòng</p>
+                            <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-1">Mã đặt sân</p>
                             <span class="text-xl font-bold tracking-tight text-gray-900">{{ $order->order_code }}</span>
                             <p class="text-xs text-gray-500 italic mt-0.5">Dear: {{ $buyerName }}</p>
                         </div>
@@ -222,7 +222,7 @@
                             <!-- Timeline kiểu vé máy bay: 2 mốc giờ nối bằng đường chấm -->
                             <div class="mt-4 flex items-center gap-2">
                                 <div class="text-left">
-                                    <span class="block text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Nhận phòng</span>
+                                    <span class="block text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Nhận sân</span>
                                     <span class="block text-sm font-bold text-gray-900 whitespace-nowrap">{{ $checkIn }}</span>
                                 </div>
                                 <div class="flex-1 flex items-center gap-0.5 px-1">
@@ -234,14 +234,14 @@
                                 </div>
 
                                 <div class="text-right">
-                                    <span class="block text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Trả phòng</span>
+                                    <span class="block text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Trả sân</span>
                                     <span class="block text-sm font-bold text-gray-900 whitespace-nowrap">{{ $checkOut }}</span>
                                 </div>
                             </div>
                         </div>
                         @endforeach
 
-                        {{-- Đường xé vé (perforation) — tách phần thông tin phòng khỏi "cuống vé"
+                        {{-- Đường xé vé (perforation) — tách phần thông tin sân khỏi "cuống vé"
                              (mã mở khóa), 2 chấm tròn khoét ở mép card khớp màu nền bg-gray-50 bao
                              ngoài để tạo ảo giác lỗ đục như vé giấy thật. --}}
                         <div class="relative -mx-5 my-4">
@@ -270,7 +270,7 @@
                             </div>
                         </div>
                         @elseif($firstProduct && $firstProduct->has_manual_lock)
-                        {{-- Phòng khóa thủ công: hiển thị pass cổng + pass phòng --}}
+                        {{-- Sân khóa thủ công: hiển thị pass cổng + pass sân --}}
                         <div class="text-center">
                             @if($manualLockPassword)
                             <div class="flex items-center justify-center gap-6 flex-wrap">
@@ -280,13 +280,13 @@
                                 </div>
                                 @if($manualLockPassword->room_password)
                                 <div>
-                                    <p class="text-[10px] font-semibold uppercase tracking-widest text-gray-400">Pass Phòng</p>
+                                    <p class="text-[10px] font-semibold uppercase tracking-widest text-gray-400">Pass Sân</p>
                                     <span class="text-2xl font-mono font-black tracking-[0.2em] text-gray-900">{{ $manualLockPassword->room_password }}</span>
                                 </div>
                                 @endif
                             </div>
                             @else
-                            <p class="text-sm text-gray-500">Vui lòng liên hệ để nhận mật khẩu phòng</p>
+                            <p class="text-sm text-gray-500">Vui lòng liên hệ để nhận mật khẩu sân</p>
                             @endif
                         </div>
                         @else
@@ -331,7 +331,7 @@
                             @if($isPendingDeposit)
                             {{-- Đơn cọc đang chờ thanh toán lần 1 --}}
                             <div class="flex justify-between text-sm">
-                                <span class="text-gray-500">Tổng tiền phòng</span>
+                                <span class="text-gray-500">Tổng tiền sân</span>
                                 <span class="font-medium text-gray-900">{{ number_format($fullAmount, 0, ',', '.') }}đ</span>
                             </div>
                             <div class="flex justify-between text-base pt-2 border-t border-dashed border-orange-200">
@@ -345,7 +345,7 @@
                                         <path stroke-linecap="round" stroke-linejoin="round"
                                             d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
                                     </svg>
-                                    Thanh toán cọc để giữ phòng
+                                    Thanh toán cọc để giữ sân
                                 </p>
                                 <p class="text-xs text-orange-700 mb-3">
                                     Số tiền cọc:
@@ -371,7 +371,7 @@
                             @elseif($isDepositPaid)
                             {{-- Breakdown cọc --}}
                             <div class="flex justify-between text-sm">
-                                <span class="text-gray-500">Tổng tiền phòng</span>
+                                <span class="text-gray-500">Tổng tiền sân</span>
                                 <span class="font-medium text-gray-900">{{ number_format($fullAmount, 0, ',', '.') }}đ</span>
                             </div>
                             <div class="flex justify-between text-sm">
@@ -379,7 +379,7 @@
                                 <span class="font-medium text-green-700">- {{ number_format($paidAmount, 0, ',', '.') }}đ</span>
                             </div>
                             <div class="flex justify-between text-base pt-2 border-t border-dashed border-amber-200">
-                                <span class="font-semibold text-amber-800">Còn lại khi nhận phòng</span>
+                                <span class="font-semibold text-amber-800">Còn lại khi nhận sân</span>
                                 <span class="font-bold text-amber-800 tracking-tight">{{ number_format($remainingAmount, 0, ',', '.') }}đ</span>
                             </div>
 
@@ -423,7 +423,7 @@
                                 class="text-blue-700 rounded-lg p-3 flex gap-3 items-start mt-2">
                                 <i class="fa fa-info-circle mt-1"></i>
                                 <p class="text-xs leading-relaxed">
-                                    Bạn đã thanh toán 100%. Vui lòng check-in đúng giờ và mã mở khóa khi đến nhận phòng.
+                                    Bạn đã thanh toán 100%. Vui lòng check-in đúng giờ và mã mở khóa khi đến nhận sân.
                                     Chúc quý khách có trải nghiệm tuyệt vời tại 365Home!
                                 </p>
                             </div>
@@ -452,7 +452,7 @@
                             d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z">
                         </path>
                     </svg>
-                    <p>Không tìm thấy đơn đặt phòng nào đã thanh toán với số điện thoại này.</p>
+                    <p>Không tìm thấy đơn đặt sân nào đã thanh toán với số điện thoại này.</p>
                 </div>
                 @endif
             </div>

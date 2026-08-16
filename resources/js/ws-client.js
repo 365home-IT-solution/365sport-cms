@@ -83,7 +83,7 @@
     }
 
     // Quét mọi ô khung giờ đang render trên trang (data-room-id + data-iso-date — cùng attribute
-    // echo-client.js đã dùng cho hold) để biết cần subscribe đúng những (phòng, ngày) nào đang
+    // echo-client.js đã dùng cho hold) để biết cần subscribe đúng những (sân, ngày) nào đang
     // hiển thị cho khách xem.
     function scanVisibleCells() {
         document.querySelectorAll('[data-room-id][data-iso-date]').forEach((cell) => {

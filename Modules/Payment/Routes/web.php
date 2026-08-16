@@ -62,6 +62,14 @@ Route::get('/success', function (Request $request) {
             ->with('deposit_success', true);
     }
 
+    // Đơn mua gói nhiều buổi — view 'payment::success' hiển thị thông tin sân/khung giờ (không có
+    // ở đơn này), dùng CHUNG trang tra cứu đơn (booking-detail.blade.php đã tự nhận diện
+    // order_type=package_purchase để hiện đúng nội dung "Gói đã kích hoạt" — xem
+    // BladeThemeV1Controller::bookingDetail()).
+    if ($order->order_type === 'package_purchase') {
+        return redirect()->route('booking.detail', ['code' => $order->order_code]);
+    }
+
     return view('payment::success', compact('order'));
 })->name('payment.success');
 

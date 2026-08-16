@@ -318,7 +318,7 @@
     {{-- HEADER --}}
     <div class="ta-header">
         <div>
-            <div class="ta-sub-label">— 01 / Tổng quan đơn đặt phòng</div>
+            <div class="ta-sub-label">— 01 / Tổng quan đơn đặt sân</div>
             <h2 class="ta-title">Thống kê <em>booking</em><br/>{{ $periodLabel }} qua.</h2>
         </div>
         <div>
@@ -334,7 +334,7 @@
     {{-- KPI GRID --}}
     <div class="ta-kpi-grid">
         <div class="ta-kpi">
-            <div class="ta-kpi-label">Tổng đơn đặt phòng</div>
+            <div class="ta-kpi-label">Tổng đơn đặt sân</div>
             <div class="ta-kpi-value">{{ number_format($total) }}</div>
             <div class="ta-kpi-delta {{ $totalDelta >= 0 ? 'up' : 'down' }}">
                 {{ $totalDelta >= 0 ? '↑' : '↓' }} {{ abs($totalDelta) }}%
@@ -379,7 +379,7 @@
                 <div class="ta-chart-center">
                     <div class="cc-label">Tổng</div>
                     <div class="cc-value" id="ta-cc-value">{{ number_format($total) }}</div>
-                    <div class="cc-sub" id="ta-cc-sub">đơn đặt phòng</div>
+                    <div class="cc-sub" id="ta-cc-sub">đơn đặt sân</div>
                 </div>
             </div>
         </div>
@@ -488,7 +488,7 @@
         });
         donut.on('mouseout', () => {
             if (ccValue) { ccValue.textContent = totalCount.toLocaleString('vi-VN'); ccValue.style.color = '#f5efe0'; }
-            if (ccSub) ccSub.textContent = 'đơn đặt phòng';
+            if (ccSub) ccSub.textContent = 'đơn đặt sân';
         });
 
         // ---- TREND ----

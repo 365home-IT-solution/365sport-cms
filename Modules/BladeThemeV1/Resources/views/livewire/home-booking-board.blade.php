@@ -1,5 +1,5 @@
 {{--
- * Section "Lịch đặt phòng trực tuyến" trên trang chủ — tái dùng nguyên Livewire component
+ * Section "Lịch đặt sân trực tuyến" trên trang chủ — tái dùng nguyên Livewire component
  * Book.php (đã dùng ở trang /branch/{slug} và panel ?view=branches của trang tìm kiếm), chỉ
  * thêm bộ chọn tỉnh/thành + chi nhánh phía trên. Đổi chi nhánh không remount lại Book — bắn sự
  * kiện 'load-branch' (cơ chế có sẵn từ Book::loadBranch()).
@@ -9,7 +9,7 @@
 
         <div class="px-4 sm:px-6">
             <div class="mb-5">
-                <h2 class="text-2xl font-bold text-gray-900">Lịch đặt phòng trực tuyến</h2>
+                <h2 class="text-2xl font-bold text-gray-900">Lịch đặt sân trực tuyến</h2>
                 {{-- Tên khu vực đang chọn lấy từ provinces (đã fetch qua loadProvinces()) khớp
                      activeProvinceId — rơi về câu chung chung nếu chưa xác định được tên. --}}
                 <p class="text-sm text-gray-500 mt-1"
@@ -57,7 +57,7 @@
                             class="shrink-0 text-left px-4 py-3 rounded-xl border transition-colors min-w-[180px]" style="scroll-snap-align:start;">
                             <p class="font-semibold text-sm truncate" x-text="b.name"></p>
                             <p class="text-xs mt-0.5" :class="b.slug === activeBranchSlug ? 'text-white/75' : 'text-gray-500'"
-                                x-text="b.room_count + ' phòng đang trống'"></p>
+                                x-text="b.room_count + ' sân đang trống'"></p>
                         </button>
                     </template>
                 </div>

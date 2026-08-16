@@ -29,12 +29,12 @@ class OrderFilter
                 ]),
 
             SelectFilter::make('order_status')
-                ->label(__('Nhận/trả phòng'))
+                ->label(__('Nhận/trả sân'))
                 ->options([
-                    'pending'     => __('Chờ nhận phòng'),
-                    'checked_in'  => __('Đã nhận phòng'),
+                    'pending'     => __('Chờ nhận sân'),
+                    'checked_in'  => __('Đã nhận sân'),
                     'staying'     => __('Đang ở'),
-                    'checked_out' => __('Đã trả phòng'),
+                    'checked_out' => __('Đã trả sân'),
                 ]),
 
             SelectFilter::make('category_id')
@@ -75,7 +75,7 @@ class OrderFilter
                 }),
 
             SelectFilter::make('product_id')
-                ->label(__('Phòng'))
+                ->label(__('Sân'))
                 ->options(function () {
                     $user = auth()->user();
                     $query = Product::query();
@@ -170,7 +170,7 @@ class OrderFilter
             Filter::make('checkin_date_single')
                 ->form([
                     DatePicker::make('checkin_day')
-                        ->label(__('Nhận phòng — Chọn ngày'))
+                        ->label(__('Nhận sân — Chọn ngày'))
                         ->native(false)
                         ->timezone('Asia/Ho_Chi_Minh')
                         ->displayFormat('d/m/Y')
@@ -189,7 +189,7 @@ class OrderFilter
                 })
                 ->indicateUsing(function (array $data): array {
                     if ($data['checkin_day'] ?? null) {
-                        return ['Nhận phòng ngày: ' . \Carbon\Carbon::parse($data['checkin_day'])->format('d/m/Y')];
+                        return ['Nhận sân ngày: ' . \Carbon\Carbon::parse($data['checkin_day'])->format('d/m/Y')];
                     }
                     return [];
                 })
@@ -198,7 +198,7 @@ class OrderFilter
             Filter::make('checkout_date_single')
                 ->form([
                     DatePicker::make('checkout_day')
-                        ->label(__('Trả phòng — Chọn ngày'))
+                        ->label(__('Trả sân — Chọn ngày'))
                         ->native(false)
                         ->timezone('Asia/Ho_Chi_Minh')
                         ->displayFormat('d/m/Y')
@@ -217,7 +217,7 @@ class OrderFilter
                 })
                 ->indicateUsing(function (array $data): array {
                     if ($data['checkout_day'] ?? null) {
-                        return ['Trả phòng ngày: ' . \Carbon\Carbon::parse($data['checkout_day'])->format('d/m/Y')];
+                        return ['Trả sân ngày: ' . \Carbon\Carbon::parse($data['checkout_day'])->format('d/m/Y')];
                     }
                     return [];
                 })

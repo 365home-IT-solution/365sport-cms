@@ -7,7 +7,7 @@ $groupedTags = $productTagsCollection->groupBy(fn($tag) => $tag->tag_type ?: 'Kh
 
 <div class="mb-8" x-data="{ showAmenities: false }"
     x-init="$watch('showAmenities', v => $dispatch(v ? 'amenities-modal-open' : 'amenities-modal-close'))">
-    <h3 class="text-3xl font-bold my-8">Tiện nghi phòng</h3>
+    <h3 class="text-3xl font-bold my-8">Tiện nghi sân</h3>
 
     {{-- Grid hiển thị tối đa 6 items (mobile: 3 hàng × 2 cột) / 9 items (desktop: 3 hàng × 3 cột) --}}
     <div class="grid grid-cols-2 md:grid-cols-3 gap-8">

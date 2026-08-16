@@ -53,7 +53,7 @@ class RoomCardsService
             // Product đã tự lọc theo partner_id (BelongsToPartner); allowedCategoryIds chỉ thu hẹp thêm.
             $allowedCategoryIds = $user->allowedCategoryIds() ?? [];
             if (! empty($allowedCategoryIds)) {
-                // Phòng KHÔNG gán chi nhánh nào (categories rỗng) không thuộc về bất kỳ ai —
+                // Sân KHÔNG gán chi nhánh nào (categories rỗng) không thuộc về bất kỳ ai —
                 // luôn hiện (nhóm "Chưa phân loại") để không bị "biến mất" khỏi mọi tài khoản bị
                 // giới hạn theo chi nhánh, thay vì âm thầm bị whereHas() loại bỏ hoàn toàn.
                 $productQuery->where(function ($q) use ($allowedCategoryIds) {
@@ -83,12 +83,15 @@ class RoomCardsService
                 })
                 ->orWhereHas('order', fn ($q2) => $q2->where('status', 'pending'));
             })
-            ->whereHas('order', fn ($q) => $q->whereNotIn('status', ['cancelled', 'failed'])->where('exclude_from_stats', false))
+            // cancelled_at NOT NULL = khách đã tự huỷ đơn (xem OrderCancellationService) — không
+            // còn thật sự chiếm chỗ nữa dù status vẫn 'paid'/'deposit', loại khỏi cả thẻ sân lẫn
+            // lưới "Lịch" (2 view cùng dùng chung $allItems này).
+            ->whereHas('order', fn ($q) => $q->whereNotIn('status', ['cancelled', 'failed'])->where('exclude_from_stats', false)->whereNull('cancelled_at'))
             ->orderByDesc('created_at')
             ->get()
             ->groupBy('product_id');
 
-        // Hoàn tiền đang chờ — dùng để hiện icon cảnh báo nhỏ trên thẻ phòng ở Dashboard, KHÔNG
+        // Hoàn tiền đang chờ — dùng để hiện icon cảnh báo nhỏ trên thẻ sân ở Dashboard, KHÔNG
         // giới hạn theo khoảng ngày hiển thị đơn ở trên (đơn có thể đã checkout từ lâu nhưng
         // khoản hoàn tiền vẫn chưa xử lý xong, staff vẫn cần thấy).
         $pendingRefundsByProduct = OrderItem::whereIn('product_id', $productIds)
@@ -107,10 +110,10 @@ class RoomCardsService
                 ];
             });
 
-        // View "Dải giờ" — lưới Ngày × Khung giờ giống hệt trang đặt phòng của khách (book.blade.php)
-        // thay cho thanh 24h cũ. Nạp SẴN 1 LẦN toàn bộ khung giờ (RoomTimeSlot) của MỌI phòng kiểu
-        // "khung giờ" (style 1) ở đây — tránh N+1 query nếu tự query riêng cho từng phòng bên dưới.
-        // Phòng "đặt theo ngày" (style 2) không có khung giờ cố định nên không cần tra bảng này.
+        // View "Dải giờ" — lưới Ngày × Khung giờ giống hệt trang đặt sân của khách (book.blade.php)
+        // thay cho thanh 24h cũ. Nạp SẴN 1 LẦN toàn bộ khung giờ (RoomTimeSlot) của MỌI sân kiểu
+        // "khung giờ" (style 1) ở đây — tránh N+1 query nếu tự query riêng cho từng sân bên dưới.
+        // Sân "đặt theo ngày" (style 2) không có khung giờ cố định nên không cần tra bảng này.
         $slotStyleProductIds = $products->filter(fn ($p) => (int) $p->styles === 1)->pluck('id')->toArray();
         $allRoomTimeSlots = RoomTimeSlot::whereIn('room_id', $slotStyleProductIds)
             ->whereNull('date')
@@ -120,7 +123,7 @@ class RoomCardsService
             ->groupBy('room_id');
 
         // Giữ chỗ real-time (TimeslotHoldService) — nạp 1 LẦN cho TOÀN BỘ room_time_slot_id liên
-        // quan (mọi phòng), giống hệt cách allRoomTimeSlots ở trên tránh N+1 — view "Lịch"
+        // quan (mọi sân), giống hệt cách allRoomTimeSlots ở trên tránh N+1 — view "Lịch"
         // (Dashboard::rcCalRenderGrid()) cần biết ô nào đang bị giữ để không cho 2 admin chọn
         // trùng, và ô "held_mine" (chính mình đang giữ, vd mới F5 lại trang) vẫn hiện lại đúng
         // trạng thái đã chọn dở.
@@ -202,7 +205,7 @@ class RoomCardsService
                     'slot_ranges'  => [],
                     'deposit_room' => $order->deposit_room ?? '',
                     // Đơn có ghi chú (Order.description) — chỉ cờ boolean, KHÔNG trả nguyên nội
-                    // dung ghi chú trong payload đổ hết mọi phòng/ngày này (poll định kỳ, có thể
+                    // dung ghi chú trong payload đổ hết mọi sân/ngày này (poll định kỳ, có thể
                     // dài) — view "Lịch" (Dashboard::rcCalRenderGrid()) dùng cờ này để hiện badge
                     // tròn trên ô, nội dung thật lấy riêng qua GET .../quick-info khi bấm vào ô.
                     'has_note'     => filled($order->description),
@@ -412,14 +415,14 @@ class RoomCardsService
         ];
     }
 
-    // View "Dải giờ" — lưới Ngày × Khung giờ CHO ĐÚNG 1 PHÒNG này, cùng cấu trúc hàng/cột với
-    // trang đặt phòng của khách (book.blade.php/_desktop-grid.blade.php: hàng = khung giờ cố định
-    // của phòng, cột = ngày) — khác ở chỗ đây là xem TÌNH TRẠNG (đã đặt/còn trống), không phải màn
-    // hình CHỌN khung giờ để đặt, nên không cần tính giá/khuyến mãi từng ô. Phòng "đặt theo ngày"
+    // View "Dải giờ" — lưới Ngày × Khung giờ CHO ĐÚNG 1 SÂN này, cùng cấu trúc hàng/cột với
+    // trang đặt sân của khách (book.blade.php/_desktop-grid.blade.php: hàng = khung giờ cố định
+    // của sân, cột = ngày) — khác ở chỗ đây là xem TÌNH TRẠNG (đã đặt/còn trống), không phải màn
+    // hình CHỌN khung giờ để đặt, nên không cần tính giá/khuyến mãi từng ô. Sân "đặt theo ngày"
     // (style 2) không có khung giờ cố định — chỉ có đúng 1 "hàng" duy nhất ứng với cả ngày.
     //
     // $days: số cột ngày hiển thị — 7 ngày (tuần hiện tại) đủ để thấy tình trạng gần mà vẫn gọn
-    // trong 1 thẻ phòng, không tính lại nếu admin muốn xem xa hơn (đã có view "Danh sách" liệt kê
+    // trong 1 thẻ sân, không tính lại nếu admin muốn xem xa hơn (đã có view "Danh sách" liệt kê
     // đủ mọi đơn upcoming cho việc đó rồi).
     // $currentUserId: kiểu string, KHÔNG phải int — User.id trong app này là UUID.
     private static function buildTimeslotGrid(Product $product, array $orders, Carbon $today, $roomTimeSlots, array $holdsMap = [], ?string $currentUserId = null, int $days = 10): array
@@ -454,7 +457,7 @@ class RoomCardsService
                     // của riêng khung giờ (room_time_slot) này, đọc thẳng settings JSON, không
                     // cần query/join thêm.
                     'blocked_dates' => $slot->settings['blocked_dates'] ?? [],
-                    // Khung giờ ĐANG có khuyến mãi hiệu lực (gắn qua popup "Giá phòng" —
+                    // Khung giờ ĐANG có khuyến mãi hiệu lực (gắn qua popup "Giá sân" —
                     // rcCalSavePricing()/routes/web.php admin.rooms.pricing-info) — dùng để tô
                     // hiệu ứng viền neon các ô trống thuộc khung giờ này (view "Lịch"). Chỉ tính
                     // khuyến mãi is_active=true VÀ hôm nay nằm trong [start_at, end_at] (null =
@@ -525,7 +528,7 @@ class RoomCardsService
                 // free (view "Lịch" — Dashboard::rcCalRenderGrid() — cần phân biệt để biết ô nào
                 // bấm chọn được). Ô đã đặt LUÔN ưu tiên trên hết, sau đó tới khoá dài hạn
                 // (blocked_dates — BlockTimeslotModal), rồi tới giữ chỗ real-time (TimeslotHold —
-                // CHỈ áp dụng cho phòng theo khung giờ, phòng đặt-theo-ngày không có khái niệm
+                // CHỈ áp dụng cho sân theo khung giờ, sân đặt-theo-ngày không có khái niệm
                 // giữ-từng-ô này), còn lại là free (bấm chọn được).
                 if ($match) {
                     // Quá giờ (checkout_date của order_item đã trôi qua so với hiện tại) — ô hiện
@@ -580,7 +583,7 @@ class RoomCardsService
     }
 
     /**
-     * Tính tổng tiền cho nhóm khung giờ của 1 phòng trong 1 đơn hàng,
+     * Tính tổng tiền cho nhóm khung giờ của 1 sân trong 1 đơn hàng,
      * áp dụng bulk_discount_rules và phụ thu từ room_config.
      */
     private static function computeSlotAmount($groupItems, Product $product): int

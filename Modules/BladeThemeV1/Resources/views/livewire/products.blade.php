@@ -1,6 +1,6 @@
 <div>
 
-{{-- ===== VIEW MỚI: Phòng theo loại roomtype (carousel) ===== --}}
+{{-- ===== VIEW MỚI: Sân theo loại roomtype (carousel) ===== --}}
 @if (!empty($searchSections))
     @foreach ($searchSections as $sIndex => $section)
     @php $trackId = 'pt-' . $sIndex; @endphp
@@ -13,7 +13,7 @@
                     <h2 style="font-size:1.15rem; font-weight:800; color:#111827; text-transform:uppercase; letter-spacing:.02em; margin:0;">
                         {{ $section['title'] }}
                     </h2>
-                    {{-- <span style="font-size:12px; color:#9ca3af;">({{ $section['count'] }} phòng)</span> --}}
+                    {{-- <span style="font-size:12px; color:#9ca3af;">({{ $section['count'] }} sân)</span> --}}
                 </div>
                 <a href="{{ route('product.search') }}?type={{ $section['slug'] ?? '' }}"
                     style="font-size:13px; font-weight:600; color:#0f766e; text-decoration:none; display:flex; align-items:center; gap:3px; white-space:nowrap; flex-shrink:0;">
@@ -96,7 +96,7 @@
 
                         {{-- Text: 2 hàng --}}
                         <div style="padding:0 2px; display:flex; flex-direction:column; gap:3px;">
-                            {{-- Hàng 1: Tên phòng --}}
+                            {{-- Hàng 1: Tên sân --}}
                             <p style="font-size:13px; font-weight:600; color:#111827; margin:0; overflow:hidden; white-space:nowrap; text-overflow:ellipsis;">
                                 {{ $room->pname }}
                             </p>
@@ -135,7 +135,7 @@
 
 @else
     <div style="padding:4rem 1rem; text-align:center;">
-        <p style="color:#6b7280; font-size:15px;">Chưa có phòng nào.</p>
+        <p style="color:#6b7280; font-size:15px;">Chưa có sân nào.</p>
     </div>
 @endif
 

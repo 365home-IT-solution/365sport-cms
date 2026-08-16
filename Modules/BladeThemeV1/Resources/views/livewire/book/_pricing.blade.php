@@ -105,7 +105,7 @@
                             <template x-if="hasFullDayBooking">
                                 <div class="not-italic">
                                     <p class="text-primary font-semibold">
-                                        Đã áp dụng ưu đãi đặc biệt cho Full phòng
+                                        Đã áp dụng ưu đãi đặc biệt cho Full sân
                                     </p>
                                     <p class="text-orange-600 text-xs mt-1">
                                         Không áp dụng cùng các khuyến mãi giảm giá khác
@@ -116,12 +116,12 @@
 
                     </div>
 
-                    <!-- Nút đặt phòng -->
+                    <!-- Nút đặt sân -->
                     <div class="px-2 pb-2 w-full text-right" x-show="selectedRoomIsActive === true || selectedRoomId === null">
                         <button @click="$wire.saveAndRedirect(selectedSlots)"
                                     :disabled="selectedSlots.length === 0"
                                     class="book-cta-btn">
-                                Đặt phòng ngay
+                                Đặt sân ngay
                             </button>
                     </div>
                 </div>

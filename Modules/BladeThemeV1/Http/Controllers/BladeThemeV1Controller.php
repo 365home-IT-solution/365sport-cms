@@ -197,7 +197,31 @@ class BladeThemeV1Controller extends Controller
         $item = $order->items->first();
         $product = $item ? $item->product : null;
 
-        return view('bladethemev1::pages.booking-detail', compact('order', 'item', 'product'));
+        // Đơn mua gói nhiều buổi (order_type=package_purchase) — không có khung giờ/mã cổng thật,
+        // view tự chuyển sang hiện "Gói đã kích hoạt" thay vì thông tin nhận/trả sân thông thường.
+        $isPackagePurchase = $order->order_type === 'package_purchase';
+        $customerPackage   = $isPackagePurchase
+            ? \App\Models\CustomerPackage::where('order_id', $order->id)->first()
+            : null;
+
+        return view('bladethemev1::pages.booking-detail', compact('order', 'item', 'product', 'isPackagePurchase', 'customerPackage'));
+    }
+
+    // Khách tự huỷ đơn/xin hoàn tiền online — xem App\Services\OrderCancellationService (điều
+    // kiện huỷ + tính % hoàn tự động nằm trong đó, view chỉ hiện kết quả).
+    public function cancelBooking(Request $request, string $code)
+    {
+        $order = Order::with('items')->where('order_code', $code)->firstOrFail();
+
+        $result = app(\App\Services\OrderCancellationService::class)->cancelByCustomer($order);
+
+        if (! $result['ok']) {
+            return back()->with('cancel_error', $result['error']);
+        }
+
+        return redirect()
+            ->route('booking.detail', ['code' => $order->order_code])
+            ->with('cancel_success', $result['refund_amount']);
     }
 
 //    public function categoryDetail($slug)
@@ -270,8 +294,8 @@ class BladeThemeV1Controller extends Controller
     {
         $seoData = [
             'seo_title' => 'Yêu thích',
-            'seo_description' => 'Danh sách phòng đã lưu',
-            'seo_keywords' => 'yêu thích, phòng nghỉ, 365 home',
+            'seo_description' => 'Danh sách sân đã lưu',
+            'seo_keywords' => 'yêu thích, sân nghỉ, 365 home',
             'og_type' => 'website',
         ];
 
@@ -320,7 +344,7 @@ class BladeThemeV1Controller extends Controller
     {
         $seoData = [
             'seo_title' => 'Đăng nhập',
-            'seo_description' => 'Đăng nhập tài khoản 365 Home để đặt phòng nhanh hơn và nhận ưu đãi dành riêng cho thành viên.',
+            'seo_description' => 'Đăng nhập tài khoản 365 Home để đặt sân nhanh hơn và nhận ưu đãi dành riêng cho thành viên.',
             'seo_keywords' => 'đăng nhập, 365 home',
             'og_type' => 'website',
         ];
@@ -472,9 +496,9 @@ class BladeThemeV1Controller extends Controller
     public function home()
     {
         $seoData = [
-            'seo_title'       => config('app.name', '365 HOME'),
-            'seo_description' => 'Đặt phòng nghỉ, coworking, phòng theo giờ chất lượng tại 365 HOME',
-            'seo_keywords'    => '365 home, đặt phòng, phòng theo giờ, coworking',
+            'seo_title'       => config('app.name', '365Sport'),
+            'seo_description' => 'Đặt sân thể thao theo giờ chất lượng tại 365Sport',
+            'seo_keywords'    => '365 home, đặt sân, sân theo giờ, coworking',
             'og_type'         => 'website',
         ];
 
@@ -509,9 +533,9 @@ class BladeThemeV1Controller extends Controller
         }
 
         $seoData = [
-            'seo_title'       => 'Tìm kiếm phòng' . ($province ? ' tại ' . $province->name : '') . ' | 365 HOME',
-            'seo_description' => 'Tìm kiếm phòng nghỉ, coworking, phòng theo giờ chất lượng tại 365 HOME.',
-            'seo_keywords'    => 'tìm kiếm phòng, đặt phòng, phòng theo giờ, 365 home',
+            'seo_title'       => 'Tìm kiếm sân' . ($province ? ' tại ' . $province->name : '') . ' | 365Sport',
+            'seo_description' => 'Tìm kiếm sân thể thao theo giờ chất lượng tại 365Sport.',
+            'seo_keywords'    => 'tìm kiếm sân, đặt sân, sân theo giờ, 365 home',
             'og_type'         => 'website',
         ];
 
@@ -539,9 +563,9 @@ class BladeThemeV1Controller extends Controller
         $bookConfig = $result['bookConfig'];
 
         $seoData = [
-            'seo_title' => 'Đặt phòng ' . $branch->name . ' | 365 HOME',
-            'seo_description' => 'Bảng đặt phòng theo khung giờ tại chi nhánh ' . $branch->name . '.',
-            'seo_keywords' => 'đặt phòng, khung giờ, ' . $branch->name,
+            'seo_title' => 'Đặt sân ' . $branch->name . ' | 365Sport',
+            'seo_description' => 'Bảng đặt sân theo khung giờ tại chi nhánh ' . $branch->name . '.',
+            'seo_keywords' => 'đặt sân, khung giờ, ' . $branch->name,
             'og_type' => 'website',
         ];
 
@@ -553,16 +577,6 @@ class BladeThemeV1Controller extends Controller
             'lightPrimaryColor' => $this->lightPrimaryColor,
             'branch' => $branch,
             'bookConfig' => $bookConfig,
-        ]);
-    }
-
-    public function cartPage()
-    {
-        return view('bladethemev1::pages.cart.cart', [
-            'primaryColor' => $this->primaryColor,
-            'primaryColorRgb' => $this->primaryColorRgb,
-            'heavyPrimaryColor' => $this->heavyPrimaryColor,
-            'lightPrimaryColor' => $this->lightPrimaryColor
         ]);
     }
 

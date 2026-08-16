@@ -1,8 +1,8 @@
-                {{-- ── Shared legend + (desktop) nút đặt phòng nhanh kèm giá tạm tính ── --}}
+                {{-- ── Shared legend + (desktop) nút đặt sân nhanh kèm giá tạm tính ── --}}
                 {{-- flex-wrap justify-start (thay vì grid grid-cols-2): grid-cols-2 dùng cột 1fr
                      nên luôn giãn hết chiều ngang container — flex-wrap để các mục tự xuống dòng,
-                     canh về đầu hàng ở mobile (lg:justify-between để chừa chỗ cho nút đặt phòng
-                     nhanh bên phải ở desktop). px-2.5 lg:px-0: ở mobile, tiêu đề phòng
+                     canh về đầu hàng ở mobile (lg:justify-between để chừa chỗ cho nút đặt sân
+                     nhanh bên phải ở desktop). px-2.5 lg:px-0: ở mobile, tiêu đề sân
                      (.book-top-row) và bảng lịch (.book-grid-header) bên dưới đều có
                      padding: 0 10px (book/_styles.blade.php) — hàng chú thích này vốn không có
                      padding nên bị lệch ra ngoài 10px so với 2 khối đó, thêm px-2.5 (10px) để
@@ -24,10 +24,10 @@
                         </div>
                     </div>
 
-                    {{-- Giá + nút đặt phòng gộp làm 1 (thay cho bảng tóm tắt giá đầy đủ bên dưới
-                         bảng đặt phòng — đã ẩn hẳn ở desktop, xem .book-pricing-desktop trong
+                    {{-- Giá + nút đặt sân gộp làm 1 (thay cho bảng tóm tắt giá đầy đủ bên dưới
+                         bảng đặt sân — đã ẩn hẳn ở desktop, xem .book-pricing-desktop trong
                          _styles.blade.php) — chỉ HIỆN RÕ khi đã chọn khung giờ, cùng điều kiện với
-                         nút "Đặt phòng ngay" gốc trong _pricing.blade.php (selectedRoomIsActive
+                         nút "Đặt sân ngay" gốc trong _pricing.blade.php (selectedRoomIsActive
                          === true || selectedRoomId === null). ml-auto đảm bảo luôn nằm cuối hàng
                          (bên phải) dù hàng chú thích trạng thái có xuống dòng hay không. Cố tình
                          KHÔNG dùng x-show (display:none ⇄ flex) — nút vẫn luôn nằm trong layout
@@ -38,6 +38,6 @@
                     <button @click="$wire.saveAndRedirect(selectedSlots)" :disabled="selectedSlots.length === 0"
                         class="ml-auto shrink-0 transition-opacity duration-300 book-cta-btn book-legend-cta-btn"
                         :class="selectedSlots.length > 0 && (selectedRoomIsActive === true || selectedRoomId === null) ? 'opacity-100' : 'opacity-0 pointer-events-none'">
-                        <span x-text="totalAfterAllDiscounts.toLocaleString() + ' đ'"></span> | Đặt phòng
+                        <span x-text="totalAfterAllDiscounts.toLocaleString() + ' đ'"></span> | Đặt sân
                     </button>
                 </div>

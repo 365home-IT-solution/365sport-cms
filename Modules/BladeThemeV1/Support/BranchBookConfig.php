@@ -8,9 +8,9 @@ use Modules\Product\App\Models\Product;
 class BranchBookConfig
 {
     /**
-     * Chi nhánh (Category gốc) + config cho Livewire Book component (danh sách phòng khả dụng
+     * Chi nhánh (Category gốc) + config cho Livewire Book component (danh sách sân khả dụng
      * theo khung giờ). Dùng chung cho trang chi tiết chi nhánh (/branch/{slug}) và panel đặt
-     * lịch inline ở trang tìm kiếm (?view=branches) để 2 nơi luôn lọc phòng giống hệt nhau.
+     * lịch inline ở trang tìm kiếm (?view=branches) để 2 nơi luôn lọc sân giống hệt nhau.
      */
     public static function build(string $slug): ?array
     {
@@ -51,8 +51,8 @@ class BranchBookConfig
                             ],
                         ],
                     ], JSON_UNESCAPED_UNICODE),
-                    'title_booking' => 'Đặt phòng ' . $branch->name,
-                    'sub_title_booking' => 'Chọn phòng và mốc thời gian phù hợp tại chi nhánh này.',
+                    'title_booking' => 'Đặt sân ' . $branch->name,
+                    'sub_title_booking' => 'Chọn sân và mốc thời gian phù hợp tại chi nhánh này.',
                     'image_event' => '',
                 ],
             ],

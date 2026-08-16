@@ -42,7 +42,7 @@ class Footer extends Component
         $footerBottomConfig = $this->getChildSectionConfigs(FooterSection::FOOTER_BOTTOM->value);
 
         $this->calculateColumns($footerMainConfig['footer_column']);
-        $this->logo = $this->generalSettings->brand_logo;
+        $this->logo = $this->generalSettings->brand_logo ?? '';
 
         $this->footerConfig = [
             'newsletter' => [

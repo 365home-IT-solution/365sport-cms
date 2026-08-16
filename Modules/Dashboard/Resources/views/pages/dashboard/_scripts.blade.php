@@ -9,15 +9,15 @@
 window._rcActiveBranch = '__all__';
 window._rcActiveTime   = 'all';
 
-// Bootstrap dữ liệu phòng/chi nhánh cho lần vẽ đầu tiên của view "Lịch" (rcCalRenderBranches()/
+// Bootstrap dữ liệu sân/chi nhánh cho lần vẽ đầu tiên của view "Lịch" (rcCalRenderBranches()/
 // rcCalRenderGrid() bên dưới) — renderRoomCards() (poll định kỳ, xem pollRoomCards()) tự cập nhật
 // lại 2 biến này mỗi khi có dữ liệu mới, không cần đợi tới lúc đó mới có dữ liệu ban đầu.
 window.__rcRoomsData    = @json($roomCards['rooms'] ?? []);
 window.__rcBranchesData = @json($roomCards['branches'] ?? []);
 window._rcCalActiveBranch = null;
 
-// Số ngày hiển thị ở view "Lịch" — 1 select DÙNG CHUNG cho mọi phòng đang xem (không phải riêng
-// từng phòng, giữ nguyên cột "Thời gian" dùng chung cho cả carousel phòng), chỉ 3 mốc 5/10/15 —
+// Số ngày hiển thị ở view "Lịch" — 1 select DÙNG CHUNG cho mọi sân đang xem (không phải riêng
+// từng sân, giữ nguyên cột "Thời gian" dùng chung cho cả carousel sân), chỉ 3 mốc 5/10/15 —
 // xem rcCalApplyDaysRange(). Mặc định 10 (khớp RoomCardsService::buildTimeslotGrid() mặc định),
 // tối đa 15 (chặn cả 2 phía client lẫn server — routes/web.php admin.room-cards).
 window._rcCalDays = 10;
@@ -73,11 +73,11 @@ window.rcApplyFilters = function() {
             countEl.classList.toggle('empty', visibleCount === 0);
         }
 
-        // CHỈ hiện thẻ phòng khi phòng đó CÓ đơn (allOrderCount > 0) — phòng "Trống" (chưa từng
+        // CHỈ hiện thẻ sân khi sân đó CÓ đơn (allOrderCount > 0) — sân "Trống" (chưa từng
         // có đơn nào) không còn hiện trong view "Danh sách" nữa. Dùng allOrderCount (TỔNG số đơn,
-        // không phụ thuộc tab thời gian đang lọc) chứ không phải visibleCount — phòng có đơn
+        // không phụ thuộc tab thời gian đang lọc) chứ không phải visibleCount — sân có đơn
         // nhưng không khớp tab thời gian đang chọn vẫn hiện thẻ kèm ".ta-rc-no-match" như cũ, chỉ
-        // phòng CHƯA TỪNG có đơn mới bị ẩn hẳn.
+        // sân CHƯA TỪNG có đơn mới bị ẩn hẳn.
         card.style.display = (branchMatch && allOrderCount > 0) ? '' : 'none';
     });
 };
@@ -92,12 +92,12 @@ window.rcSwitchTime = function(btn) {
     window.rcApplyFilters();
 };
 
-// Áp dụng ngay từ lần tải trang đầu tiên — thiếu bước này thì lọc chi nhánh/ẩn phòng "Trống" chỉ
+// Áp dụng ngay từ lần tải trang đầu tiên — thiếu bước này thì lọc chi nhánh/ẩn sân "Trống" chỉ
 // có tác dụng SAU khi bấm 1 tab (rcSwitchTab/rcSwitchTime) hoặc đợi poll 2 phút (pollRoomCards()
-// → renderRoomCards()), ban đầu mọi thẻ phòng (kể cả phòng "Trống") hiện hết cùng lúc.
+// → renderRoomCards()), ban đầu mọi thẻ sân (kể cả sân "Trống") hiện hết cùng lúc.
 window.rcApplyFilters();
 
-// Bấm vào thẻ phòng (vùng trống, không phải nút/link/checkbox bên trong) → mở trang sửa phòng
+// Bấm vào thẻ sân (vùng trống, không phải nút/link/checkbox bên trong) → mở trang sửa sân
 // (ProductResource edit, xem data-edit-url gắn từ $room['edit_url'] — Dashboard::getRoomCardsData()).
 // Không dùng closest('a, button, input') vì nút ⋮ (rcOpenRoomMenu) đã tự stopPropagation() rồi,
 // nhưng vẫn chặn ở đây phòng khi các link/checkbox khác (đơn, "Chi tiết (cũ)") không có.
@@ -107,9 +107,9 @@ window.rcCardClick = function(event, card) {
     if (url) window.location.href = url;
 };
 
-// Bấm vào 1 dòng đơn trong danh sách của thẻ phòng → mở thẳng trang chi tiết đơn đó, không cần
+// Bấm vào 1 dòng đơn trong danh sách của thẻ sân → mở thẳng trang chi tiết đơn đó, không cần
 // bấm đúng icon mũi tên/nút "Chi tiết" nhỏ bên trong nữa. stopPropagation() để rcCardClick ở thẻ
-// phòng cha (bên trên) không bắt lại sự kiện rồi điều hướng nhầm sang trang sửa phòng.
+// sân cha (bên trên) không bắt lại sự kiện rồi điều hướng nhầm sang trang sửa sân.
 window.rcOrderItemClick = function(event, item) {
     if (event.target.closest('a, button, input, label')) return;
     event.stopPropagation();
@@ -366,10 +366,10 @@ window.rcOpenSegmentPopup = function(segment) {
 window.rcOpenNowPopup = function() {
     var orders = [];
 
-    // KHÔNG còn dựng roomList từ TOÀN BỘ thẻ phòng trong DOM nữa (trước đây khiến popup hiện cả
-    // phòng "Trống" không liên quan) — bỏ tham số roomList cho _rcShowPopup(), để hàm build popup
-    // (_rcBuildPopupHtml()) tự suy danh sách phòng THẲNG từ chính mảng orders, đúng yêu cầu "có
-    // đơn của phòng nào thì phòng đó hiển thị". Vẫn giữ lọc styles=2 (phòng "theo ngày" không có
+    // KHÔNG còn dựng roomList từ TOÀN BỘ thẻ sân trong DOM nữa (trước đây khiến popup hiện cả
+    // sân "Trống" không liên quan) — bỏ tham số roomList cho _rcShowPopup(), để hàm build popup
+    // (_rcBuildPopupHtml()) tự suy danh sách sân THẲNG từ chính mảng orders, đúng yêu cầu "có
+    // đơn của sân nào thì sân đó hiển thị". Vẫn giữ lọc styles=2 (sân "theo ngày" không có
     // khái niệm 'active'/'today' theo khung giờ như ở đây).
     ['active', 'today'].forEach(function(seg) {
         document.querySelectorAll('#ta-room-grid .ta-rc-orders .ta-rc-order-item[data-segment="' + seg + '"]').forEach(function(item) {
@@ -447,8 +447,8 @@ window.rcCancelDeposit = function(btn) {
     if (togBtn) togBtn.textContent = hasNote ? 'Sửa ghi chú' : '+ Ghi chú';
 };
 
-// ── Menu thao tác nhanh (⋮) trên thẻ phòng: chỉnh sửa phòng / giá & khung giờ / đặt phòng đều
-// điều hướng sang trang tương ứng (đã tự chọn sẵn đúng phòng qua ?product_id=, xem
+// ── Menu thao tác nhanh (⋮) trên thẻ sân: chỉnh sửa sân / giá & khung giờ / đặt sân đều
+// điều hướng sang trang tương ứng (đã tự chọn sẵn đúng sân qua ?product_id=, xem
 // CreateOrder::mount() và SettingBook::form()); dọn vệ sinh xử lý NGAY tại chỗ qua
 // wire:click="confirmRoomCleaning(...)" gọi thẳng action Livewire của Dashboard — panel này tuy
 // do JS dựng động (innerHTML) nhưng Livewire v3 chạy trên nền Alpine, tự quan sát DOM bằng
@@ -463,14 +463,14 @@ window.rcOpenRoomMenu = function(event, productId) {
     var esc = function(s) { return String(s == null ? '' : s).replace(/</g, '&lt;').replace(/>/g, '&gt;'); };
 
     var html = '';
-    html += '<a href="' + data.edit_url + '" class="ta-rc-menu-item"> Chỉnh sửa phòng</a>';
+    html += '<a href="' + data.edit_url + '" class="ta-rc-menu-item"> Chỉnh sửa sân</a>';
     html += '<a href="' + data.timeslot_url + '" class="ta-rc-menu-item"> Giá &amp; khung giờ</a>';
-    html += '<a href="' + data.book_url + '" class="ta-rc-menu-item"> Đặt phòng</a>';
+    html += '<a href="' + data.book_url + '" class="ta-rc-menu-item"> Đặt sân</a>';
     html += '<button type="button" class="ta-rc-menu-item" onclick="window.rcOpenLockGrid(\'' + productId + '\')"> Lịch Phòng</button>';
     html += '<button type="button" class="ta-rc-menu-item" onclick="window.rcOpenBlockModal(\'' + productId + '\')"> Khóa khung giờ</button>';
     html += '<div class="ta-rc-menu-sep"></div>';
 
-    // Tạm thời ẩn khối "Dọn vệ sinh" khỏi popup thẻ phòng — bật lại bằng cách đổi `false` thành
+    // Tạm thời ẩn khối "Dọn vệ sinh" khỏi popup thẻ sân — bật lại bằng cách đổi `false` thành
     // `true` bên dưới, không cần khôi phục lại toàn bộ khối code.
     var showHousekeepingBlock = false;
     if (showHousekeepingBlock) {
@@ -552,7 +552,7 @@ window.addEventListener('resize', function() { window._rcRepositionRoomMenu(); }
 
 // "Chặn khung giờ dài hạn" trong menu ⋮ — mở modal tô đen/khóa khung giờ đã có sẵn (dùng chung
 // đúng component book::block-timeslot-modal, đã nhúng 1 lần ở dashboard.blade.php,
-// KHÔNG viết modal riêng), chỉ khác là mở SẴN cho đúng phòng này (xem
+// KHÔNG viết modal riêng), chỉ khác là mở SẴN cho đúng sân này (xem
 // BlockTimeslotModal::openForProduct() — lắng nghe qua #[On('open-block-timeslot-modal-for-room')]).
 // Dispatch bằng window.dispatchEvent thường (không phải wire:click) vì đây là 1 Livewire
 // component KHÁC với component chứa nút bấm (Dashboard) — event window là cách 2 component
@@ -583,8 +583,8 @@ document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape') window.rcCloseSelectedPopup();
 });
 
-// ── Chuyển đổi kiểu xem thẻ phòng: "list" (danh sách gọn) / "detail" (chi tiết cũ, để so sánh) /
-// "calendar" (Lịch — carousel chi nhánh + lưới nhiều phòng, xem rcCalRenderGrid() bên dưới) ──
+// ── Chuyển đổi kiểu xem thẻ sân: "list" (danh sách gọn) / "detail" (chi tiết cũ, để so sánh) /
+// "calendar" (Lịch — carousel chi nhánh + lưới nhiều sân, xem rcCalRenderGrid() bên dưới) ──
 window.rcSetView = function(mode) {
     window._rcCurrentView = mode;
 
@@ -596,8 +596,8 @@ window.rcSetView = function(mode) {
         b.classList.toggle('active', b.dataset.view === mode);
     });
 
-    // View "Lịch" thay hẳn khối thẻ phòng (list/detail đều nằm bên trong từng .ta-room-card)
-    // bằng carousel chi nhánh + lưới nhiều phòng cạnh nhau (#ta-rc-cal-view) — 2 khối loại trừ
+    // View "Lịch" thay hẳn khối thẻ sân (list/detail đều nằm bên trong từng .ta-room-card)
+    // bằng carousel chi nhánh + lưới nhiều sân cạnh nhau (#ta-rc-cal-view) — 2 khối loại trừ
     // nhau, ẩn/hiện luôn cả tab thời gian/chi nhánh cũ (không áp dụng cho view này, đã có
     // carousel chi nhánh riêng — xem rcCalRenderBranches()).
     var isCalendar = mode === 'calendar';
@@ -614,31 +614,31 @@ window.rcSetView = function(mode) {
         window.rcCalRenderGrid();
     } else {
         // Grid vừa được hiện lại (display:'') — rcApplyFilters() tự tính lại lọc chi nhánh/thời
-        // gian/ẩn phòng "Trống" đúng theo tab hiện tại (không đụng gì tới nếu người dùng chưa rời
+        // gian/ẩn sân "Trống" đúng theo tab hiện tại (không đụng gì tới nếu người dùng chưa rời
         // khỏi view "Lịch" trước đó).
         window.rcApplyFilters();
     }
 
 };
 
-// ── View "Lịch" — carousel chi nhánh + lưới ngày×khung giờ nhiều phòng cạnh nhau, cùng ngôn ngữ
-// thị giác với lịch đặt phòng phía khách (home-booking-board.blade.php +
+// ── View "Lịch" — carousel chi nhánh + lưới ngày×khung giờ nhiều sân cạnh nhau, cùng ngôn ngữ
+// thị giác với lịch đặt sân phía khách (home-booking-board.blade.php +
 // book/_desktop-grid.blade.php) nhưng CHỈ XEM: ô đã đặt bấm mở thẳng đơn, ô trống không bấm được
 // (không có luồng chọn/đặt như bên khách). Dữ liệu lấy từ window.__rcRoomsData — CÙNG field
-// 'timeslot_grid' mỗi phòng đã dùng cho view "Dải giờ" (RoomCardsService::buildTimeslotGrid()),
+// 'timeslot_grid' mỗi sân đã dùng cho view "Dải giờ" (RoomCardsService::buildTimeslotGrid()),
 // không gọi API riêng.
 window.rcCalRenderBranches = function() {
     var track = document.getElementById('ta-rc-cal-branch-track');
     if (!track) return;
 
     // order_count mỗi chi nhánh — ĐÃ có sẵn từ RoomCardsService (branchMap, tổng số đơn của mọi
-    // phòng thuộc chi nhánh đó), dùng lại thẳng thay vì suy "phòng đang trống" như trước.
+    // sân thuộc chi nhánh đó), dùng lại thẳng thay vì suy "sân đang trống" như trước.
     var orderCountByBranch = {};
     (window.__rcBranchesData || []).forEach(function(b) { orderCountByBranch[b.name] = b.order_count || 0; });
 
     var branches = (window.__rcBranchesData || []).map(function(b) { return b.name; });
-    // Phòng chưa được RoomCardsService gán vào branches[] (vd branch mới, chưa có đơn nào nên
-    // không lọt vào branchMap) vẫn phải xuất hiện — suy thêm trực tiếp từ danh sách phòng để
+    // Sân chưa được RoomCardsService gán vào branches[] (vd branch mới, chưa có đơn nào nên
+    // không lọt vào branchMap) vẫn phải xuất hiện — suy thêm trực tiếp từ danh sách sân để
     // không bị "biến mất" khỏi carousel, order_count mặc định 0.
     (window.__rcRoomsData || []).forEach(function(r) {
         if (branches.indexOf(r.branch) === -1) {
@@ -647,10 +647,10 @@ window.rcCalRenderBranches = function() {
         }
     });
 
-    // CHỈ giữ chi nhánh có ÍT NHẤT 1 phòng "khung giờ" (styles=1, có timeslot_grid hợp lệ) — ĐÚNG
-    // điều kiện lọc phòng của rcCalRenderGrid(), để carousel chi nhánh không bao giờ dẫn tới trạng
-    // thái trống "Chi nhánh này chưa có phòng theo khung giờ để hiển thị" (chi nhánh chỉ có phòng
-    // "theo ngày" styles=2, hoặc chưa có phòng nào, vẫn xem được bình thường qua view "Danh sách").
+    // CHỈ giữ chi nhánh có ÍT NHẤT 1 sân "khung giờ" (styles=1, có timeslot_grid hợp lệ) — ĐÚNG
+    // điều kiện lọc sân của rcCalRenderGrid(), để carousel chi nhánh không bao giờ dẫn tới trạng
+    // thái trống "Chi nhánh này chưa có sân theo khung giờ để hiển thị" (chi nhánh chỉ có sân
+    // "theo ngày" styles=2, hoặc chưa có sân nào, vẫn xem được bình thường qua view "Danh sách").
     var slotStyleBranches = {};
     (window.__rcRoomsData || []).forEach(function(r) {
         if ((r.styles || 1) === 1 && r.timeslot_grid && r.timeslot_grid.rows && r.timeslot_grid.rows.length
@@ -707,8 +707,8 @@ window.rcCalScrollBranches = function(dir) {
     track.scrollBy({ left: dir * track.clientWidth * 0.8, behavior: 'smooth' });
 };
 
-// Select "Số ngày hiển thị" cạnh carousel chi nhánh — ÁP DỤNG CHUNG cho mọi phòng đang xem (giữ
-// nguyên cột "Thời gian" dùng chung cho cả carousel phòng, không tách riêng từng phòng), chỉ 3
+// Select "Số ngày hiển thị" cạnh carousel chi nhánh — ÁP DỤNG CHUNG cho mọi sân đang xem (giữ
+// nguyên cột "Thời gian" dùng chung cho cả carousel sân, không tách riêng từng sân), chỉ 3
 // mốc 5/10/15, chọn là áp dụng ngay (onchange, không cần nút "Xem"). Gọi lại đúng route poll sẵn có
 // (/admin/api/room-cards?days=N — routes/web.php) rồi renderRoomCards() tự cập nhật
 // window.__rcRoomsData + vẽ lại view "Lịch" nếu đang mở (xem renderRoomCards()).
@@ -727,12 +727,12 @@ window.rcCalApplyDaysRange = function() {
     if (window.rcPollNow) window.rcPollNow();
 };
 
-// Carousel PHÒNG (khác carousel chi nhánh ở trên) — track #ta-rc-cal-rooms-track dựng SẴN TOÀN
-// BỘ phòng 1 LẦN (không tính toán/vẽ lại theo "trang" nữa — trước đây re-render lại toàn bộ
+// Carousel SÂN (khác carousel chi nhánh ở trên) — track #ta-rc-cal-rooms-track dựng SẴN TOÀN
+// BỘ sân 1 LẦN (không tính toán/vẽ lại theo "trang" nữa — trước đây re-render lại toàn bộ
 // lưới mỗi lần chuyển trang, nặng và giật với nhiều ngày/nhiều ô), Trước/Sau chỉ scrollBy() mượt
 // — CÙNG kỹ thuật với carousel chi nhánh (rcCalScrollBranches()) và tự động "cửa sổ trượt" nhờ
-// trình duyệt tự kẹp vị trí cuộn tối đa (kéo tới cuối luôn thấy đủ phòng cuối cùng, không có
-// "trang" lẻ loi thiếu phòng — cùng hiệu ứng đã yêu cầu nhưng không cần tính toán start/maxStart
+// trình duyệt tự kẹp vị trí cuộn tối đa (kéo tới cuối luôn thấy đủ sân cuối cùng, không có
+// "trang" lẻ loi thiếu sân — cùng hiệu ứng đã yêu cầu nhưng không cần tính toán start/maxStart
 // bằng tay nữa).
 window.rcCalScrollRooms = function(dir) {
     var track = document.getElementById('ta-rc-cal-rooms-track');
@@ -740,19 +740,30 @@ window.rcCalScrollRooms = function(dir) {
     track.scrollBy({ left: dir * track.clientWidth * 0.9, behavior: 'smooth' });
 };
 
-// Chỉ phòng theo khung giờ (styles=1) — phòng đặt theo ngày (styles=2) không có lưới khung giờ để
+// Chỉ sân theo khung giờ (styles=1) — sân đặt theo ngày (styles=2) không có lưới khung giờ để
 // so sánh cạnh nhau kiểu này, vẫn xem được qua view Danh sách/Chi tiết như cũ.
 window.rcCalRenderGrid = function() {
     var wrap = document.getElementById('ta-rc-cal-grid-wrap');
     if (!wrap) return;
 
-    // Giữ nguyên vị trí cuộn ngang của carousel phòng qua mỗi lần vẽ lại — hàm này bị gọi lại RẤT
-    // thường xuyên (mỗi lần bấm chọn/bỏ chọn 1 ô, khoá/mở khoá...) và luôn dựng lại TOÀN BỘ
-    // innerHTML từ đầu (kể cả .ta-rc-cal-rooms-track), nên track mới luôn bắt đầu ở scrollLeft=0
-    // nếu không tự lưu/khôi phục — khiến carousel bị "nhảy" về phòng đầu tiên ngay khi admin vừa
-    // bấm nút Sau rồi chọn 1 khung giờ, giống như trang bị tải lại.
+    // Giữ nguyên vị trí cuộn (dọc của khối lưới + ngang của carousel sân + ngang của từng sân)
+    // qua mỗi lần vẽ lại — hàm này bị gọi lại RẤT thường xuyên (mỗi lần bấm chọn/bỏ chọn 1 ô,
+    // khoá/mở khoá...) và luôn dựng lại TOÀN BỘ innerHTML từ đầu, nên phần tử mới luôn bắt đầu ở
+    // scroll=0 nếu không tự lưu/khôi phục — khiến lưới bị "nhảy" về đầu ngay khi admin vừa cuộn
+    // rồi chọn 1 khung giờ, giống như trang bị tải lại.
+    // ta-rc-cal-rooms-track giờ là phần tử DUY NHẤT tự cuộn (cả ngang lẫn dọc, xem ghi chú CSS tại
+    // .ta-rc-cal-rooms-track trong _styles.blade.php — grid-scroll cha không còn tự cuộn nữa) nên
+    // đọc/khôi phục CẢ scrollLeft LẪN scrollTop từ ĐÚNG 1 phần tử này.
     var prevTrack = document.getElementById('ta-rc-cal-rooms-track');
     var prevScrollLeft = prevTrack ? prevTrack.scrollLeft : 0;
+    var prevScrollTop  = prevTrack ? prevTrack.scrollTop : 0;
+    // Vị trí cuộn ngang (theo ngày) của TỪNG sân — mỗi sân giờ tự có hàng Ngày + lưới RIÊNG (không
+    // dùng chung 1 header nữa, xem ghi chú ở roomsHtml bên dưới), nên phải lưu theo product_id.
+    var prevDatesScrollByRoom = {};
+    document.querySelectorAll('.ta-rc-cal-slots-grid').forEach(function(el) {
+        var pid = el.getAttribute('data-room-id');
+        if (pid) prevDatesScrollByRoom[pid] = el.scrollLeft;
+    });
 
     var branch = window._rcCalActiveBranch;
     var rooms  = (window.__rcRoomsData || []).filter(function(r) {
@@ -762,53 +773,68 @@ window.rcCalRenderGrid = function() {
     });
 
     if (!rooms.length) {
-        wrap.innerHTML = '<div class="ta-rc-cal-empty">Chi nhánh này chưa có phòng theo khung giờ để hiển thị.</div>';
+        wrap.innerHTML = '<div class="ta-rc-cal-empty">Chi nhánh này chưa có sân theo khung giờ để hiển thị.</div>';
         window.rcCalUpdateRoomsPageInfo(0);
         return;
     }
 
     window.rcCalUpdateRoomsPageInfo(rooms.length);
 
-    // Ngày (hàng) giống nhau cho MỌI phòng trong cùng 1 lần gọi RoomCardsService::getData() (cùng
-    // $today/$days=7 truyền vào buildTimeslotGrid() cho từng phòng) — lấy từ phòng đầu tiên.
+    // Ngày (cột, dùng CHUNG cho mọi sân) giống nhau cho MỌI sân trong cùng 1 lần gọi
+    // RoomCardsService::getData() (cùng $today/$days=7 truyền vào buildTimeslotGrid() cho từng
+    // sân) — lấy từ sân đầu tiên.
     var dates = rooms[0].timeslot_grid.dates;
 
     var svgSun  = '<svg width="11" height="11" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a.75.75 0 0 1 .75.75v1.5a.75.75 0 0 1-1.5 0v-1.5A.75.75 0 0 1 8 1ZM10.5 8a2.5 2.5 0 1 1-5 0 2.5 2.5 0 0 1 5 0ZM12.95 4.11a.75.75 0 1 0-1.06-1.06l-1.062 1.06a.75.75 0 0 0 1.061 1.062l1.06-1.061ZM15 8a.75.75 0 0 1-.75.75h-1.5a.75.75 0 0 1 0-1.5h1.5A.75.75 0 0 1 15 8ZM11.89 12.95a.75.75 0 0 0 1.06-1.06l-1.06-1.062a.75.75 0 0 0-1.062 1.061l1.061 1.06ZM8 12a.75.75 0 0 1 .75.75v1.5a.75.75 0 0 1-1.5 0v-1.5A.75.75 0 0 1 8 12ZM5.172 11.89a.75.75 0 0 0-1.061-1.062L3.05 11.89a.75.75 0 1 0 1.06 1.06l1.06-1.06ZM4 8a.75.75 0 0 1-.75.75h-1.5a.75.75 0 0 1 0-1.5h1.5A.75.75 0 0 1 4 8ZM4.11 5.172A.75.75 0 0 0 5.173 4.11L4.11 3.05a.75.75 0 1 0-1.06 1.06l1.06 1.06Z"/></svg>';
     var svgMoon = '<svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path fill-rule="evenodd" d="M9.528 1.718a.75.75 0 0 1 .162.819A8.97 8.97 0 0 0 9 6a9 9 0 0 0 9 9 8.97 8.97 0 0 0 3.463-.69.75.75 0 0 1 .981.98 10.503 10.503 0 0 1-9.694 6.46c-5.799 0-10.5-4.7-10.5-10.5 0-4.368 2.667-8.112 6.46-9.694a.75.75 0 0 1 .818.162Z" clip-rule="evenodd"/></svg>';
+    var svgChevronLeft  = '<svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>';
+    var svgChevronRight = '<svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>';
 
-    // Cột "Thời gian" đứng cố định bên trái, KHÔNG trượt theo carousel phòng — spacer
-    // (.ta-rc-cal-dates-spacer) bù đúng chiều cao 2 hàng tiêu đề (tên phòng + khung giờ) bên phía
-    // carousel để hàng ngày khớp hàng khung giờ, cùng kỹ thuật spacer đã dùng ở
-    // book/_desktop-grid.blade.php (book-dt-room-name ẩn) — ở đây dùng chiều cao cố định bằng CSS
-    // thay vì đo động vì số hàng tiêu đề luôn cố định (2 hàng).
-    var datesColHtml = '<div class="ta-rc-cal-dates-col">'
-        + '<div class="ta-rc-cal-dates-spacer">Thời gian</div>'
-        + dates.map(function(date) {
-            return '<div class="ta-rc-cal-date-row' + (date.is_today ? ' is-today' : '') + '">'
-                + '<span class="ta-rc-cal-dow">' + window._escAttr(date.dow) + '</span>'
-                + '<span class="ta-rc-cal-dnum">' + window._escAttr(date.label) + '</span>'
-                + '</div>';
-        }).join('')
-        + '</div>';
-
-    // Carousel phòng: mỗi phòng 1 khối (tên phòng + header khung giờ + các hàng ô, cùng thứ tự
-    // ngày với cột "Thời gian" cố định bên trái) — track cuộn ngang theo trang (rcCalScrollRooms()),
+    // Carousel sân: mỗi sân 1 khối HOÀN TOÀN TỰ ĐỦ (tên sân + hàng Ngày RIÊNG sát ngay trên lưới
+    // + cột khung giờ dọc + lưới ô) — ĐÚNG kiểu bên trang khách (product-detail.blade.php:
+    // pd-dt-header nằm sát trên pd-dt-grid-outer của CHÍNH nó), KHÔNG dùng 1 header Ngày chung
+    // cho cả 3 sân nữa (bản trước đặt header tách rời phía trên carousel — theo phản hồi, phải
+    // để mỗi sân tự có hàng ngày + nút Trước/Sau riêng, sát ngay trên bảng của chính nó, mỗi sân
+    // hoạt động độc lập, không lệ thuộc sân khác). Track cuộn ngang theo trang (rcCalScrollRooms()),
     // KHÔNG dùng Swiper.js (tránh thêm thư viện ngoài vào Filament admin), tự dựng bằng
     // scroll-snap thuần, cùng kỹ thuật với carousel chi nhánh ở trên.
     var roomsHtml = rooms.map(function(r) {
         var pid = window._escAttr(String(r.product_id));
-        // Bản đồ lựa chọn hiện có của ĐÚNG phòng này — 'held_mine' đọc từ server (đơn cử vừa F5
-        // lại trang giữa lúc đang chọn dở) TỰ ĐỘNG nạp lại vào đây để nút Khoá/Đặt phòng bật sẵn
+        // Bản đồ lựa chọn hiện có của ĐÚNG sân này — 'held_mine' đọc từ server (đơn cử vừa F5
+        // lại trang giữa lúc đang chọn dở) TỰ ĐỘNG nạp lại vào đây để nút Khoá/Đặt sân bật sẵn
         // đúng trạng thái, không cần chọn lại từ đầu. Xem rcCalToggleSlot()/rcCalGetSelMap().
         var selMap     = window.rcCalGetSelMap(r.product_id);
         var unblockMap = window.rcCalGetUnblockMap(r.product_id);
 
-        var slotHeadHtml = r.timeslot_grid.rows.map(function(row) {
-            return '<div class="ta-rc-cal-slot-head">' + window._escAttr(row.label) + '<br>' + (row.over_night ? svgMoon : svgSun) + '</div>';
+        // Hàng Ngày (ngang) — RIÊNG cho sân này, sát ngay trên lưới ô của chính nó. Nút Trước/Sau
+        // đặt position:absolute ĐÈ LÊN rìa wrapper (không phải flex-sibling của dates-header-row)
+        // — nếu là flex-sibling, nút cộng thêm bề rộng vào hàng này khiến nó rộng hơn lưới ô bên
+        // dưới (không có nút tương ứng) → lệch cột (đúng lỗi đã gặp và sửa ở
+        // book/_desktop-grid.blade.php + pd-dt-* + tsgrid-*). scrollBy() thẳng lên lưới CỦA CHÍNH
+        // SÂN NÀY qua id -' + pid — mỗi sân cuộn/paging ĐỘC LẬP, không đụng sân khác.
+        var datesHeaderHtml = '<div class="ta-rc-cal-room-header">'
+            + '<div class="ta-rc-cal-corner" style="flex:0 0 60px;">Khung giờ</div>'
+            + '<div class="ta-rc-cal-dates-header-wrap">'
+                + '<button type="button" class="ta-rc-cal-date-nav-btn ta-rc-cal-date-nav-prev" aria-label="Xem ngày trước" onclick="rcCalScrollDates(-1, \'' + pid + '\')">' + svgChevronLeft + '</button>'
+                + '<div class="ta-rc-cal-dates-header-row" id="ta-rc-cal-dates-header-' + pid + '">'
+                    + dates.map(function(date) {
+                        return '<div class="ta-rc-cal-date-th' + (date.is_today ? ' is-today' : '') + '" style="flex:0 0 50px;">'
+                            + '<span class="ta-rc-cal-dow">' + window._escAttr(date.dow) + '</span>'
+                            + '<span class="ta-rc-cal-dnum">' + window._escAttr(date.label) + '</span>'
+                            + '</div>';
+                    }).join('')
+                + '</div>'
+                + '<button type="button" class="ta-rc-cal-date-nav-btn ta-rc-cal-date-nav-next" aria-label="Xem thêm ngày" onclick="rcCalScrollDates(1, \'' + pid + '\')">' + svgChevronRight + '</button>'
+            + '</div>'
+            + '</div>';
+
+        // Cột KHUNG GIỜ (dọc) — RIÊNG cho sân này (khung giờ có thể khác nhau giữa các sân).
+        var slotsLabelHtml = r.timeslot_grid.rows.map(function(row) {
+            return '<div class="ta-rc-cal-slot-label">' + window._escAttr(row.label) + '<br>' + (row.over_night ? svgMoon : svgSun) + '</div>';
         }).join('');
 
-        var rowsHtml = dates.map(function(date) {
-            var cellsHtml = r.timeslot_grid.rows.map(function(row) {
+        var rowsHtml = r.timeslot_grid.rows.map(function(row) {
+            var cellsHtml = dates.map(function(date) {
                 var cell = r.timeslot_grid.cells[row.id + '|' + date.iso] || { kind: 'free' };
                 var key  = row.id + '|' + date.iso;
 
@@ -830,7 +856,7 @@ window.rcCalRenderGrid = function() {
                     var noteBadge = cell.has_note
                         ? '<span class="ta-rc-cal-cell-note-badge" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.857 17.082a23.848 23.848 0 0 0 5.454-1.31A8.967 8.967 0 0 1 18 9.75V9A6 6 0 0 0 6 9v.75a8.967 8.967 0 0 1-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 0 1-5.714 0m5.714 0a3 3 0 1 1-5.714 0M3.124 7.5A8.969 8.969 0 0 1 5.292 3m13.416 0a8.969 8.969 0 0 1 2.168 4.5" /></svg></span>'
                         : '<span class="ta-rc-cal-cell-label">' + (cell.is_overdue ? 'Hết giờ' : 'Đã đặt') + '</span>';
-                    return '<button type="button" class="ta-rc-cal-cell is-booked' + statusCls + overdueCls + '" title="' + title + '" onclick="rcCalOpenOrderPopup(' + cell.order_id + ')">' + noteBadge + '</button>';
+                    return '<button type="button" style="flex:0 0 50px;" class="ta-rc-cal-cell is-booked' + statusCls + overdueCls + '" title="' + title + '" onclick="rcCalOpenOrderPopup(' + cell.order_id + ')">' + noteBadge + '</button>';
                 }
 
                 // Đã khoá dài hạn (BlockTimeslotModal/rcCalConfirmBlockSlots() — settings['blocked_dates'])
@@ -839,7 +865,7 @@ window.rcCalRenderGrid = function() {
                 // rcCalConfirmUnblockSlots().
                 if (cell.kind === 'blocked') {
                     var isMarked = !!unblockMap[key];
-                    return '<button type="button" class="ta-rc-cal-cell is-blocked' + (isMarked ? ' is-unblock-selected' : '') + '" title="Đã khoá — bấm để chọn mở khoá hàng loạt" onclick="rcCalToggleBlockedSlot(\'' + pid + '\', ' + row.id + ', \'' + date.iso + '\')">'
+                    return '<button type="button" style="flex:0 0 50px;" class="ta-rc-cal-cell is-blocked' + (isMarked ? ' is-unblock-selected' : '') + '" title="Đã khoá — bấm để chọn mở khoá hàng loạt" onclick="rcCalToggleBlockedSlot(\'' + pid + '\', ' + row.id + ', \'' + date.iso + '\')">'
                         + (isMarked
                             ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>'
                             : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z"/></svg>')
@@ -849,7 +875,7 @@ window.rcCalRenderGrid = function() {
                 // Admin KHÁC đang chọn dở (TimeslotHold, real-time — xem TimeslotHoldService) —
                 // không bấm chọn được, chỉ xem tên người đang giữ qua title.
                 if (cell.kind === 'held_other') {
-                    return '<span class="ta-rc-cal-cell is-held" title="' + window._escAttr('Đang được ' + (cell.held_by || 'admin khác') + ' chọn') + '">Chờ...</span>';
+                    return '<span style="flex:0 0 50px;" class="ta-rc-cal-cell is-held" title="' + window._escAttr('Đang được ' + (cell.held_by || 'admin khác') + ' chọn') + '">Chờ...</span>';
                 }
 
                 // free hoặc held_mine (CHÍNH admin này đang giữ — vd vừa F5 lại trang giữa lúc
@@ -863,7 +889,7 @@ window.rcCalRenderGrid = function() {
                 var isSelected  = !!selMap[key];
                 // Khung giờ (row) ĐANG có khuyến mãi hiệu lực (RoomCardsService::buildTimeslotGrid()
                 // — has_discount) — tô viền cầu vồng các ô TRỐNG thuộc khung giờ này, báo hiệu trực
-                // quan "đặt khung này đang được giảm giá" mà không cần mở popup "Giá phòng" mới
+                // quan "đặt khung này đang được giảm giá" mà không cần mở popup "Giá sân" mới
                 // biết. CHỈ khi CHƯA chọn — ĐÚNG điều kiện '$hasPromo && !$isSelected' của
                 // .tsgrid-cell.has-promo bên OrderForm (timeslot-grid-table.blade.php): 1 khi ô đã
                 // được chọn (background primary đặc) thì tắt hẳn hiệu ứng, không để 2 hiệu ứng
@@ -873,18 +899,21 @@ window.rcCalRenderGrid = function() {
                 // <button>) — ô .is-discounted có ::after phủ trắng ĐẶC ở z-index cao hơn text thô
                 // (paint sau cùng trong stacking context) sẽ che mất chữ nếu không có .ta-rc-cal-
                 // cell-label tự nâng z-index riêng, giống hệt cách .tsgrid-cell > * làm ở OrderForm.
-                return '<button type="button" class="ta-rc-cal-cell is-free' + (isSelected ? ' is-selected' : '') + (isDiscount ? ' is-discounted' : '') + '" onclick="rcCalToggleSlot(this, \'' + pid + '\', ' + row.id + ', \'' + date.iso + '\')"><span class="ta-rc-cal-cell-label">' + (isSelected ? 'Đã chọn' : 'Trống') + '</span></button>';
+                return '<button type="button" style="flex:0 0 50px;" class="ta-rc-cal-cell is-free' + (isSelected ? ' is-selected' : '') + (isDiscount ? ' is-discounted' : '') + '" onclick="rcCalToggleSlot(this, \'' + pid + '\', ' + row.id + ', \'' + date.iso + '\')"><span class="ta-rc-cal-cell-label">' + (isSelected ? 'Đã chọn' : 'Trống') + '</span></button>';
             }).join('');
             return '<div class="ta-rc-cal-slots-row">' + cellsHtml + '</div>';
         }).join('');
+        // Đổi trục: hàng = khung giờ, cột = ngày (yêu cầu người dùng) — vòng lặp trên đã đổi chỗ
+        // cho nhau (rows.map ngoài, dates.map trong), KHÔNG đụng logic tính trạng thái/giá từng ô
+        // (vẫn dùng đúng row + date của chính nó, không phụ thuộc thứ tự lồng).
 
-        // Hàng thao tác nhanh dưới tên phòng — tái dùng THẲNG url đã có sẵn cho "Xem phòng"
+        // Hàng thao tác nhanh dưới tên sân — tái dùng THẲNG url đã có sẵn cho "Xem sân"
         // (edit_url từ Dashboard::getRoomCardsData(), mở tab mới — điều hướng thẳng, không popup)
-        // trừ "Giá phòng"/"Thống kê" (rcCalOpenPricePopup()/rcCalOpenViewPopup(), popup riêng —
-        // "Thống kê" dùng ĐÚNG popup thống kê doanh thu trước đây gắn ở nút "Xem phòng"). Hàng 1 (3
-        // cột): Xem phòng/Giá phòng/Thống kê. Hàng 2 (2 cột): Khoá phòng/Đặt phòng — MẶC ĐỊNH khoá
+        // trừ "Giá sân"/"Thống kê" (rcCalOpenPricePopup()/rcCalOpenViewPopup(), popup riêng —
+        // "Thống kê" dùng ĐÚNG popup thống kê doanh thu trước đây gắn ở nút "Xem sân"). Hàng 1 (3
+        // cột): Xem sân/Giá sân/Thống kê. Hàng 2 (2 cột): Khoá sân/Đặt sân — MẶC ĐỊNH khoá
         // (disabled) — chỉ bật khi có ít nhất 1 ô TRỐNG đang được chọn (selMap không rỗng). Nút
-        // "Khoá phòng" TỰ ĐỔI thành "Mở khoá (N)" ngay khi có ≥1 ô ĐÃ KHOÁ đang được chọn
+        // "Khoá sân" TỰ ĐỔI thành "Mở khoá (N)" ngay khi có ≥1 ô ĐÃ KHOÁ đang được chọn
         // (unblockMap không rỗng — chọn nhiều ô để mở khoá HÀNG LOẠT nhanh hơn hẳn bấm từng ô).
         var hasSelection    = Object.keys(selMap).length > 0;
         var unblockKeys     = Object.keys(unblockMap);
@@ -892,51 +921,87 @@ window.rcCalRenderGrid = function() {
         var bookUrlAttr     = window._escAttr(r.book_url);
         var lockBtnHtml = hasUnblockSel
             ? '<button type="button" class="ta-rc-cal-room-action-btn is-unlock" id="ta-rc-cal-lock-btn-' + pid + '" title="Mở khoá các khung giờ đang chọn" onclick="rcCalConfirmUnblockSlots(\'' + pid + '\')">Mở khoá (' + unblockKeys.length + ')</button>'
-            : '<button type="button" class="ta-rc-cal-room-action-btn" id="ta-rc-cal-lock-btn-' + pid + '" title="Khoá các khung giờ đang chọn"' + (hasSelection ? '' : ' disabled') + ' onclick="rcCalConfirmBlockSlots(\'' + pid + '\')">Khoá phòng</button>';
+            : '<button type="button" class="ta-rc-cal-room-action-btn" id="ta-rc-cal-lock-btn-' + pid + '" title="Khoá các khung giờ đang chọn"' + (hasSelection ? '' : ' disabled') + ' onclick="rcCalConfirmBlockSlots(\'' + pid + '\')">Khoá sân</button>';
         var editUrlAttr = window._escAttr(r.edit_url);
         var actionsHtml = '<div class="ta-rc-cal-room-actions">'
             + '<div class="ta-rc-cal-room-actions-row cols-3">'
-                + '<a href="' + r.edit_url + '" class="ta-rc-cal-room-action-btn" target="_blank" rel="noopener" title="Xem phòng">Xem phòng</a>'
-                + '<button type="button" class="ta-rc-cal-room-action-btn" title="Giá phòng" onclick="rcCalOpenPricePopup(\'' + pid + '\', \'' + window._escAttr(r.room_name) + '\')">Giá phòng</button>'
+                + '<a href="' + r.edit_url + '" class="ta-rc-cal-room-action-btn" target="_blank" rel="noopener" title="Xem sân">Xem sân</a>'
+                + '<button type="button" class="ta-rc-cal-room-action-btn" title="Giá sân" onclick="rcCalOpenPricePopup(\'' + pid + '\', \'' + window._escAttr(r.room_name) + '\')">Giá sân</button>'
                 + '<button type="button" class="ta-rc-cal-room-action-btn" title="Thống kê" onclick="rcCalOpenViewPopup(\'' + pid + '\', \'' + window._escAttr(r.room_name) + '\', \'' + editUrlAttr + '\')">Thống kê</button>'
             + '</div>'
             + '<div class="ta-rc-cal-room-actions-row cols-2">'
                 + lockBtnHtml
-                + '<button type="button" class="ta-rc-cal-room-action-btn is-primary" id="ta-rc-cal-book-btn-' + pid + '" title="Đặt phòng với các khung giờ đang chọn"' + (hasSelection ? '' : ' disabled') + ' onclick="rcCalGoBook(\'' + pid + '\', \'' + bookUrlAttr + '\')">Đặt phòng</button>'
+                + '<button type="button" class="ta-rc-cal-room-action-btn is-primary" id="ta-rc-cal-book-btn-' + pid + '" title="Đặt sân với các khung giờ đang chọn"' + (hasSelection ? '' : ' disabled') + ' onclick="rcCalGoBook(\'' + pid + '\', \'' + bookUrlAttr + '\')">Đặt sân</button>'
             + '</div>'
             + '</div>';
 
         return '<div class="ta-rc-cal-room-block">'
             + '<h4 class="ta-rc-cal-room-name">' + window._escAttr(r.room_name) + '</h4>'
             + actionsHtml
-            + '<div class="ta-rc-cal-slot-head-row">' + slotHeadHtml + '</div>'
-            + rowsHtml
+            + datesHeaderHtml
+            + '<div class="ta-rc-cal-room-grid-row">'
+                + '<div class="ta-rc-cal-slots-label-col" style="flex:0 0 60px;">' + slotsLabelHtml + '</div>'
+                + '<div class="ta-rc-cal-slots-grid" data-room-id="' + pid + '" onscroll="rcCalSyncDatesScroll(this)">' + rowsHtml + '</div>'
+            + '</div>'
             + '</div>';
     }).join('');
 
-    wrap.innerHTML = datesColHtml
-        + '<div class="ta-rc-cal-rooms-track" id="ta-rc-cal-rooms-track">' + roomsHtml + '</div>';
+    wrap.innerHTML = '<div class="ta-rc-cal-grid-scroll" id="ta-rc-cal-grid-scroll">'
+            + '<div class="ta-rc-cal-rooms-track" id="ta-rc-cal-rooms-track">' + roomsHtml + '</div>'
+        + '</div>';
 
-    if (prevScrollLeft) {
-        var newTrack = document.getElementById('ta-rc-cal-rooms-track');
-        if (newTrack) newTrack.scrollLeft = prevScrollLeft;
+    var newTrack = document.getElementById('ta-rc-cal-rooms-track');
+    if (newTrack) {
+        if (prevScrollLeft) newTrack.scrollLeft = prevScrollLeft;
+        if (prevScrollTop) newTrack.scrollTop = prevScrollTop;
     }
+    // Khôi phục vị trí cuộn ngang (theo ngày) của TỪNG sân — mỗi sân độc lập, không lệ thuộc sân
+    // khác (xem ghi chú ở roomsHtml phía trên).
+    Object.keys(prevDatesScrollByRoom).forEach(function(pid) {
+        var el = document.querySelector('.ta-rc-cal-slots-grid[data-room-id="' + pid + '"]');
+        if (el) window.rcCalSyncDatesScroll(el, prevDatesScrollByRoom[pid]);
+    });
 };
 
-// Cập nhật chữ "N phòng" giữa nút Trước/Sau (id cố định trong Blade, không bị JS dựng lại như
+// Đồng bộ cuộn NGANG (theo NGÀY) giữa hàng Ngày + lưới ô CỦA CHÍNH SÂN ĐÓ — mỗi sân tự đủ, ĐỘC
+// LẬP với sân khác (KHÔNG còn 1 header dùng chung cho cả 3 sân như bản trước — theo phản hồi,
+// mỗi sân phải có hàng ngày + nút Trước/Sau riêng, sát ngay trên bảng của chính nó). forcedLeft
+// (optional) dùng khi khôi phục vị trí cuộn sau khi vẽ lại lưới (sourceEl chưa có scrollLeft thật
+// lúc đó vì vừa mới gắn vào DOM).
+window.rcCalSyncDatesScroll = function(sourceEl, forcedLeft) {
+    var pid = sourceEl.getAttribute('data-room-id');
+    var left = (typeof forcedLeft === 'number') ? forcedLeft : sourceEl.scrollLeft;
+    if (typeof forcedLeft === 'number') sourceEl.scrollLeft = left;
+    var header = pid ? document.getElementById('ta-rc-cal-dates-header-' + pid) : null;
+    if (header) header.scrollLeft = left;
+};
+
+// Nút Trước/Sau ở hàng Ngày của TỪNG sân — chỉ cuộn lưới CỦA ĐÚNG SÂN ĐÓ (theo product_id), độc
+// lập hoàn toàn với các sân khác, giống hệt cơ chế bên trang khách (pd-dt-*/book-dt-*).
+window.rcCalScrollDates = function(dir, productId) {
+    var grid = document.querySelector('.ta-rc-cal-slots-grid[data-room-id="' + productId + '"]');
+    if (grid) {
+        grid.scrollBy({ left: dir * 220, behavior: 'smooth' });
+        return;
+    }
+    var header = document.getElementById('ta-rc-cal-dates-header-' + productId);
+    if (header) header.scrollBy({ left: dir * 220, behavior: 'smooth' });
+};
+
+// Cập nhật chữ "N sân" giữa nút Trước/Sau (id cố định trong Blade, không bị JS dựng lại như
 // phần lưới) — không còn khái niệm "trang" nữa (rcCalScrollRooms() giờ chỉ scrollBy() mượt như
 // carousel chi nhánh), nút Trước/Sau LUÔN bật (trình duyệt tự kẹp vị trí cuộn ở 2 đầu, giống hệt
 // carousel chi nhánh không disable Trước/Sau bao giờ).
 window.rcCalUpdateRoomsPageInfo = function(totalRooms) {
     var info = document.getElementById('ta-rc-cal-rooms-page-info');
-    if (info) info.textContent = (totalRooms || 0) + ' phòng';
+    if (info) info.textContent = (totalRooms || 0) + ' sân';
 };
 
-// Chọn khung giờ TRỰC TIẾP trên lưới (không qua modal) — mỗi phòng giữ 2 bản đồ lựa chọn riêng:
-// _rcCalSelections (ô TRỐNG đang chọn để Khoá/Đặt phòng) và _rcCalUnblockSelections (ô ĐÃ KHOÁ
-// đang chọn để mở khoá hàng loạt — nút "Khoá phòng" tự đổi thành "Mở khoá (N)" khi có ít nhất 1 ô
+// Chọn khung giờ TRỰC TIẾP trên lưới (không qua modal) — mỗi sân giữ 2 bản đồ lựa chọn riêng:
+// _rcCalSelections (ô TRỐNG đang chọn để Khoá/Đặt sân) và _rcCalUnblockSelections (ô ĐÃ KHOÁ
+// đang chọn để mở khoá hàng loạt — nút "Khoá sân" tự đổi thành "Mở khoá (N)" khi có ít nhất 1 ô
 // loại này được chọn). Cả 2 tồn tại XUYÊN SUỐT nhiều lần rcCalRenderGrid() (đổi chi nhánh/carousel
-// phòng/poll dữ liệu mới) cho tới khi admin xác nhận hành động hoặc tự bỏ chọn.
+// sân/poll dữ liệu mới) cho tới khi admin xác nhận hành động hoặc tự bỏ chọn.
 window._rcCalSelections         = window._rcCalSelections || {};
 window._rcCalUnblockSelections  = window._rcCalUnblockSelections || {};
 
@@ -956,7 +1021,7 @@ window.rcCalGetUnblockMap = function(productId) {
 // TimeslotHoldService (routes/web.php rooms/{id}/timeslot-hold), CÙNG cơ chế
 // app/Livewire/RoomLockGrid.php::selectTimeslot() đã dùng — lịch phía khách (book.blade.php,
 // đọc TimeslotHold qua book/_slot-cell.blade.php) do đó bị ảnh hưởng NGAY khi bấm, không cần đợi
-// "Khoá phòng"/"Đặt phòng". Vẽ lại lưới ngay (lạc quan — optimistic), revert + vẽ lại lần nữa nếu
+// "Khoá sân"/"Đặt sân". Vẽ lại lưới ngay (lạc quan — optimistic), revert + vẽ lại lần nữa nếu
 // server báo có admin khác đang giữ (đua tay race condition).
 window.rcCalToggleSlot = function(btn, productId, roomTimeSlotId, date) {
     var selMap = window.rcCalGetSelMap(productId);
@@ -1018,7 +1083,7 @@ window.rcCalToggleBlockedSlot = function(productId, roomTimeSlotId, date) {
     if (window.rcCalRenderGrid) window.rcCalRenderGrid();
 };
 
-// "Khoá phòng" — khoá DÀI HẠN toàn bộ ô TRỐNG đang được chọn, ĐÚNG cách lưu của
+// "Khoá sân" — khoá DÀI HẠN toàn bộ ô TRỐNG đang được chọn, ĐÚNG cách lưu của
 // BlockTimeslotModal::saveBlock() (routes/web.php rooms/{id}/block-slots), KHÔNG mở modal tô
 // đen/khoá lịch nữa theo đúng yêu cầu. Xong thì tự chuyển các ô đó sang trạng thái 'blocked'
 // ngay trong window.__rcRoomsData và vẽ lại lưới — không cần đợi poll 2 phút mới thấy.
@@ -1047,7 +1112,7 @@ window.rcCalConfirmBlockSlots = function(productId) {
         .then(function(r) { return r.json(); })
         .then(function(d) {
             if (!d || !d.ok) {
-                if (btn) { btn.disabled = false; btn.textContent = 'Khoá phòng'; }
+                if (btn) { btn.disabled = false; btn.textContent = 'Khoá sân'; }
                 return;
             }
 
@@ -1064,11 +1129,11 @@ window.rcCalConfirmBlockSlots = function(productId) {
             if (window.rcCalRenderGrid) window.rcCalRenderGrid();
         })
         .catch(function() {
-            if (btn) { btn.disabled = false; btn.textContent = 'Khoá phòng'; }
+            if (btn) { btn.disabled = false; btn.textContent = 'Khoá sân'; }
         });
 };
 
-// "Mở khoá (N)" — nút "Khoá phòng" tự đổi tên/hành vi thành nút này ngay khi có ≥1 ô ĐÃ KHOÁ đang
+// "Mở khoá (N)" — nút "Khoá sân" tự đổi tên/hành vi thành nút này ngay khi có ≥1 ô ĐÃ KHOÁ đang
 // được chọn (xem actionsHtml trong rcCalRenderGrid()) — mở khoá HÀNG LOẠT cùng lúc (kể cả chỉ
 // chọn đúng 1 ô) thay vì gọi server riêng cho từng ô như trước, nhanh hơn hẳn khi cần mở nhiều ô.
 window.rcCalConfirmUnblockSlots = function(productId) {
@@ -1117,9 +1182,9 @@ window.rcCalConfirmUnblockSlots = function(productId) {
         });
 };
 
-// "Đặt phòng" — hold đã được tạo NGAY lúc bấm chọn từng ô (rcCalToggleSlot()), nên chỉ cần mở
+// "Đặt sân" — hold đã được tạo NGAY lúc bấm chọn từng ô (rcCalToggleSlot()), nên chỉ cần mở
 // tab mới: CreateOrder::mount() tự đọc lại TimeslotHold còn hiệu lực của ĐÚNG admin đang đăng
-// nhập cho phòng này để tự động chọn sẵn các khung giờ đó (không cần truyền gì qua query string
+// nhập cho sân này để tự động chọn sẵn các khung giờ đó (không cần truyền gì qua query string
 // — xem Modules/Payment/App/Filament/Resources/OrderResource/Pages/CreateOrder.php::mount()).
 window.rcCalGoBook = function(productId, bookUrl) {
     window.open(bookUrl, '_blank');
@@ -1170,7 +1235,7 @@ window.rcCalOpenOrderPopup = function(orderId) {
             }
 
             // Cột trái: mã cổng (nếu có — CHỈ hiện khi server đã xác định đơn thuộc chi nhánh có
-            // TTLock hoặc phòng dùng khóa thủ công, xem routes/web.php orders/{id}/quick-info,
+            // TTLock hoặc sân dùng khóa thủ công, xem routes/web.php orders/{id}/quick-info,
             // cùng luật OrderForm::hasAccessCodeSection()) NẰM ĐẦU, rồi tới thông tin khách + ghi
             // chú (sửa được tại chỗ — rcCalSaveOrderNote()) + nút điều hướng. Cột phải:
             // 'amount_html' (component total-amount-card render sẵn).
@@ -1235,7 +1300,7 @@ window._rcBuildAccessCodeHtml = function(ac) {
     }
 
     var codesHtml = ac.type === 'manual'
-        ? codeRow('Cổng', ac.gate_password) + codeRow('Phòng', ac.room_password)
+        ? codeRow('Cổng', ac.gate_password) + codeRow('Sân', ac.room_password)
         : (ac.code ? codeRow(null, ac.code, '#') : '<div class="ta-rc-order-popup-access-empty">Chưa có mã cổng</div>');
 
     // Vị trí cổng (nếu có) — đã bỏ dòng "Hiệu lực" theo yêu cầu.
@@ -1276,12 +1341,12 @@ document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape') { window.rcCalCloseOrderPopup(); window.rcCalClosePricePopup(); window.rcCalCloseViewPopup(); }
 });
 
-// Popup "Xem phòng" — nút cùng tên trong hàng thao tác nhanh dưới tên phòng (rcCalRenderGrid()) —
+// Popup "Xem sân" — nút cùng tên trong hàng thao tác nhanh dưới tên sân (rcCalRenderGrid()) —
 // gọi GET /admin/api/rooms/{id}/stats-popup?year=N (routes/web.php): tổng doanh thu + số đơn
 // thành công (ALL-TIME), doanh thu 12 tháng (T1-T12) của NĂM đang lọc (ta-yr-picker, cùng kiểu
 // panel "04/Theo tháng" ở Tổng quan — _bottom-grid.blade.php), và tần suất đặt theo khung giờ vẽ
-// bằng Nightingale chart (CHỈ phòng styles=1 "khung giờ" — ẩn hẳn với phòng "theo ngày", không có
-// khái niệm khung giờ cố định). "Xem chi tiết phòng" cuối popup dùng THẲNG editUrl truyền vào (đã
+// bằng Nightingale chart (CHỈ sân styles=1 "khung giờ" — ẩn hẳn với sân "theo ngày", không có
+// khái niệm khung giờ cố định). "Xem chi tiết sân" cuối popup dùng THẲNG editUrl truyền vào (đã
 // có sẵn trong window.__rcRoomsData), không gọi API riêng.
 window._rcViewPopupCtx = null;
 window.rcCalOpenViewPopup = function(productId, roomName, editUrl) {
@@ -1343,7 +1408,7 @@ window.rcCalLoadViewPopup = function(year) {
             + '</div>'
             + '<div class="ta-rc-view-chart-el" id="ta-rc-view-monthly-chart-el"></div>';
 
-            var footerHtml = '<a href="' + ctx.editUrl + '" target="_blank" rel="noopener" class="ta-rc-order-popup-goto-btn">Xem chi tiết phòng</a>';
+            var footerHtml = '<a href="' + ctx.editUrl + '" target="_blank" rel="noopener" class="ta-rc-order-popup-goto-btn">Xem chi tiết sân</a>';
 
             body.innerHTML = statsHtml + monthlyChartHtml + footerHtml;
 
@@ -1478,7 +1543,7 @@ window.rcCalCloseViewPopup = function() {
     window._rcViewPopupCtx = null;
 };
 
-// Popup "Giá phòng" — nút cùng tên trong hàng thao tác nhanh dưới tên phòng (rcCalRenderGrid()) —
+// Popup "Giá sân" — nút cùng tên trong hàng thao tác nhanh dưới tên sân (rcCalRenderGrid()) —
 // gọi GET /admin/api/rooms/{id}/pricing-info (routes/web.php), CHỈ XEM (sửa vẫn qua SettingBook,
 // link cuối popup — 'timeslot_url' server trả kèm).
 window.rcCalOpenPricePopup = function(productId, roomName) {
@@ -1487,7 +1552,7 @@ window.rcCalOpenPricePopup = function(productId, roomName) {
     var title   = document.getElementById('ta-rc-price-popup-title');
     if (!overlay || !body || !productId) return;
 
-    if (title) title.textContent = 'Giá phòng — ' + roomName;
+    if (title) title.textContent = 'Giá sân — ' + roomName;
     body.innerHTML = '<div class="ta-rc-order-popup-loading">Đang tải...</div>';
     overlay.style.display = 'flex';
 
@@ -1498,7 +1563,7 @@ window.rcCalOpenPricePopup = function(productId, roomName) {
 
             // Cột trái: 4 điều kiện giá (nhãn KHÔNG xuống dòng — .ta-rc-price-field-label riêng,
             // khác .ta-rc-order-popup-field-label của popup đơn hàng vì nhãn ở đây dài hơn hẳn:
-            // "Giảm giá full phòng"/"Giảm theo khung"...). Cột phải: khung giờ/giá/khuyến mãi.
+            // "Giảm giá full sân"/"Giảm theo khung"...). Cột phải: khung giờ/giá/khuyến mãi.
             function field(label, value) {
                 return '<div class="ta-rc-price-field">'
                     + '<span class="ta-rc-price-field-label">' + window._escAttr(label) + '</span>'
@@ -1510,7 +1575,7 @@ window.rcCalOpenPricePopup = function(productId, roomName) {
             // này) — "vượt ngưỡng" trước đây mơ hồ (vượt bao nhiêu?), giờ ghi rõ áp dụng từ khách
             // thứ mấy, suy trực tiếp từ ô "Khách miễn phí" (input#ta-rc-price-maxfree, cập nhật
             // khi gõ — xem listener gắn ở cuối hàm).
-            var left = field('Giảm giá full phòng',
+            var left = field('Giảm giá full sân',
                 '<input type="text" class="ta-rc-price-input" id="ta-rc-price-fbd" value="' + window._escAttr(d.full_booking_discount || '') + '" placeholder="VD: 10% hoặc 50000">');
             left += field('Khách miễn phí',
                 '<div class="ta-rc-price-input-row"><input type="number" class="ta-rc-price-input" id="ta-rc-price-maxfree" value="' + d.max_free_guests + '" min="0"><span class="ta-rc-price-input-suffix">khách</span></div>');
@@ -1547,7 +1612,7 @@ window.rcCalOpenPricePopup = function(productId, roomName) {
                 }).join('');
 
             if (!d.slots || !d.slots.length) {
-                right += '<div class="ta-rc-order-popup-access-empty">Phòng chưa khai báo khung giờ nào.</div>';
+                right += '<div class="ta-rc-order-popup-access-empty">Sân chưa khai báo khung giờ nào.</div>';
             } else {
                 right += '<div class="ta-rc-price-slots">' + d.slots.map(function(slot) {
                     // Khuyến mãi đã gắn hiện dạng tag, bấm × để gỡ (chỉ xoá khỏi giao diện, GỬI
@@ -1601,7 +1666,7 @@ window.rcCalOpenPricePopup = function(productId, roomName) {
             }
         })
         .catch(function() {
-            body.innerHTML = '<div class="ta-rc-order-popup-error">Không tải được thông tin giá phòng.</div>';
+            body.innerHTML = '<div class="ta-rc-order-popup-error">Không tải được thông tin giá sân.</div>';
         });
 };
 
@@ -1810,7 +1875,7 @@ window.rcCalSaveOrderNote = function(btn) {
 
 // ── Tooltip dùng chung cho mọi đơn (view Danh sách + Dải giờ) ──────────────
 // 1 phần tử duy nhất, định vị bằng getBoundingClientRect() nên không bị overflow:hidden của thẻ
-// phòng cắt mất, và không có chuyện chỉ hover được đúng 1 đơn khi thẻ có nhiều đơn.
+// sân cắt mất, và không có chuyện chỉ hover được đúng 1 đơn khi thẻ có nhiều đơn.
 (function() {
     var svgClock = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/><path d="M12 6v6l4 2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
     var svgCoin  = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2"/><path d="M12 7v10M9 9.5c0-1.5 1.3-2.5 3-2.5s3 1 3 2.5-1.3 2-3 2.5-3 1-3 2.5 1.3 2.5 3 2.5 3-1 3-2.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>';
@@ -2014,7 +2079,7 @@ window.rcCalSaveOrderNote = function(btn) {
         return html;
     }
 
-    // ── Icon nhỏ (dọn vệ sinh / hoàn tiền) + nút menu ⋮ trên thẻ phòng — PHẢI khớp 100% với bản
+    // ── Icon nhỏ (dọn vệ sinh / hoàn tiền) + nút menu ⋮ trên thẻ sân — PHẢI khớp 100% với bản
     // Blade (_room-cards.blade.php) vì renderRoomCards() (JS) đè lại card.innerHTML mỗi khi tự
     // làm mới định kỳ (pollRoomCards(), 2 phút/lần + mỗi khi có đơn mới), nếu thiếu nút này ở
     // đây thì sau khoảng thời gian đó menu ⋮ sẽ "tự mất" dù lúc F5 trang vẫn còn (đã từng xảy ra
@@ -2384,7 +2449,7 @@ window.rcCalSaveOrderNote = function(btn) {
             hint.style.color = branchId ? '#059669' : '';
         }
 
-        // Đồng bộ tab chi nhánh ở Lịch phòng
+        // Đồng bộ tab chi nhánh ở Lịch sân
         var branchName = branchId
             ? ((el.querySelector('.ta-branch-item-name') || {textContent:''}).textContent.trim())
             : '__all__';

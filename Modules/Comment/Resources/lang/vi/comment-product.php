@@ -4,7 +4,7 @@ return [
     'resource' => [
         'navigation_icon' => 'heroicon-o-cube',
         'navigation_group' => 'Bình luận',
-        'navigation_label' => 'Bình luận phòng',
+        'navigation_label' => 'Bình luận sân',
         'model_label' => 'Bình luận sản phẩm',
         'plural_model_label' => 'Bình luận sản phẩm',
         'commentable_type' => 'Modules\Product\App\Models\Product'

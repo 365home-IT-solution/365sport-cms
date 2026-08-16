@@ -12,7 +12,7 @@ return new class extends Migration
      * Bổ sung 2 cột còn thiếu cho người đi cùng (khung giờ qua đêm) — cccd_front_2/cccd_back_2
      * đã có sẵn từ 2026_07_16_170643_add_cccd_2_to_orders_table, nhưng cccd_data_2 (dữ liệu quét
      * QR CCCD) và buyer_phone_2 (SĐT người đi cùng) chưa từng có migration nào tạo trong nhánh
-     * hiện tại — CccdDeclarationService::upsertFromOrder() và luồng đặt phòng (web + API) đều cần
+     * hiện tại — CccdDeclarationService::upsertFromOrder() và luồng đặt sân (web + API) đều cần
      * 2 cột này để tự khai báo lưu trú cho khách thứ 2. hasColumn guard vì môi trường dev cục bộ
      * đã có sẵn 2 cột này (từ 1 migration cũ đã chạy rồi sau đó bị xoá khỏi code).
      */

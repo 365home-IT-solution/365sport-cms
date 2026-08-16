@@ -59,13 +59,13 @@ class ProductResource extends Resource
         $allCategoryIds = $user->allowedCategoryIds();
 
         // Không còn chặn cứng khi chưa gán quyền chi nhánh cụ thể — Product đã tự lọc theo
-        // partner_id qua BelongsToPartner (chỉ thấy phòng của đối tác mình). allowedCategoryIds
+        // partner_id qua BelongsToPartner (chỉ thấy sân của đối tác mình). allowedCategoryIds
         // chỉ dùng để thu hẹp thêm (vd giới hạn 1 nhân viên chỉ thấy 1 vài chi nhánh).
         if (empty($allCategoryIds)) {
             return $query;
         }
 
-        // Lọc phòng thuộc các chi nhánh/khu vực được phép (qua bảng categorizables)
+        // Lọc sân thuộc các chi nhánh/khu vực được phép (qua bảng categorizables)
         return $query->whereHas('categories', function (Builder $q) use ($allCategoryIds) {
             $q->whereIn('categories.id', $allCategoryIds);
         });

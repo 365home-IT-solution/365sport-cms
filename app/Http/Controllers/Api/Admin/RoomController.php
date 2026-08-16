@@ -28,16 +28,16 @@ class RoomController extends Controller
 
     /**
      * GET /api/admin/rooms
-     * Danh sách phòng — chỉ trả id/name/slug, dùng để admin chọn phòng khi tạo/sửa đơn
-     * (POST /api/admin/orders cần room_id). Chỉ hiển thị phòng đang hoạt động (is_activated=true).
+     * Danh sách sân — chỉ trả id/name/slug, dùng để admin chọn sân khi tạo/sửa đơn
+     * (POST /api/admin/orders cần room_id). Chỉ hiển thị sân đang hoạt động (is_activated=true).
      *
      * Phạm vi hiển thị:
-     *  - super_admin: TẤT CẢ phòng (mọi đối tác).
-     *  - User thường: chỉ phòng thuộc đúng đối tác của mình (products.partner_id).
+     *  - super_admin: TẤT CẢ sân (mọi đối tác).
+     *  - User thường: chỉ sân thuộc đúng đối tác của mình (products.partner_id).
      *
      * Query params:
      *  - categories : slug của 1 chi nhánh CHA (xem GET /api/admin/branches) — lọc thêm chỉ lấy
-     *    phòng thuộc chi nhánh đó (gồm cả danh mục con/khu vực bên trong chi nhánh). Dùng khi
+     *    sân thuộc chi nhánh đó (gồm cả danh mục con/khu vực bên trong chi nhánh). Dùng khi
      *    admin/super_admin quản lý nhiều chi nhánh cần chọn đúng 1 chi nhánh trước.
      */
     public function index(Request $request): JsonResponse
@@ -59,7 +59,7 @@ class RoomController extends Controller
                 ->first();
 
             // Slug không khớp chi nhánh nào -> trả rỗng thay vì bỏ qua filter (tránh lộ toàn bộ
-            // phòng ngoài ý muốn khi admin gõ nhầm slug).
+            // sân ngoài ý muốn khi admin gõ nhầm slug).
             if (! $branch) {
                 return response()->json(['data' => []]);
             }
@@ -75,10 +75,10 @@ class RoomController extends Controller
 
     /**
      * GET /api/admin/rooms/{id}/time-slots
-     * Khung giờ (theo kiểu đặt "slot" — phòng có styles=1 hoặc null) x ngày của 1 phòng, dùng để
+     * Khung giờ (theo kiểu đặt "slot" — sân có styles=1 hoặc null) x ngày của 1 sân, dùng để
      * admin xem khung nào còn trống trước khi gọi POST /api/admin/orders (type=slot, slots[]).
-     * CHỈ áp dụng cho phòng có khung giờ — phòng đặt theo ngày (styles=2, type=daily) trả lỗi 422
-     * rõ ràng thay vì mảng rỗng (phòng loại đó không cần chọn khung giờ, chỉ cần checkin/checkout).
+     * CHỈ áp dụng cho sân có khung giờ — sân đặt theo ngày (styles=2, type=daily) trả lỗi 422
+     * rõ ràng thay vì mảng rỗng (sân loại đó không cần chọn khung giờ, chỉ cần checkin/checkout).
      *
      * Format mỗi ô khung giờ x ngày khớp HỆT app khách hàng (BranchController::buildSlotStatus())
      * — cùng tái sử dụng Book::calculateSlotPrice() (khuyến mãi) + TimeSlotHoldController::
@@ -142,14 +142,14 @@ class RoomController extends Controller
             ->first();
 
         if (! $room || (! $user->isSuperAdmin() && $room->partner_id !== $user->partner_id)) {
-            return response()->json(['message' => 'Không tìm thấy phòng.'], 404);
+            return response()->json(['message' => 'Không tìm thấy sân.'], 404);
         }
 
-        // styles=2 = phòng đặt theo NGÀY (type=daily) — không có khái niệm "khung giờ" lặp lại,
-        // trả lỗi rõ ràng thay vì im lặng trả mảng rỗng (styles=1 hoặc null đều coi là phòng theo
+        // styles=2 = sân đặt theo NGÀY (type=daily) — không có khái niệm "khung giờ" lặp lại,
+        // trả lỗi rõ ràng thay vì im lặng trả mảng rỗng (styles=1 hoặc null đều coi là sân theo
         // khung giờ, khớp quy ước ở BranchController::timeSlots()/BuildsRoomBooking).
         if ((int) $room->styles === 2) {
-            return response()->json(['message' => 'Phòng này đặt theo ngày (daily), không có khung giờ.'], 422);
+            return response()->json(['message' => 'Sân này đặt theo ngày (daily), không có khung giờ.'], 422);
         }
 
         $days       = max(1, min((int) $request->query('days', self::DEFAULT_DAYS), self::MAX_DAYS));
@@ -207,7 +207,7 @@ class RoomController extends Controller
             ]);
         }
 
-        // order_items có thể đụng khoảng ngày đang xem — load 1 lần cho cả phòng thay vì query lặp
+        // order_items có thể đụng khoảng ngày đang xem — load 1 lần cho cả sân thay vì query lặp
         // lại cho từng ô khung giờ x ngày (N ngày x M khung giờ query riêng sẽ rất tốn).
         $room->load(['orderItems' => function ($q) use ($startDate, $endDate) {
             $q->where('checkout_date', '>', $startDate)
@@ -257,7 +257,7 @@ class RoomController extends Controller
     /**
      * Trạng thái + giá 1 ô "khung giờ x ngày" — bản admin của
      * BranchController::buildSlotStatus() (khách hàng), giữ NGUYÊN công thức tính để 2 nơi luôn
-     * khớp nhau, chỉ khác nguồn dữ liệu đầu vào (1 phòng theo đối tác admin, không phải mọi phòng
+     * khớp nhau, chỉ khác nguồn dữ liệu đầu vào (1 sân theo đối tác admin, không phải mọi sân
      * trong 1 chi nhánh public).
      */
     private function buildSlotStatus(Product $room, $rts, array $date, Book $book, Carbon $today, array $holds, ?string $sessionId, array $currentOrderSlotKeys = [], bool $includePricing = true): array
@@ -365,7 +365,7 @@ class RoomController extends Controller
 
     /**
      * GET /api/admin/rooms/{id}/dates
-     * Lịch phòng theo NGÀY (styles=2) — bản admin của DailyRoomController::dates(), dùng lại đúng
+     * Lịch sân theo NGÀY (styles=2) — bản admin của DailyRoomController::dates(), dùng lại đúng
      * PromotionCalculator nên giá/khuyến mãi khớp 100% với app khách hàng.
      *
      * Chế độ calendar (tháng):    ?month=YYYY-MM        → không có totals
@@ -389,7 +389,7 @@ class RoomController extends Controller
             ->first();
 
         if (! $room || (! $user->isSuperAdmin() && $room->partner_id !== $user->partner_id)) {
-            return response()->json(['message' => 'Không tìm thấy phòng.'], 404);
+            return response()->json(['message' => 'Không tìm thấy sân.'], 404);
         }
 
         $isRangeMode = $request->has('from') || $request->has('to');

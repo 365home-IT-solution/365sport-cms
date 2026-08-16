@@ -86,7 +86,7 @@ class ZaloZnsService
     }
 
     /**
-     * Gửi ZNS thông báo đặt phòng thành công
+     * Gửi ZNS thông báo đặt sân thành công
      */
     public function sendBookingSuccessNotification($order, $accessCode)
     {
@@ -103,7 +103,7 @@ class ZaloZnsService
         $templateData = [
             'customer_name' => $order->buyer_name,
             'branch_name' => $branchName,
-            'room_name' => $firstItem->name ?? 'Phòng',
+            'room_name' => $firstItem->name ?? 'Sân',
             'checkin_date' => $firstItem->checkin_date ? $firstItem->checkin_date->format('d/m/Y H:i') : 'Chưa xác định',
             'checkout_date' => $firstItem->checkout_date ? $firstItem->checkout_date->format('d/m/Y H:i') : 'Chưa xác định',
             'access_code' => $accessCode->code,
@@ -138,7 +138,7 @@ class ZaloZnsService
 
         $templateData = [
             'customer_name' => $order->buyer_name,
-            'room_name' => $firstItem->name ?? 'Phòng',
+            'room_name' => $firstItem->name ?? 'Sân',
             'checkin_date' => $firstItem->checkin_date ?
                 $firstItem->checkin_date->format('d/m/Y H:i') : '',
             'access_code' => $accessCode->code,

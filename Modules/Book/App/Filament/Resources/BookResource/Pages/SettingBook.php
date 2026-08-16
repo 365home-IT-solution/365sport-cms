@@ -58,11 +58,11 @@ class SettingBook extends Page implements HasForms
 
     public ?array $data = [];
 
-    /** Số phòng tối đa build form mỗi trang — trước đây load TOÀN BỘ phòng + toàn bộ khung giờ/
+    /** Số sân tối đa build form mỗi trang — trước đây load TOÀN BỘ sân + toàn bộ khung giờ/
      *  khuyến mãi cùng lúc (mount() lẫn form() đều gọi ->get() không giới hạn), với đối tác nhiều
-     *  phòng thì Filament phải dựng hàng trăm Tab + TableRepeater cùng lúc, tốn RAM rất lớn. Giờ
-     *  chỉ build phòng của trang hiện tại (lọc thêm theo chi nhánh nếu có), giữ nguyên trải nghiệm
-     *  vì mỗi phòng vẫn có Tab riêng như cũ. */
+     *  sân thì Filament phải dựng hàng trăm Tab + TableRepeater cùng lúc, tốn RAM rất lớn. Giờ
+     *  chỉ build sân của trang hiện tại (lọc thêm theo chi nhánh nếu có), giữ nguyên trải nghiệm
+     *  vì mỗi sân vẫn có Tab riêng như cũ. */
     public int $perPage = 12;
 
     /** Chi nhánh + trang đang lọc — đọc từ query string (?branch_id=, ?page=) đúng 1 LẦN trong
@@ -85,7 +85,7 @@ class SettingBook extends Page implements HasForms
     public array $paginatorMeta = ['current_page' => 1, 'last_page' => 1, 'total' => 0];
 
     /** Danh sách chi nhánh (dùng cho dropdown lọc) — chi nhánh = category KHÔNG có parent mà 1
-     *  phòng được gán trực tiếp, hoặc parent của category được gán (cùng quy ước với
+     *  sân được gán trực tiếp, hoặc parent của category được gán (cùng quy ước với
      *  RoomCardsService::getData() ở Dashboard, để nhất quán khái niệm "chi nhánh" toàn hệ thống). */
     public function branchOptions(): array
     {
@@ -105,9 +105,9 @@ class SettingBook extends Page implements HasForms
         return $branches;
     }
 
-    /** ID các phòng sẽ build form ở request này: 1 trang (theo $perPage) của scopedProductQuery(),
-     *  cộng thêm phòng được mở nhanh qua ?product_id= (xem mount()) nếu nó rơi ra ngoài trang hiện
-     *  tại/bị lọc theo chi nhánh khác — đảm bảo link "Xem chi tiết" từ Dashboard luôn mở đúng phòng
+    /** ID các sân sẽ build form ở request này: 1 trang (theo $perPage) của scopedProductQuery(),
+     *  cộng thêm sân được mở nhanh qua ?product_id= (xem mount()) nếu nó rơi ra ngoài trang hiện
+     *  tại/bị lọc theo chi nhánh khác — đảm bảo link "Xem chi tiết" từ Dashboard luôn mở đúng sân
      *  thay vì phải tự dò đúng chi nhánh + trang chứa nó. */
     private function currentRoomIds(): \Illuminate\Support\Collection
     {
@@ -199,15 +199,15 @@ class SettingBook extends Page implements HasForms
             return $query;
         }
 
-        // Xem "Tất cả chi nhánh" — ưu tiên đẩy phòng của 252/254/89 lên đầu (nên rơi vào các
+        // Xem "Tất cả chi nhánh" — ưu tiên đẩy sân của 252/254/89 lên đầu (nên rơi vào các
         // trang đầu tiên), phần còn lại vẫn sắp theo tên như cũ (xem orderBy('name') ở nơi gọi).
         $this->applyBranchPriorityOrder($query);
 
         return $query;
     }
 
-    /** Danh sách ID phòng thuộc các chi nhánh cần ưu tiên (252, 254, 89 — theo đúng thứ tự), đã
-     *  gộp cả phòng gán trực tiếp vào chi nhánh lẫn phòng gán vào category con của chi nhánh đó. */
+    /** Danh sách ID sân thuộc các chi nhánh cần ưu tiên (252, 254, 89 — theo đúng thứ tự), đã
+     *  gộp cả sân gán trực tiếp vào chi nhánh lẫn sân gán vào category con của chi nhánh đó. */
     private function priorityProductIds(): array
     {
         if ($this->priorityProductIdsCache !== null) {
@@ -257,13 +257,13 @@ class SettingBook extends Page implements HasForms
 
         $placeholders = implode(',', array_fill(0, count($priorityIds), '?'));
 
-        // FIELD(id, ...) trả về 0 nếu KHÔNG khớp — "=0" đẩy các phòng không nằm trong danh sách ưu
-        // tiên xuống cuối, còn phòng khớp thì sắp theo đúng thứ tự xuất hiện trong $priorityIds
+        // FIELD(id, ...) trả về 0 nếu KHÔNG khớp — "=0" đẩy các sân không nằm trong danh sách ưu
+        // tiên xuống cuối, còn sân khớp thì sắp theo đúng thứ tự xuất hiện trong $priorityIds
         // (tức đúng thứ tự chi nhánh 252 → 254 → 89 đã liệt kê ở priorityProductIds()).
         $query->orderByRaw("(FIELD(id, {$placeholders}) = 0), FIELD(id, {$placeholders})", array_merge($priorityIds, $priorityIds));
     }
 
-    /** Báo cho khách đang xem lịch phòng (book.blade/product-detail) biết các ngày này vừa đổi
+    /** Báo cho khách đang xem lịch sân (book.blade/product-detail) biết các ngày này vừa đổi
      *  giá/khuyến mãi/mã giảm giá — đẩy qua Node WS (room:{roomId}:{date}, event slot.updated,
      *  status "available") để trang khách tự fetch lại thay vì phải F5. Không throw nếu WS server
      *  không chạy — SlotRealtimeService tự bắt lỗi + timeout ngắn (xem app/Services/
@@ -369,24 +369,24 @@ class SettingBook extends Page implements HasForms
         $rooms = Product::whereIn('id', $this->currentRoomIds())->orderBy('name')->get();
 
         // Chỉ super_admin được xem/sửa Khung giờ, giá và Thiết lập khuyến mãi — các role khác chỉ
-        // được thao tác trên Thông tin Phòng, nên 2 section thiết lập giá/khuyến mãi theo khung giờ
+        // được thao tác trên Thông tin Sân, nên 2 section thiết lập giá/khuyến mãi theo khung giờ
         // (buildSlotRoomTab) và theo ngày (buildDayRoomTab) bị ẩn hẳn khỏi form với các role khác.
         $isSuperAdmin = (bool) auth()->user()?->isSuperAdmin();
 
         $buildSlotRoomTab = function ($product) use ($isSuperAdmin) {
             $schema = [
-                Section::make('Thông tin Phòng')
+                Section::make('Thông tin Sân')
                         ->schema([
                             Hidden::make('room_' . $product->id . '.product_id')
                                 ->default($product->id),
                             TextInput::make('room_' . $product->id . '.product_name')
-                                ->label('Tên Phòng')
+                                ->label('Tên Sân')
                                 ->default($product->name)
                                 ->disabled()
                                 ->dehydrated(false),
 
                             TextInput::make('room_' . $product->id . '.full_booking_discount')
-                                ->label('Giảm giá khi đặt Full phòng')
+                                ->label('Giảm giá khi đặt Full sân')
                                 ->placeholder('VD: 10% hoặc 50000')
                                 ->helperText('Nhập % (VD: 10%) hoặc số tiền cố định (VD: 50000)')
                                 ->maxLength(50),
@@ -441,7 +441,7 @@ class SettingBook extends Page implements HasForms
 
             if ($isSuperAdmin) {
                 $schema[] = Section::make('Khung giờ, giá, Thiết lập khuyến mãi')
-                    ->description('Thiết lập khung giờ, giá và khuyến mãi cho phòng ' . $product->name)
+                    ->description('Thiết lập khung giờ, giá và khuyến mãi cho sân ' . $product->name)
                     ->schema([
                         TableRepeater::make('room_' . $product->id . '.roomTimeSlots')
                             ->headers([
@@ -519,7 +519,7 @@ class SettingBook extends Page implements HasForms
                             Hidden::make('room_' . $product->id . '.product_id')
                                 ->default($product->id),
                             TextInput::make('room_' . $product->id . '.product_name')
-                                ->label('Tên Phòng')
+                                ->label('Tên Sân')
                                 ->default($product->name)
                                 ->disabled()
                                 ->dehydrated(false),
@@ -529,7 +529,7 @@ class SettingBook extends Page implements HasForms
                                 ->suffix('VNĐ')
                                 ->extraInputAttributes(['inputmode' => 'numeric']),
                             TimePicker::make('room_' . $product->id . '.default_checkin')
-                                ->label('Giờ nhận phòng mặc định')
+                                ->label('Giờ nhận sân mặc định')
                                 ->seconds(false)
                                 ->native(false)
                                 ->locale('vi')
@@ -537,7 +537,7 @@ class SettingBook extends Page implements HasForms
                                 ->timezone('Asia/Ho_Chi_Minh')
                                 ->default('14:00'),
                             TimePicker::make('room_' . $product->id . '.default_checkout')
-                                ->label('Giờ trả phòng mặc định')
+                                ->label('Giờ trả sân mặc định')
                                 ->seconds(false)
                                 ->native(false)
                                 ->locale('vi')
@@ -548,7 +548,7 @@ class SettingBook extends Page implements HasForms
                         ])->columns(2),
 
                     Section::make('Thiết lập cọc')
-                        ->description('Cấu hình điều kiện và % tiền cọc khách phải thanh toán khi đặt phòng.')
+                        ->description('Cấu hình điều kiện và % tiền cọc khách phải thanh toán khi đặt sân.')
                         ->schema([
                             TextInput::make('room_' . $product->id . '.deposit_min_nights')
                                 ->label('Đặt từ X đêm mới cọc')
@@ -570,7 +570,7 @@ class SettingBook extends Page implements HasForms
                                 ->extraInputAttributes(['inputmode' => 'numeric']),
                         ])->columns(2),
 
-                    Section::make('Cấu hình phòng')
+                    Section::make('Cấu hình sân')
                         ->description('Quy định số khách tối đa miễn phí và phụ thu khi có thêm người.')
                         ->schema([
                             TextInput::make('room_' . $product->id . '.room_config_max_free_guests')
@@ -595,7 +595,7 @@ class SettingBook extends Page implements HasForms
 
             if ($isSuperAdmin) {
                 $schema[] = Section::make('Ngày đặc biệt & Khuyến mãi')
-                    ->description('Nhấn vào ô ngày để thiết lập giá và khuyến mãi. Ưu tiên cao hơn giá gốc của phòng.')
+                    ->description('Nhấn vào ô ngày để thiết lập giá và khuyến mãi. Ưu tiên cao hơn giá gốc của sân.')
                     ->schema([
                         DatePriceCalendarField::make('room_' . $product->id . '.dateTimeSlots')
                             ->roomId($product->id)
@@ -616,9 +616,9 @@ class SettingBook extends Page implements HasForms
         $slotTabs = $slotRooms->map(fn ($p) => $buildSlotRoomTab($p))->values()->all();
         $dayTabs  = $dayRooms->map(fn ($p) => $buildDayRoomTab($p))->values()->all();
 
-        // Mở trang này từ menu thao tác nhanh trên thẻ phòng (Dashboard) với ?product_id=... —
-        // tự nhảy sẵn tới ĐÚNG tab của phòng đó (cả tab kiểu "Theo Khung Giờ"/"Theo Ngày" lẫn tab
-        // con của chính phòng), thay vì luôn mở tab đầu tiên rồi phải tự tìm lại.
+        // Mở trang này từ menu thao tác nhanh trên thẻ sân (Dashboard) với ?product_id=... —
+        // tự nhảy sẵn tới ĐÚNG tab của sân đó (cả tab kiểu "Theo Khung Giờ"/"Theo Ngày" lẫn tab
+        // con của chính sân), thay vì luôn mở tab đầu tiên rồi phải tự tìm lại.
         $activeStyleTab = 1;
         $activeRoomTab  = 1;
         $preselectId    = request()->query('product_id');
@@ -647,7 +647,7 @@ class SettingBook extends Page implements HasForms
                             ->schema(
                                 $slotTabs
                                     ? [Tabs::make('SlotRooms')->activeTab($activeStyleTab === 1 ? $activeRoomTab : 1)->tabs($slotTabs)->columnSpanFull()]
-                                    : [\Filament\Forms\Components\Placeholder::make('no_slot')->label('')->content('Chưa có phòng nào theo kiểu Khung Giờ.')]
+                                    : [\Filament\Forms\Components\Placeholder::make('no_slot')->label('')->content('Chưa có sân nào theo kiểu Khung Giờ.')]
                             ),
                         Tabs\Tab::make('Theo Ngày')
                             ->icon('heroicon-o-calendar-days')
@@ -655,7 +655,7 @@ class SettingBook extends Page implements HasForms
                             ->schema(
                                 $dayTabs
                                     ? [Tabs::make('DayRooms')->activeTab($activeStyleTab === 2 ? $activeRoomTab : 1)->tabs($dayTabs)->columnSpanFull()]
-                                    : [\Filament\Forms\Components\Placeholder::make('no_day')->label('')->content('Chưa có phòng nào theo kiểu Theo Ngày.')]
+                                    : [\Filament\Forms\Components\Placeholder::make('no_day')->label('')->content('Chưa có sân nào theo kiểu Theo Ngày.')]
                             ),
                     ])
                     ->columnSpanFull(),
@@ -857,7 +857,7 @@ class SettingBook extends Page implements HasForms
     ): void {
         $product = Product::find($roomId);
         if (!$product || (int)($product->styles ?? 1) !== 2) {
-            Notification::make()->title('Phòng không hợp lệ')->danger()->send();
+            Notification::make()->title('Sân không hợp lệ')->danger()->send();
             return;
         }
 
@@ -954,7 +954,7 @@ class SettingBook extends Page implements HasForms
         $product = Product::find($roomId);
 
         if (!$product) {
-            Notification::make()->title('Phòng không hợp lệ')->danger()->send();
+            Notification::make()->title('Sân không hợp lệ')->danger()->send();
             return;
         }
 
@@ -977,7 +977,7 @@ class SettingBook extends Page implements HasForms
             );
 
             // firstOrCreate: nếu slot đã có → giữ nguyên giá ghi đè
-            //                nếu chưa có → tạo mới với price=null (không ghi đè, dùng giá gốc phòng)
+            //                nếu chưa có → tạo mới với price=null (không ghi đè, dùng giá gốc sân)
             $slotModel = RoomTimeSlot::firstOrCreate(
                 ['room_id' => $roomId, 'timeslot_id' => $timeSlot->id],
                 ['price' => null, 'status' => 'available']
@@ -1013,7 +1013,7 @@ class SettingBook extends Page implements HasForms
     ): void {
         $product = Product::find($roomId);
         if (!$product || (int)($product->styles ?? 1) !== 2) {
-            Notification::make()->title('Phòng không hợp lệ')->danger()->send();
+            Notification::make()->title('Sân không hợp lệ')->danger()->send();
             return;
         }
 
@@ -1243,7 +1243,7 @@ class SettingBook extends Page implements HasForms
     }
 
     /**
-     * Xóa tất cả ngày đặc biệt của phòng.
+     * Xóa tất cả ngày đặc biệt của sân.
      */
     public function deleteAllDates(string $roomId): void    {
         $slots = RoomTimeSlot::with(['promotions', 'timeslot'])
@@ -1279,7 +1279,7 @@ class SettingBook extends Page implements HasForms
     ): void {
         $product = Product::find($roomId);
         if (!$product || (int)($product->styles ?? 1) !== 2) {
-            Notification::make()->title('Phòng không hợp lệ')->danger()->send();
+            Notification::make()->title('Sân không hợp lệ')->danger()->send();
             return;
         }
 

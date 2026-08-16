@@ -293,7 +293,7 @@ class EditOrder extends EditRecord
                         ]);
                     }
 
-                    $itemName     = $record->items->first()?->name ?? 'Đặt phòng';
+                    $itemName     = $record->items->first()?->name ?? 'Đặt sân';
                     $newPayosCode = (int) (intval(substr(strval(microtime(true) * 10000), -6)) . rand(10, 99));
                     $expiredAt    = now()->addMinutes(15);
 
@@ -398,13 +398,13 @@ class EditOrder extends EditRecord
                         $adminMsg     = 'Đã gán mã cổng';
 
                         if ($product && $product->has_manual_lock) {
-                            // Phòng mật khẩu thủ công → gửi mã thực tế
+                            // Sân mật khẩu thủ công → gửi mã thực tế
                             $pwdAnchorDate = $record->paid_at ?? $record->deposit_paid_at ?? $record->created_at;
                             $manualPwd = \Modules\Product\App\Models\ManualLockPassword::getForProductAndDate($product, $pwdAnchorDate);
                             if ($manualPwd && ($manualPwd->gate_password || $manualPwd->room_password)) {
                                 $parts = [];
                                 if ($manualPwd->gate_password) $parts[] = 'Mã cổng: ' . $manualPwd->gate_password;
-                                if ($manualPwd->room_password) $parts[] = 'Mã phòng: ' . $manualPwd->room_password;
+                                if ($manualPwd->room_password) $parts[] = 'Mã sân: ' . $manualPwd->room_password;
                                 $notifTitle = "Đơn #{$record->order_code}: Mã cổng đã được cấp";
                                 $notifBody  = implode(' | ', $parts);
                                 $wsPayload  = [
@@ -416,13 +416,13 @@ class EditOrder extends EditRecord
                                 $adminMsg = 'Đã cấp: ' . implode(' | ', $parts);
                             }
                         } elseif ($product && $product->lock_id && \App\Services\TTLockService::forCategory($record->category_id)) {
-                            // Phòng TTLock
+                            // Sân TTLock
                             $notifTitle = "Đơn #{$record->order_code}: Mã cổng đã sẵn sàng";
                             $notifBody  = 'Bạn có thể mở cửa trực tiếp từ ứng dụng.';
                             $wsPayload  = ['access_code_assigned' => true, 'lock_type' => 'ttlock'];
                             $adminMsg   = 'Đã cấp TTLock: ' . ($code?->code ?? '-');
                         } elseif ($code) {
-                            // Pool AccessCode (không có thông báo khách — phòng không cần hiển thị code)
+                            // Pool AccessCode (không có thông báo khách — sân không cần hiển thị code)
                             $adminMsg = 'Đã gán mã cổng: ' . $code->code;
                         }
 
@@ -569,7 +569,7 @@ class EditOrder extends EditRecord
 
                         if (! $newCode) {
                             Notification::make()
-                                ->title('Phòng này dùng khóa thủ công, không cần tạo mã TTLock.')
+                                ->title('Sân này dùng khóa thủ công, không cần tạo mã TTLock.')
                                 ->warning()
                                 ->send();
                             return;
@@ -752,7 +752,7 @@ class EditOrder extends EditRecord
     private function sendStatusChangeNotification(\Modules\Payment\Entities\Order $order): void
     {
         $messages = [
-            'paid'               => ['Đặt phòng thành công!',      "Đơn #{$order->order_code} đã được xác nhận thanh toán."],
+            'paid'               => ['Đặt sân thành công!',      "Đơn #{$order->order_code} đã được xác nhận thanh toán."],
             'confirmed'          => ['Đơn đã được xác nhận',       "Đơn #{$order->order_code} đã được xác nhận bởi chúng tôi."],
             'deposit'            => ['Đã nhận tiền cọc',           "Đơn #{$order->order_code} đã nhận cọc " . ($order->deposit_percent ?? '') . "%."],
             'cancelled'          => ['Đơn đã bị hủy',              "Đơn #{$order->order_code} đã bị hủy. Liên hệ chúng tôi nếu có thắc mắc."],
@@ -828,7 +828,7 @@ class EditOrder extends EditRecord
                 'quantity' => (int) ($s->quantity ?? 1),
             ]])
             ->all();
-        // Tổng giá các khung giờ/phòng TRƯỚC khi lưu (không tính dòng phụ thu khách extra_fee>0)
+        // Tổng giá các khung giờ/sân TRƯỚC khi lưu (không tính dòng phụ thu khách extra_fee>0)
         // — dùng để phát hiện + tính chênh lệch khi admin thêm/bớt khung giờ cho đơn đã cọc/thanh
         // toán (xem handlePriceDiff() bên dưới).
         $oldItems = $this->record->items()->where('extra_fee', 0)->get();
@@ -839,7 +839,7 @@ class EditOrder extends EditRecord
             ->all();
 
         // Phụ thu tay ("Phụ thu (có thể sửa tay)" trên Group B) — trước đây KHÔNG được theo dõi,
-        // nên admin chỉ gõ tay phụ thu trên đơn đã paid/deposit (không đổi phòng/dịch vụ/số khách
+        // nên admin chỉ gõ tay phụ thu trên đơn đã paid/deposit (không đổi sân/dịch vụ/số khách
         // gì khác) sẽ không kích hoạt được handlePriceDiff() ở afterSave() (xem $surchargeChanged).
         $this->oldSurcharge = (int) ($this->record->surcharge ?? 0);
     }
@@ -882,7 +882,7 @@ class EditOrder extends EditRecord
             }
         }
 
-        // Đồng bộ lại "Khai báo lưu trú" mỗi khi đơn được sửa trong CMS admin (đổi phòng/ngày
+        // Đồng bộ lại "Khai báo lưu trú" mỗi khi đơn được sửa trong CMS admin (đổi sân/ngày
         // nhận-trả/CCCD...) — cùng service dùng cho luồng app khách hàng, để dữ liệu khai báo luôn
         // khớp với thông tin đơn mới nhất, không riêng gì lúc tạo mới.
         app(CccdDeclarationService::class)->upsertFromOrder($record);
@@ -900,13 +900,13 @@ class EditOrder extends EditRecord
             ->toArray();
         $servicesChanged = $newServicesSnapshot !== $this->oldServices;
 
-        // Thêm/bớt khung giờ (order_item) làm tổng giá phòng thay đổi — so sánh tổng giá các
+        // Thêm/bớt khung giờ (order_item) làm tổng giá sân thay đổi — so sánh tổng giá các
         // khung giờ hiện tại với tổng giá cũ đã ghi nhớ ở beforeSave().
         $newItemsTotal = (int) $record->items->where('extra_fee', 0)->sum('price');
         $itemsChanged  = $newItemsTotal !== $this->oldItemsTotal;
         $newItemsCount = (int) $record->items->where('extra_fee', 0)->count();
 
-        // Phụ thu gõ tay đổi cũng phải kích hoạt handlePriceDiff() giống hệt đổi phòng/dịch vụ/số
+        // Phụ thu gõ tay đổi cũng phải kích hoạt handlePriceDiff() giống hệt đổi sân/dịch vụ/số
         // khách — xem $this->oldSurcharge ở beforeSave() và ExtraChargeService::calculateDiff().
         $surchargeChanged = (int) ($record->surcharge ?? 0) !== $this->oldSurcharge;
 
@@ -1052,17 +1052,17 @@ class EditOrder extends EditRecord
         $addedParts = array_values(array_diff_key($newItemSnapshot, $this->oldItemSnapshot));
         $removedParts = array_values(array_diff_key($this->oldItemSnapshot, $newItemSnapshot));
 
-        // Đúng 1 dòng cũ mất + 1 dòng mới xuất hiện trong CÙNG 1 lần lưu = khách đổi sang phòng/
+        // Đúng 1 dòng cũ mất + 1 dòng mới xuất hiện trong CÙNG 1 lần lưu = khách đổi sang sân/
         // khung giờ khác (product_id đổi khiến itemChangeKey() khác hẳn dòng cũ) — hiển thị gộp
-        // thành 1 dòng "Đổi phòng: A → B" dễ hiểu hơn 2 dòng "Thêm khung"/"Bớt khung" rời rạc, dù
+        // thành 1 dòng "Đổi sân: A → B" dễ hiểu hơn 2 dòng "Thêm khung"/"Bớt khung" rời rạc, dù
         // giá chênh lệch (hiển thị ở 'sub' của bước lịch sử) đã được tính đúng từ trước.
         if (count($addedParts) === 1 && count($removedParts) === 1) {
-            $summary[] = 'Đổi phòng: ' . $this->formatChangePartLabel($removedParts[0])
+            $summary[] = 'Đổi sân: ' . $this->formatChangePartLabel($removedParts[0])
                 . ' → ' . $this->formatChangePartLabel($addedParts[0]);
         } else {
-            // Gộp NHIỀU khung giờ thay đổi CÙNG LÚC của CÙNG 1 phòng thành 1 cụm "Tên phòng:
-            // giờ1, giờ2, ..." thay vì lặp lại "Tên phòng:" cho từng khung giờ (trước đây 3 khung
-            // cùng phòng hiện thành "PIXEL: ..., PIXEL: ..., PIXEL: ..." dài dòng khó đọc).
+            // Gộp NHIỀU khung giờ thay đổi CÙNG LÚC của CÙNG 1 sân thành 1 cụm "Tên sân:
+            // giờ1, giờ2, ..." thay vì lặp lại "Tên sân:" cho từng khung giờ (trước đây 3 khung
+            // cùng sân hiện thành "PIXEL: ..., PIXEL: ..., PIXEL: ..." dài dòng khó đọc).
             if (! empty($addedParts)) {
                 $summary[] = '+ ' . $this->formatGroupedChangeParts($addedParts);
             }
@@ -1156,14 +1156,14 @@ class EditOrder extends EditRecord
         ]);
     }
 
-    // Tách riêng "tên phòng" và "khung giờ" (thay vì gộp sẵn thành 1 chuỗi như
+    // Tách riêng "tên sân" và "khung giờ" (thay vì gộp sẵn thành 1 chuỗi như
     // formatItemChangeLabel() cũ) — CẦN giữ riêng 2 phần này để formatGroupedChangeParts() gộp
-    // được NHIỀU khung giờ cùng 1 phòng thành 1 cụm, không lặp lại tên phòng cho từng khung. Giữ
+    // được NHIỀU khung giờ cùng 1 sân thành 1 cụm, không lặp lại tên sân cho từng khung. Giữ
     // 'start'/'end' dạng Carbon (KHÔNG format sẵn thành chuỗi) để formatGroupedChangeParts() gộp
     // được nhiều khung LIỀN NHAU trong CÙNG 1 ngày thành 1 khoảng min(start)-max(end) duy nhất.
     private function itemChangeParts($item): array
     {
-        $room = trim((string) ($item->product?->name ?: $item->name ?: 'Phòng'));
+        $room = trim((string) ($item->product?->name ?: $item->name ?: 'Sân'));
         $roomWithoutSlot = preg_replace('/\s*-\s*\d{1,2}:\d{2}\s*-\s*\d{1,2}:\d{2}(?:\s*\([^)]*\))?\s*$/u', '', $room);
         $room = filled($roomWithoutSlot) ? trim($roomWithoutSlot) : $room;
 
@@ -1187,8 +1187,8 @@ class EditOrder extends EditRecord
         return $start && $end ? $start->format('H:i') . ' - ' . $end->format('H:i') . ' (' . $start->format('d/m') . ')' : '';
     }
 
-    // Gộp nhiều phần {room,start,end} thành 1 chuỗi gọn — CÙNG 1 phòng thì chỉ nêu tên phòng 1
-    // lần; các khung giờ CÙNG NGÀY của phòng đó gộp thành 1 khoảng DUY NHẤT
+    // Gộp nhiều phần {room,start,end} thành 1 chuỗi gọn — CÙNG 1 sân thì chỉ nêu tên sân 1
+    // lần; các khung giờ CÙNG NGÀY của sân đó gộp thành 1 khoảng DUY NHẤT
     // "giờ-bắt-đầu-sớm-nhất - giờ-kết-thúc-muộn-nhất (ngày)" thay vì liệt kê từng khung rời rạc
     // (theo yêu cầu — 3 khung liền nhau 13:50-16:40/17:10-20:00/20:30-23:20 cùng ngày 04/08 chỉ
     // cần hiện "PIXEL: 13:50 - 23:20 (04/08)"). Khác ngày thì tách thành cụm riêng, nối nhau bằng

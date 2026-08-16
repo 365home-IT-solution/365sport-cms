@@ -23,7 +23,7 @@ class CreateRoomService extends CreateRecord
     {
         return $form->schema([
             Select::make('product_id')
-                ->label('Phòng')
+                ->label('Sân')
                 ->options(fn () => Product::where('is_activated', true)->orderBy('name')->pluck('name', 'id')->toArray())
                 ->searchable()
                 ->required()

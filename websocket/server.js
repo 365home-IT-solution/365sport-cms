@@ -172,7 +172,7 @@ app.post('/internal/daily-booked', (req, res) => {
     return res.json({ ok: true });
 });
 
-// ── Time-slot hold update — "đang chọn" tạm thời cho phòng theo khung giờ ────
+// ── Time-slot hold update — "đang chọn" tạm thời cho sân theo khung giờ ────
 // holds: danh sách {session_id, timeslot_id} CÒN GIỮ của ĐÚNG ngày `date` này (Laravel đã lọc sẵn
 // theo date trước khi gọi, xem TimeSlotHoldController) — luôn bắn cho đúng 1 channel
 // room:{room_id}:{date} (cùng channel với slot.updated), kể cả khi holds rỗng (vừa release hold
@@ -195,7 +195,7 @@ app.post('/internal/slot-hold-update', (req, res) => {
     return res.json({ ok: true });
 });
 
-// ── Daily room hold update — broadcast đến clients đang xem phòng ────────────
+// ── Daily room hold update — broadcast đến clients đang xem sân ────────────
 app.post('/internal/daily-hold-update', (req, res) => {
     const key = req.headers['x-internal-key'];
     if (key !== INTERNAL_KEY) {
@@ -243,7 +243,7 @@ app.post('/internal/order-update', (req, res) => {
     return res.json({ ok: true });
 });
 
-// ── Access code changed — thông báo mã cổng/phòng thay đổi ───────────────────
+// ── Access code changed — thông báo mã cổng/sân thay đổi ───────────────────
 app.post('/internal/order-code-changed', (req, res) => {
     const key = req.headers['x-internal-key'];
     if (key !== INTERNAL_KEY) {
@@ -358,7 +358,7 @@ app.post('/internal/slot-blocked-range', (req, res) => {
     return res.json({ ok: true });
 });
 
-// ── Daily blocked — admin khóa/gỡ khoảng ngày cho phòng theo ngày ────────────
+// ── Daily blocked — admin khóa/gỡ khoảng ngày cho sân theo ngày ────────────
 app.post('/internal/daily-blocked', (req, res) => {
     const key = req.headers['x-internal-key'];
     if (key !== INTERNAL_KEY) {

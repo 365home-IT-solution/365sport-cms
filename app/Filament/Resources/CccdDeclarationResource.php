@@ -109,7 +109,7 @@ class CccdDeclarationResource extends Resource
             Section::make('Thông tin lưu trú')->schema([
                 Grid::make(2)->schema([
                     TextInput::make('room_number')
-                        ->label('Số phòng / Số căn hộ')
+                        ->label('Số sân / Số căn hộ')
                         ->maxLength(255),
 
                     // "Địa chỉ lưu trú" theo Luật Cư trú = địa chỉ CHI NHÁNH/cơ sở khách đang ở —
@@ -242,11 +242,11 @@ class CccdDeclarationResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
-            // KHÔNG lọc mặc định theo "ngày đặt đơn" nữa — đơn có thể đặt trước nhiều ngày, phòng
+            // KHÔNG lọc mặc định theo "ngày đặt đơn" nữa — đơn có thể đặt trước nhiều ngày, sân
             // để tab (xem ListCccdDeclarations::getTabs()) tự quyết định phạm vi hiển thị theo
             // đúng HẠN KHAI BÁO (tính từ checked_in_at), là mốc thời gian có ý nghĩa thật sự ở đây.
             // Chỉ hiện khách của đơn ĐÃ XÁC NHẬN (paid/deposit/shipped) — bản ghi lưu trú được tạo
-            // ngay từ lúc đặt phòng (kể cả pending) để không mất dữ liệu CCCD, nhưng đơn pending có
+            // ngay từ lúc đặt sân (kể cả pending) để không mất dữ liệu CCCD, nhưng đơn pending có
             // thể tự huỷ sau 15 phút nếu khách không thanh toán nên KHÔNG được tính là khách thật.
             ->modifyQueryUsing(fn (Builder $query) => $query
                 ->with('order')
@@ -286,7 +286,7 @@ class CccdDeclarationResource extends Resource
                     ->toggleable(isToggledHiddenByDefault: true),
 
                 TextColumn::make('room_number')
-                    ->label('Số phòng')
+                    ->label('Số sân')
                     ->sortable(),
 
                 TextColumn::make('stay_address')

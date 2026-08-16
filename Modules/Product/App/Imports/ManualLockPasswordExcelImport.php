@@ -15,7 +15,7 @@ use PhpOffice\PhpSpreadsheet\Shared\Date as ExcelDate;
  * Parses Excel theo cấu trúc:
  *
  *   A            B           C           D ...
- *   Tên phòng    01/06/2026  02/06/2026  03/06/2026
+ *   Tên sân    01/06/2026  02/06/2026  03/06/2026
  *   minimal      323142      314231      431421
  *   wabisabi     113524      352421      435242
  *   mediterran   234131      413122      441312
@@ -54,8 +54,8 @@ class ManualLockPasswordExcelImport
             return ['created' => 0, 'skipped' => 0, 'not_found' => [], 'errors' => ['Không tìm thấy cột ngày hợp lệ trong dòng tiêu đề']];
         }
 
-        // --- Phân tách dòng phòng vs dòng Pass Cổng ---
-        // Dòng cuối cùng (hàng 6) luôn là Pass Cổng; các dòng còn lại (2→5) là phòng.
+        // --- Phân tách dòng sân vs dòng Pass Cổng ---
+        // Dòng cuối cùng (hàng 6) luôn là Pass Cổng; các dòng còn lại (2→5) là sân.
         $dataRows = [];
         for ($i = 1; $i < count($rows); $i++) {
             $cellA = trim((string) ($rows[$i][0] ?? ''));

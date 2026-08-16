@@ -396,11 +396,11 @@
             <div class="detail-section">
                 <h3 class="section-title">
                     <i class="fas fa-receipt"></i>
-                    Thông tin đơn đặt phòng
+                    Thông tin đơn đặt sân
                 </h3>
                 <div class="info-grid2">
                     <div class="info-item">
-                        <span class="info-label">Mã đặt phòng</span>
+                        <span class="info-label">Mã đặt sân</span>
                         <span class="info-value">{{ $order->order_code ?? 'Không có' }}</span>
                     </div>
                     <div class="info-item">
@@ -448,7 +448,7 @@
             <div class="detail-section">
                 <h3 class="section-title">
                     <i class="fas fa-bed"></i>
-                    Chi tiết phòng đã chọn ({{ $order->items->count() }} khung giờ)
+                    Chi tiết sân đã chọn ({{ $order->items->count() }} khung giờ)
                 </h3>
 
                 @foreach($order->items as $index => $item)
@@ -460,7 +460,7 @@
                 <div class="room-card">
                     <div class="room-header">
                         <div>
-                            <div class="room-name">{{ $index + 1 }}. {{ $item->name ?? 'Phòng' }}</div>
+                            <div class="room-name">{{ $index + 1 }}. {{ $item->name ?? 'Sân' }}</div>
                             @if($checkinDateTime && $checkoutDateTime)
                             <div class="room-time">
                                 <i class="far fa-clock"></i>

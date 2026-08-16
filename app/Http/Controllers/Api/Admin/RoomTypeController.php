@@ -10,11 +10,11 @@ use Illuminate\Http\Request;
 use Modules\Product\App\Models\RoomType;
 
 /**
- * Danh sách Danh mục phòng (bảng `room_types`, vd "Theo giờ", "Theo ngày"...) — dùng cho dropdown
- * lọc `room_type_id` ở GET /api/admin/products và form tạo/sửa phòng. Đây là danh mục DÙNG CHUNG
+ * Danh sách Danh mục sân (bảng `room_types`, vd "Theo giờ", "Theo ngày"...) — dùng cho dropdown
+ * lọc `room_type_id` ở GET /api/admin/products và form tạo/sửa sân. Đây là danh mục DÙNG CHUNG
  * cho mọi đối tác (không có partner_id/global scope theo partner như `products`), khác với
  * App\Http\Controllers\Api\RoomTypeController (API phía khách hàng, chỉ trả room_type is_active
- * kèm danh sách chi nhánh/phòng — mục đích khác hẳn, không dùng cho admin quản trị).
+ * kèm danh sách chi nhánh/sân — mục đích khác hẳn, không dùng cho admin quản trị).
  */
 class RoomTypeController extends Controller
 {

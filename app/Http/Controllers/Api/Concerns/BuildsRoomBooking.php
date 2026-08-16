@@ -46,7 +46,7 @@ trait BuildsRoomBooking
 
             if (! $dateStr) {
                 throw ValidationException::withMessages([
-                    "slots.{$index}.date" => ['Vui lòng cung cấp ngày đặt phòng.'],
+                    "slots.{$index}.date" => ['Vui lòng cung cấp ngày đặt sân.'],
                 ]);
             }
 
@@ -57,7 +57,7 @@ trait BuildsRoomBooking
 
             if (! $rts || ! $rts->timeSlot) {
                 throw ValidationException::withMessages([
-                    "slots.{$index}.timeslot_id" => ['Khung giờ không tồn tại cho phòng này.'],
+                    "slots.{$index}.timeslot_id" => ['Khung giờ không tồn tại cho sân này.'],
                 ]);
             }
 
@@ -127,7 +127,7 @@ trait BuildsRoomBooking
         return [$totalPrice, $summaryName, $itemsData, $rtsCollection, $slotSummary];
     }
 
-    // ── Daily (phòng theo ngày) ───────────────────────────────────────────────
+    // ── Daily (sân theo ngày) ───────────────────────────────────────────────
 
     private function buildDailyItems(Request $request, Product $room, ?int $excludeOrderId = null): array
     {
@@ -152,7 +152,7 @@ trait BuildsRoomBooking
 
         if ($conflict) {
             throw ValidationException::withMessages([
-                'checkin_date' => ['Phòng đã được đặt trong khoảng thời gian này.'],
+                'checkin_date' => ['Sân đã được đặt trong khoảng thời gian này.'],
             ]);
         }
 
@@ -228,7 +228,7 @@ trait BuildsRoomBooking
 
         if ($conflict) {
             throw ValidationException::withMessages([
-                'checkin_date' => ['Phòng đã được đặt trong khoảng thời gian này.'],
+                'checkin_date' => ['Sân đã được đặt trong khoảng thời gian này.'],
             ]);
         }
 
@@ -269,7 +269,7 @@ trait BuildsRoomBooking
 
             if (! $service || ! $service->is_active) {
                 throw ValidationException::withMessages([
-                    "services.{$index}.service_id" => ["Dịch vụ #{$serviceId} không tồn tại hoặc không khả dụng cho phòng này."],
+                    "services.{$index}.service_id" => ["Dịch vụ #{$serviceId} không tồn tại hoặc không khả dụng cho sân này."],
                 ]);
             }
 

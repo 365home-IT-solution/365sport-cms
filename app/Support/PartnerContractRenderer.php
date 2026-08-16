@@ -8,7 +8,7 @@ use App\Models\Partner;
 use App\Models\PartnerContractVersion;
 
 // Sinh toàn văn hợp đồng hợp tác từ đúng dữ liệu đối tác đang có trong hồ sơ (Người đại diện,
-// Doanh nghiệp, điều khoản hoa hồng/hủy phòng...) — dùng chung cho cả PartnerForm (super_admin
+// Doanh nghiệp, điều khoản hoa hồng/hủy sân...) — dùng chung cho cả PartnerForm (super_admin
 // xem trong panel) và ContractSignController (đối tác xem qua link ký công khai), để đảm bảo
 // 2 nơi luôn hiển thị ĐÚNG 1 nội dung duy nhất.
 class PartnerContractRenderer

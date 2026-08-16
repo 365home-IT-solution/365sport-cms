@@ -4,7 +4,7 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
-// Ghi nhận ai TẠO đơn — cần để nhân viên đối tác NỀN TẢNG (vd 365home, đặt phòng hộ mọi đối
+// Ghi nhận ai TẠO đơn — cần để nhân viên đối tác NỀN TẢNG (vd 365home, đặt sân hộ mọi đối
 // tác khác) vẫn xem lại được đúng những đơn CHÍNH HỌ đã tạo, dù đơn đó thuộc partner_id của đối
 // tác khác (xem OrderResource::getEloquentQuery()).
 return new class extends Migration

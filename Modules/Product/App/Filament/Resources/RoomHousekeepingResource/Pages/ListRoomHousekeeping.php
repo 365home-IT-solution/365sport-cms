@@ -25,7 +25,7 @@ class ListRoomHousekeeping extends ListRecords
         return $table
             ->columns([
                 TextColumn::make('name')
-                    ->label('Tên phòng')
+                    ->label('Tên sân')
                     ->searchable()
                     ->sortable(),
 
@@ -34,7 +34,7 @@ class ListRoomHousekeeping extends ListRecords
                     ->searchable(),
 
                 TextColumn::make('housekeeping_status')
-                    ->label('Tình trạng phòng')
+                    ->label('Tình trạng sân')
                     ->badge()
                     ->formatStateUsing(fn (string $state): string => match ($state) {
                         'cleaning'    => 'Đang dọn vệ sinh',
@@ -69,7 +69,7 @@ class ListRoomHousekeeping extends ListRecords
             ])
             ->filters([
                 SelectFilter::make('housekeeping_status')
-                    ->label('Tình trạng phòng')
+                    ->label('Tình trạng sân')
                     ->options([
                         'available'   => 'Sẵn sàng',
                         'cleaning'    => 'Đang dọn vệ sinh',

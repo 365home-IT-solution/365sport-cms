@@ -12,7 +12,7 @@ class SalaryType extends Model
     use BelongsToPartner;
 
     // calc_type: 'fixed' (lương cơ bản cố định như bình thường) hoặc 'piece_rate' (tính theo số
-    // lượt công việc thực tế trong tháng — vd Lễ tân: room_cleaning_rate đồng/lượt dọn phòng +
+    // lượt công việc thực tế trong tháng — vd Lễ tân: room_cleaning_rate đồng/lượt dọn sân +
     // consultation_rate đồng/lượt tư vấn khách hàng, xem Employee::getFinalSalaryAttribute()).
     protected $fillable = [
         'partner_id',

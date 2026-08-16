@@ -123,7 +123,7 @@ class Products extends Component
             '|' . microtime()
         ), 0, 8);
 
-        // Resolve tên tỉnh / loại phòng để hiển thị
+        // Resolve tên tỉnh / loại sân để hiển thị
         $this->filterProvinceName = '';
         $this->filterTypeName     = '';
 
@@ -145,7 +145,7 @@ class Products extends Component
         // Chỉ lấy sản phẩm có room type đang active (bỏ qua product chưa gán room type)
         $query->whereHas('roomType', fn($q) => $q->where('is_active', true));
 
-        // Lọc theo loại phòng
+        // Lọc theo loại sân
         if ($this->filterType) {
             $query->whereHas('roomType', fn($q) => $q->where('slug', $this->filterType));
         }
@@ -169,7 +169,7 @@ class Products extends Component
             }
         }
 
-        // Lọc theo loại đặt phòng: 1 = theo giờ, 2 = theo ngày (cột styles)
+        // Lọc theo loại đặt sân: 1 = theo giờ, 2 = theo ngày (cột styles)
         if ($this->filterBuoi !== '') {
             $query->where('styles', (int) $this->filterBuoi);
         }
@@ -177,7 +177,7 @@ class Products extends Component
         // Lọc số khách (nếu products có trường số khách thì thêm ở đây)
         // Hiện tại bỏ qua vì products chưa có trường guests
 
-        // Loại bỏ phòng đã được đặt trùng với khung giờ tìm kiếm
+        // Loại bỏ sân đã được đặt trùng với khung giờ tìm kiếm
         // Overlap: booking.checkin_date < filterCheckOut AND booking.checkout_date > filterCheckIn
         if ($this->filterCheckIn && $this->filterCheckOut) {
             $searchCheckIn  = $this->parseSearchDate($this->filterCheckIn);
@@ -190,7 +190,8 @@ class Products extends Component
                       ->where('checkin_date', '<', $searchCheckOut)
                       ->where('checkout_date', '>', $searchCheckIn)
                       ->whereHas('order', function ($oq) {
-                          $oq->whereIn('status', ['pending', 'paid', 'shipped', 'deposit', 'confirmed']);
+                          $oq->whereIn('status', ['pending', 'paid', 'shipped', 'deposit', 'confirmed'])
+                             ->whereNull('cancelled_at');
                       });
                 });
             }
@@ -254,13 +255,13 @@ class Products extends Component
             ];
         }
 
-        // Products không có room_type_id hoặc room type không active → nhóm chung vào section "Phòng"
+        // Products không có room_type_id hoặc room type không active → nhóm chung vào section "Sân"
         $ungrouped = $products->filter(
             fn($p) => !$p->room_type_id || !in_array((int) $p->room_type_id, $groupedRoomTypeIds)
         );
         if ($ungrouped->isNotEmpty()) {
             $sections[] = [
-                'title'    => 'Phòng',
+                'title'    => 'Sân',
                 'slug'     => 'phong',
                 'count'    => $ungrouped->count(),
                 'products' => $ungrouped->values(),
@@ -279,7 +280,7 @@ public function getRooms($productIds)
         'roomTimeSlots.timeSlot',
         'orderItems' => function ($query) {
             $query->where('checkout_date', '>', now())
-                ->whereHas('order', fn($q) => $q->whereIn('status', ['pending', 'paid', 'shipped', 'confirmed']));
+                ->whereHas('order', fn($q) => $q->whereIn('status', ['pending', 'paid', 'shipped', 'confirmed'])->whereNull('cancelled_at'));
         },
         'orderItems.order',
     ])

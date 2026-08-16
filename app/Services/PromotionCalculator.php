@@ -8,7 +8,7 @@ use Carbon\Carbon;
 use Modules\Product\App\Models\RoomTimeSlot;
 
 /**
- * Tính promotion cho 1 slot đặt phòng.
+ * Tính promotion cho 1 slot đặt sân.
  *
  * Logic chuẩn — dùng chung cho cả API và Livewire để đảm bảo
  * kết quả giống nhau 100%.
@@ -179,7 +179,7 @@ class PromotionCalculator
     }
 
     /**
-     * Tính promotion cho phòng theo ngày (daily room) — không có start/end time.
+     * Tính promotion cho sân theo ngày (daily room) — không có start/end time.
      *
      * @return array{final_price: float, applied: list<array>}
      */

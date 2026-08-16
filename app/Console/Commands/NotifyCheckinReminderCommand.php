@@ -10,13 +10,13 @@ use Illuminate\Console\Command;
 use Modules\Payment\Entities\OrderItem;
 
 /**
- * Nhắc khách check-in 2 giờ trước giờ đặt phòng.
+ * Nhắc khách check-in 2 giờ trước giờ đặt sân.
  * Chạy mỗi 5 phút qua scheduler.
  */
 class NotifyCheckinReminderCommand extends Command
 {
     protected $signature   = 'notifications:checkin-reminder';
-    protected $description = 'Nhắc khách check-in 2 giờ trước giờ đặt phòng';
+    protected $description = 'Nhắc khách check-in 2 giờ trước giờ đặt sân';
 
     public function handle(NotificationFcmService $notifier): int
     {
@@ -41,7 +41,7 @@ class NotifyCheckinReminderCommand extends Command
                 $notifier->sendToCustomer(
                     $customer,
                     'Nhắc nhở check-in',
-                    "Phòng {$product->name} sẽ bắt đầu lúc {$checkin} (còn 2 giờ). Vui lòng đến đúng giờ!",
+                    "Sân {$product->name} sẽ bắt đầu lúc {$checkin} (còn 2 giờ). Vui lòng đến đúng giờ!",
                     'checkin_reminder',
                     ['order_code' => (string) $order->order_code],
                 );
@@ -70,7 +70,7 @@ class NotifyCheckinReminderCommand extends Command
                 $notifier->sendToGuestToken(
                     $order->device_token,
                     'Nhắc nhở check-in',
-                    "Phòng {$product->name} sẽ bắt đầu lúc {$checkin} (còn 5 phút). Vui lòng đến đúng giờ!",
+                    "Sân {$product->name} sẽ bắt đầu lúc {$checkin} (còn 5 phút). Vui lòng đến đúng giờ!",
                     'checkin_reminder',
                     ['order_code' => (string) $order->order_code],
                 );

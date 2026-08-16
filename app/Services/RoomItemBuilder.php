@@ -34,7 +34,7 @@ class RoomItemBuilder
 
             if (! $dateStr) {
                 throw ValidationException::withMessages([
-                    "slots.{$index}.date" => ['Vui lòng cung cấp ngày đặt phòng.'],
+                    "slots.{$index}.date" => ['Vui lòng cung cấp ngày đặt sân.'],
                 ]);
             }
 
@@ -45,7 +45,7 @@ class RoomItemBuilder
 
             if (! $rts || ! $rts->timeSlot) {
                 throw ValidationException::withMessages([
-                    "slots.{$index}.timeslot_id" => ['Khung giờ không tồn tại cho phòng này.'],
+                    "slots.{$index}.timeslot_id" => ['Khung giờ không tồn tại cho sân này.'],
                 ]);
             }
 
@@ -139,7 +139,7 @@ class RoomItemBuilder
 
         if ($conflict) {
             throw ValidationException::withMessages([
-                'checkin_date' => ['Phòng đã được đặt trong khoảng thời gian này.'],
+                'checkin_date' => ['Sân đã được đặt trong khoảng thời gian này.'],
             ]);
         }
 

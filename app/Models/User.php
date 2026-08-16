@@ -138,7 +138,7 @@ public function getFilamentAvatarUrl(): ?string
     }
 
     // Tài khoản thuộc đối tác ĐẶC BIỆT do nền tảng vận hành (vd "365home") — nhân viên đối tác
-    // này được phép tạo đơn đặt phòng cho BẤT KỲ đối tác nào khác (xem Partner::isPlatformPartner()
+    // này được phép tạo đơn đặt sân cho BẤT KỲ đối tác nào khác (xem Partner::isPlatformPartner()
     // và điểm bypass ở luồng tạo booking). KHÔNG cấp quyền xem toàn bộ dữ liệu như super_admin.
     public function belongsToPlatformPartner(): bool
     {

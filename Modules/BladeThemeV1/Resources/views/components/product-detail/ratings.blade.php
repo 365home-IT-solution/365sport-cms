@@ -59,7 +59,7 @@
         <div class="flex justify-start sm:ml-auto shrink-0">
             <button type="button" @click="openReviewModal()"
                 class="inline-flex items-center px-5 py-2.5 rounded-xl border border-gray-900 text-gray-900 font-semibold text-sm hover:bg-gray-900 hover:text-white transition-colors">
-                <span x-text="myRatingId ? 'Sửa đánh giá của bạn' : 'Đánh giá phòng này'"></span>
+                <span x-text="myRatingId ? 'Sửa đánh giá của bạn' : 'Đánh giá sân này'"></span>
             </button>
         </div>
     </div>
@@ -102,7 +102,7 @@
 
     <div x-show="!loadingPreview" x-cloak>
         <template x-if="previewList.length === 0">
-            <p class="text-sm text-gray-500">Chưa có đánh giá nào cho phòng này.</p>
+            <p class="text-sm text-gray-500">Chưa có đánh giá nào cho sân này.</p>
         </template>
 
         {{-- Mobile: 1 hàng cuộn ngang, kéo được --}}
@@ -520,7 +520,7 @@
 
             deleteRating() {
                 if (!localStorage.getItem('auth_token')) return;
-                if (!confirm('Xoá đánh giá của bạn cho phòng này?')) return;
+                if (!confirm('Xoá đánh giá của bạn cho sân này?')) return;
                 var self = this;
                 fetch('/api/rooms/' + this.roomId + '/ratings', {
                     method: 'DELETE',

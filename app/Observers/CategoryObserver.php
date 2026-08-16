@@ -11,9 +11,9 @@ use Modules\Product\App\Models\Product;
 class CategoryObserver
 {
     // Khi admin gán/đổi "Đối tác sở hữu" cho 1 chi nhánh (category_type=product, xem
-    // CategoryForm::partnerInput()), TOÀN BỘ dữ liệu đã gắn vào chi nhánh đó — phòng (Product),
+    // CategoryForm::partnerInput()), TOÀN BỘ dữ liệu đã gắn vào chi nhánh đó — sân (Product),
     // lịch đặt (Order), mã cổng (AccessCode) — trực tiếp hoặc qua danh mục con (một số đối tác tổ
-    // chức category 2 cấp: chi nhánh → danh mục phòng con, xem ghi chú trong OrderForm.php) — phải
+    // chức category 2 cấp: chi nhánh → danh mục sân con, xem ghi chú trong OrderForm.php) — phải
     // được cập nhật LẠI partner_id cho khớp NGAY LẬP TỨC.
     //
     // Nếu không cascade: Product/Order/AccessCode.partner_id là các cột RIÊNG, chỉ tự gán 1 LẦN lúc
@@ -22,7 +22,7 @@ class CategoryObserver
     // vào category.partner_id (CategoryResource), còn Product/Order/AccessCode lại lọc riêng theo
     // partner_id CỦA CHÍNH NÓ (BelongsToPartner global scope) — 2 nơi không tự đồng bộ, nên gán đối
     // tác cho 1 chi nhánh ĐÃ CÓ SẴN dữ liệu (tạo trước đó, mang partner_id cũ/null) khiến tài khoản
-    // đối tác thấy được chi nhánh nhưng KHÔNG thấy phòng/lịch đặt/mã cổng bên trong để quản lý —
+    // đối tác thấy được chi nhánh nhưng KHÔNG thấy sân/lịch đặt/mã cổng bên trong để quản lý —
     // "có chi nhánh nhưng không có gì bên trong" thay vì phải "có TOÀN BỘ hoặc không có gì".
     public function saved(Category $category): void
     {
@@ -33,7 +33,7 @@ class CategoryObserver
         // CỐ Ý không giới hạn "chỉ chạy khi partner_id vừa đổi" (wasChanged) — chạy lại ở MỌI lần
         // lưu chi nhánh để tự "chữa lành" luôn cả những chi nhánh ĐÃ BỊ LỆCH từ trước khi có
         // observer này (chỉ cần admin mở chi nhánh đó lên bấm Lưu lại, không cần đổi gì, là toàn bộ
-        // phòng/lịch đặt/mã cổng bên trong tự đồng bộ về đúng đối tác). Chạy lại khi KHÔNG có gì
+        // sân/lịch đặt/mã cổng bên trong tự đồng bộ về đúng đối tác). Chạy lại khi KHÔNG có gì
         // lệch chỉ là các câu UPDATE không khớp dòng nào, chi phí không đáng kể.
         $partnerId   = $category->partner_id;
         $categoryIds = $category->children()->pluck('id')->push($category->id);

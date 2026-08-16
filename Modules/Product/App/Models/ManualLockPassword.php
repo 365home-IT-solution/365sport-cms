@@ -110,7 +110,7 @@ class ManualLockPassword extends Model
     }
 
     /**
-     * Tìm bộ mật khẩu đang hoạt động cho một phòng tại một thời điểm mốc cụ thể.
+     * Tìm bộ mật khẩu đang hoạt động cho một sân tại một thời điểm mốc cụ thể.
      * Ưu tiên: trùng khoảng ngày → mới nhất theo valid_from → fallback bất kỳ active.
      *
      * Lưu ý: $referenceDate phải là thời điểm đơn được "chốt" (khách thanh toán/đặt cọc),
@@ -143,7 +143,7 @@ class ManualLockPassword extends Model
             return $match;
         }
 
-        // 2. Fallback: bộ mật khẩu active mới nhất cho phòng đó
+        // 2. Fallback: bộ mật khẩu active mới nhất cho sân đó
         return static::active()
             ->whereHas('products', fn ($q) => $q->where('products.id', $product->id))
             ->latest()

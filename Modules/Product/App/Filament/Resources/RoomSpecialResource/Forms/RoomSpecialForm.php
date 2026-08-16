@@ -17,7 +17,7 @@ class RoomSpecialForm
     {
         return $form->schema([
             Select::make('product_id')
-                ->label('Phòng')
+                ->label('Sân')
                 ->options(fn () => Product::where('is_activated', true)->pluck('name', 'id')->toArray())
                 ->searchable()
                 ->required(),

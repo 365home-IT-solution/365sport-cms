@@ -42,7 +42,7 @@ class TimeSlotHoldController extends Controller
         $room = Product::where('id', $id)->where('is_activated', true)->first();
 
         if (! $room || (! $admin->isSuperAdmin() && $room->partner_id !== $admin->partner_id)) {
-            return response()->json(['message' => 'Không tìm thấy phòng.'], 404);
+            return response()->json(['message' => 'Không tìm thấy sân.'], 404);
         }
 
         $holderId  = 'admin:' . $admin->id;

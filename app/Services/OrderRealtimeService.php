@@ -106,7 +106,7 @@ class OrderRealtimeService
     }
 
     /**
-     * Broadcast thông báo mã cổng/phòng thay đổi.
+     * Broadcast thông báo mã cổng/sân thay đổi.
      *
      * @param  string    $orderCode
      * @param  string    $newCode

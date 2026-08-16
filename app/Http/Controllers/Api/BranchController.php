@@ -22,7 +22,7 @@ class BranchController extends Controller
     /**
      * GET /api/v1/branches/{slug}/time-slots?days=15&session_id=...
      *
-     * Lịch đặt phòng đầy đủ của 1 chi nhánh: mọi phòng theo khung giờ (styles=1/null) đang hoạt
+     * Lịch đặt sân đầy đủ của 1 chi nhánh: mọi sân theo khung giờ (styles=1/null) đang hoạt
      * động, cho $days ngày kể từ hôm nay (mặc định/tối đa giống hệt lịch web —
      * Book::INITIAL_VISIBLE_DAYS/MAX_VISIBLE_DAYS), kèm giá/khuyến mãi/trạng thái đã đặt cho từng
      * ô ngày x khung giờ. Tái dùng Book::calculateSlotPrice()/getDatesForOneMonth() (Livewire
@@ -79,7 +79,7 @@ class BranchController extends Controller
                 'orderItems' => function ($query) use ($endDate, $startDate) {
                     $query->where('checkout_date', '>', $startDate)
                         ->where('checkin_date', '<=', $endDate)
-                        ->whereHas('order', fn ($sub) => $sub->whereIn('status', ['pending', 'paid', 'shipped', 'confirmed']));
+                        ->whereHas('order', fn ($sub) => $sub->whereIn('status', ['pending', 'paid', 'shipped', 'confirmed'])->whereNull('cancelled_at'));
                 },
                 'orderItems.order',
             ])
@@ -99,7 +99,7 @@ class BranchController extends Controller
             'slug' => $branch->slug,
         ];
 
-        // Danh sách card phòng (ảnh, giá, rating...) — panel bên trái của lịch đặt phòng, tách biệt
+        // Danh sách card sân (ảnh, giá, rating...) — panel bên trái của lịch đặt sân, tách biệt
         // khỏi lưới khung giờ x ngày (roomsData) vì 2 khối UI độc lập nhau, không phải 1-1 theo hàng.
         $roomList = $rooms->map(function (Product $room) use ($wishlistedIds, $branchInfo) {
             $wishlistStatus = $wishlistedIds === null ? null : in_array($room->id, $wishlistedIds);
@@ -110,7 +110,7 @@ class BranchController extends Controller
         })->values();
 
         $roomsData = $rooms->map(function (Product $room) use ($book, $dates, $today, $sessionId) {
-            // 1 lần/phòng (không phải 1 lần/ô) — số hold đang hoạt động của 1 phòng luôn rất nhỏ
+            // 1 lần/sân (không phải 1 lần/ô) — số hold đang hoạt động của 1 sân luôn rất nhỏ
             // (vài khách đang xem cùng lúc), lookup tuyến tính trong buildSlotStatus() là đủ rẻ.
             $holds = TimeSlotHoldController::getActiveHolds((string) $room->id);
 
@@ -157,9 +157,9 @@ class BranchController extends Controller
      * Trạng thái + giá 1 ô "khung giờ x ngày" — cùng logic với
      * book/_slot-cell.blade.php (dùng chung cho lịch web), để 2 nơi luôn khớp nhau.
      *
-     * @param  array  $holds  Hold còn hạn của cả phòng (TimeSlotHoldController::getActiveHolds()) —
+     * @param  array  $holds  Hold còn hạn của cả sân (TimeSlotHoldController::getActiveHolds()) —
      *                        lọc đúng ô này (timeslot_id + date) bên trong, không phải lọc sẵn từ
-     *                        ngoài vì hàm này chạy lặp lại cho từng ô/ngày của cùng 1 phòng.
+     *                        ngoài vì hàm này chạy lặp lại cho từng ô/ngày của cùng 1 sân.
      */
     private function buildSlotStatus(Product $room, $rts, array $date, Book $book, Carbon $today, array $holds = [], ?string $sessionId = null): array
     {
@@ -261,7 +261,7 @@ class BranchController extends Controller
     /**
      * GET /api/v1/branches/{branch}/daily-rooms
      *
-     * Danh sách phòng THEO NGÀY (styles=2 — khách đặt theo đêm/ngày, khác với phòng theo khung
+     * Danh sách sân THEO NGÀY (styles=2 — khách đặt theo đêm/ngày, khác với sân theo khung
      * giờ ở timeSlots() phía trên) thuộc 1 chi nhánh. {branch} linh hoạt — chấp nhận id, slug,
      * hoặc tên chi nhánh (thử theo thứ tự đó), để client không bắt buộc phải biết trước slug.
      */
@@ -393,7 +393,7 @@ class BranchController extends Controller
         ];
     }
 
-    // Đếm số phòng thuộc chi nhánh: gán trực tiếp vào category chi nhánh
+    // Đếm số sân thuộc chi nhánh: gán trực tiếp vào category chi nhánh
     // hoặc vào 1 category con (parent_id = chi nhánh) — cùng logic với BuildsRoomCard::resolveBranch
     private function countRooms(int $branchId): int
     {

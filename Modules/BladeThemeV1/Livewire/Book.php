@@ -40,7 +40,7 @@ class Book extends Component
     public array $activeCategoryData = [];
 
     /** Số ngày đang render — chỉ tăng qua loadMoreDates(), giữ nhỏ để tránh render
-     *  (số phòng x số khung giờ x số ngày) ô lịch cùng lúc gây tràn bộ nhớ PHP. */
+     *  (số sân x số khung giờ x số ngày) ô lịch cùng lúc gây tràn bộ nhớ PHP. */
     public int $visibleDaysCount = self::INITIAL_VISIBLE_DAYS;
 
     // Số ngày hiện mặc định / tối đa trong bảng lịch.
@@ -48,7 +48,7 @@ class Book extends Component
     const MAX_VISIBLE_DAYS = 31;
     const LOAD_MORE_DAYS_STEP = 10;
 
-    // Danh sách id các phòng đang hiển thị trên bảng — render thành 1 attribute DUY NHẤT
+    // Danh sách id các sân đang hiển thị trên bảng — render thành 1 attribute DUY NHẤT
     // "data-room-ids" trên div gốc (book.blade.php), giống hệt cách ProductDetail expose
     // "data-product-id" — để resources/js/echo-client.js biết cần nghe kênh public nào
     // ("timeslot-holds.{roomId}") mà không phải quét rải rác nhiều attribute trong DOM.
@@ -63,10 +63,10 @@ class Book extends Component
     protected ?array $activeHoldsCache = null;
 
     // Nạp 1 LẦN toàn bộ hold đang hiệu lực cho tất cả room_time_slot_id đang hiển thị trên bảng
-    // (mọi phòng, kể cả phòng "peek" chưa active — book/_desktop-grid.blade.php render đủ giá cho
+    // (mọi sân, kể cả sân "peek" chưa active — book/_desktop-grid.blade.php render đủ giá cho
     // tất cả), rồi book/_slot-cell.blade.php tra map này thay vì tự gọi
     // TimeslotHoldService::isHeldByAdmin() cho TỪNG ô — trước đây mỗi ô tự query (+ DELETE purge)
-    // riêng, với bảng nhiều ngày/phòng có thể thành hàng trăm round-trip DB chỉ để vẽ 1 lượt bảng
+    // riêng, với bảng nhiều ngày/sân có thể thành hàng trăm round-trip DB chỉ để vẽ 1 lượt bảng
     // (xem TimeslotHoldService::getActiveHoldsMap() để biết lý do đổi).
     public function getActiveHoldsMap(): array
     {
@@ -83,7 +83,7 @@ class Book extends Component
         return $this->activeHoldsCache = app(TimeslotHoldService::class)->getActiveHoldsMap($roomTimeSlotIds);
     }
 
-    // resources/js/echo-client.js nghe kênh public "timeslot-holds.{roomId}" cho MỌI phòng đang
+    // resources/js/echo-client.js nghe kênh public "timeslot-holds.{roomId}" cho MỌI sân đang
     // hiển thị trên bảng (đọc data-room-ids ở book.blade.php) rồi tự gọi
     // Livewire.dispatch('timeslotHoldsChanged') mỗi khi 1 admin giữ/trả 1 khung giờ real-time (xem
     // App\Services\TimeslotHoldService) — method no-op này chỉ để ép Livewire render lại, các
@@ -119,7 +119,7 @@ class Book extends Component
      * panel đặt lịch inline của trang tìm kiếm (?view=branches), nơi 1 Book component duy nhất
      * được tái sử dụng cho từng chi nhánh người dùng bấm chọn, thay vì điều hướng sang trang
      * chi tiết chi nhánh riêng. Reset state cũ trước khi nạp, phòng khi chi nhánh mới không có
-     * phòng khả dụng (categoryTabs rỗng) — nếu không sẽ giữ lại dữ liệu của chi nhánh trước đó.
+     * sân khả dụng (categoryTabs rỗng) — nếu không sẽ giữ lại dữ liệu của chi nhánh trước đó.
      */
     #[On('load-branch')]
     public function loadBranch(string $slug): void
@@ -213,7 +213,7 @@ class Book extends Component
         $productsQuery = Product::whereIn('id', $productIds)
             ->where('is_activated', true)
             ->where(function ($q) {
-                // Chỉ lấy phòng cấu hình theo khung giờ (styles = 1 hoặc null mặc định)
+                // Chỉ lấy sân cấu hình theo khung giờ (styles = 1 hoặc null mặc định)
                 $q->where('styles', 1)->orWhereNull('styles');
             })
             ->with([
@@ -230,7 +230,13 @@ class Book extends Component
                     $query->where('checkout_date', '>', $startDate)
                         ->where('checkin_date', '<=', $endDate);
                     $query->whereHas('order', function ($subQuery) {
-                        $subQuery->whereIn('status', ['pending', 'paid', 'shipped', 'confirmed']);
+                        // cancelled_at NOT NULL = khách đã tự huỷ đơn (xem OrderCancellationService)
+                        // — khung giờ phải TRẢ LẠI trạng thái trống ngay, không tính là đã đặt nữa
+                        // dù status DB vẫn còn 'paid'/'deposit' (cố ý giữ nguyên để báo cáo doanh thu
+                        // không bị sai lệch, chỉ cancelled_at là nguồn sự thật cho "còn giữ chỗ hay
+                        // không" — xem ghi chú tương tự ở mọi nơi khác lọc theo status tương tự).
+                        $subQuery->whereIn('status', ['pending', 'paid', 'shipped', 'confirmed'])
+                            ->whereNull('cancelled_at');
                     });
                 },
                 'orderItems.order'
@@ -273,7 +279,7 @@ class Book extends Component
 
     // Nếu chưa qua 7:30 sáng, hiển thị cả ngày hôm qua
     $startDate = $now->lt($cutoff) ? Carbon::yesterday() : Carbon::today();
-    // Chỉ build đúng số ngày đang hiển thị — tránh render (số phòng x số khung giờ x
+    // Chỉ build đúng số ngày đang hiển thị — tránh render (số sân x số khung giờ x
     // số ngày) ô lịch cùng lúc gây tràn bộ nhớ PHP. loadMoreDates() tăng dần con số
     // này (round-trip Livewire nhỏ, chỉ khi user thật sự bấm "Xem thêm ngày").
     $daysCount = $this->visibleDaysCount;
@@ -400,7 +406,7 @@ class Book extends Component
      * @param string $dateString - Date in format 'd-m-Y'
      * @param string|null $slotStartTime - Start time in format 'H:i:s'
      * @param array $selectedSlots - Danh sách slots đã chọn (để kiểm tra full booking)
-     * @param int|null $roomId - ID của phòng
+     * @param int|null $roomId - ID của sân
      * @return array
      */
     public function calculateSlotPrice($slot, $dateString, $slotStartTime = null, $selectedSlots = [], $roomId = null)
@@ -633,7 +639,7 @@ class Book extends Component
     }
 
     /**
-     * Kiểm tra xem có đặt full phòng trong 1 ngày không
+     * Kiểm tra xem có đặt full sân trong 1 ngày không
      */
     protected function isFullDayBooking($selectedSlots, $roomId)
     {
@@ -641,7 +647,7 @@ class Book extends Component
             return false;
         }
 
-        // Lấy tất cả timeslot của phòng
+        // Lấy tất cả timeslot của sân
         $room = Product::with('roomTimeSlots')->find($roomId);
         if (!$room) {
             return false;

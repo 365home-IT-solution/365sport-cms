@@ -26,12 +26,12 @@ class TestLockCallback extends Command
         $products = Product::whereNotNull('lock_id')->get(['id', 'name', 'lock_id', 'lock_id_checkout']);
 
         if ($products->isEmpty()) {
-            $this->error('Không có phòng nào được gán lock_id.');
+            $this->error('Không có sân nào được gán lock_id.');
             return 1;
         }
 
-        $this->info('=== Danh sách phòng có lock ===');
-        $this->table(['ID', 'Tên phòng', 'lock_id (check-in)', 'lock_id_checkout'], $products->map(fn($p) => [
+        $this->info('=== Danh sách sân có lock ===');
+        $this->table(['ID', 'Tên sân', 'lock_id (check-in)', 'lock_id_checkout'], $products->map(fn($p) => [
             $p->id, $p->name, $p->lock_id, $p->lock_id_checkout ?? '(không có)',
         ])->toArray());
 
@@ -58,7 +58,7 @@ class TestLockCallback extends Command
         $code   = $this->option('code') ?: $this->ask('Nhập passcode muốn test (từ bảng trên)');
 
         // ──────────────────────────────────────────────
-        // Bước 4: Chạy logic tìm phòng + đơn hàng
+        // Bước 4: Chạy logic tìm sân + đơn hàng
         // ──────────────────────────────────────────────
         $this->line('');
         $this->info("=== Bắt đầu mô phỏng callback: lockId={$lockId}, code={$code} ===");
@@ -110,7 +110,7 @@ class TestLockCallback extends Command
             $this->info("✅ Đơn hàng: {$order->order_code} | {$order->buyer_name} | {$order->buyer_phone}");
             $this->info("   Checkin: {$orderItem->checkin_date} | Checkout: {$orderItem->checkout_date}");
         } else {
-            $this->warn('⚠️ Không tìm thấy đơn hàng đang hoạt động (ngoài giờ đặt phòng hoặc chưa gán mã).');
+            $this->warn('⚠️ Không tìm thấy đơn hàng đang hoạt động (ngoài giờ đặt sân hoặc chưa gán mã).');
         }
 
         // ──────────────────────────────────────────────
@@ -132,7 +132,7 @@ class TestLockCallback extends Command
                 }
                 $msg .= "Mã mở: <code>{$accessCode->code}</code>\n";
             } else {
-                $msg .= "Không tìm thấy đặt phòng tương ứng\n";
+                $msg .= "Không tìm thấy đặt sân tương ứng\n";
             }
         } else {
             $msg = "CHECK-OUT - <b>{$product->name}</b>\n"
@@ -142,7 +142,7 @@ class TestLockCallback extends Command
                       . "Mã đơn: <code>{$order->order_code}</code>\n"
                       . "Mã mở: <code>{$accessCode->code}</code>\n";
             } else {
-                $msg .= "Ngoài giờ đặt phòng\n";
+                $msg .= "Ngoài giờ đặt sân\n";
             }
         }
         $msg = "[TEST] " . trim($msg);

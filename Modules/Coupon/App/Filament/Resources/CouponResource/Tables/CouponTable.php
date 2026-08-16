@@ -59,8 +59,8 @@ class CouponTable
                     ->label('Phạm vi')
                     ->badge()
                     ->formatStateUsing(fn (string $state): string => match ($state) {
-                        'all_rooms' => 'Tất cả phòng',
-                        'specific_room' => 'Phòng cụ thể',
+                        'all_rooms' => 'Tất cả sân',
+                        'specific_room' => 'Sân cụ thể',
                         'specific_slot' => 'Khung giờ cụ thể',
                         default => $state,
                     })
@@ -72,7 +72,7 @@ class CouponTable
                     }),
 
                 TextColumn::make('room.name')
-                    ->label('Phòng')
+                    ->label('Sân')
                     ->placeholder('—')
                     ->searchable()
                     ->toggleable(),

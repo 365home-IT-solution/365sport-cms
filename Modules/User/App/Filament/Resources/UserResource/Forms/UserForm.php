@@ -478,7 +478,7 @@ class UserForm
                                     ->live()
                                     ->required(),
                                 Forms\Components\TextInput::make('room_cleaning_rate')
-                                    ->label('Đơn giá / lượt dọn phòng')
+                                    ->label('Đơn giá / lượt dọn sân')
                                     ->numeric()
                                     ->minValue(0)
                                     ->suffix('VNĐ')
@@ -541,7 +541,7 @@ class UserForm
 
                         Forms\Components\Placeholder::make('piece_rate_hint')
                             ->label('Lương cơ bản')
-                            ->content('Vị trí này tính lương theo lượt công việc (dọn phòng/tư vấn khách hàng) — không cần nhập lương cố định. Đơn giá khai báo ở "Loại lương", xem chi tiết ở trang "Thống kê lương".')
+                            ->content('Vị trí này tính lương theo lượt công việc (dọn sân/tư vấn khách hàng) — không cần nhập lương cố định. Đơn giá khai báo ở "Loại lương", xem chi tiết ở trang "Thống kê lương".')
                             ->visible(fn (Get $get) => self::isPieceRateSalaryType($get)),
                     ]),
 

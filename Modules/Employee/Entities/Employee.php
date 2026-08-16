@@ -177,8 +177,8 @@ class Employee extends Model implements HasMedia
             ->withTimestamps();
     }
 
-    // Lượt dọn phòng nhân viên này đã xác nhận (cleaned_at != null) — được ghi tự động ngay khi
-    // xác nhận dọn xong ở màn "Kiểm tra dọn phòng" (xem Product::confirmCleaned()), không cần
+    // Lượt dọn sân nhân viên này đã xác nhận (cleaned_at != null) — được ghi tự động ngay khi
+    // xác nhận dọn xong ở màn "Kiểm tra dọn sân" (xem Product::confirmCleaned()), không cần
     // nhập tay. Dùng để tính lương theo lượt cho vị trí piece_rate (vd Lễ tân).
     public function cleaningLogs(): HasMany
     {
@@ -218,7 +218,7 @@ class Employee extends Model implements HasMedia
             ->get();
     }
 
-    // Lương theo lượt của THÁNG HIỆN TẠI = số lượt dọn phòng × đơn giá/lượt dọn + số lượt tư vấn
+    // Lương theo lượt của THÁNG HIỆN TẠI = số lượt dọn sân × đơn giá/lượt dọn + số lượt tư vấn
     // × đơn giá/lượt tư vấn (2 đơn giá này khai báo ở Loại lương — SalaryType::room_cleaning_rate/
     // consultation_rate, vd Lễ tân: 10.000đ/lượt dọn, 5.000đ/lượt tư vấn).
     public function getPieceRateAmountAttribute(): float

@@ -105,7 +105,7 @@ class PartnerContractVersion extends Model implements HasMedia
     }
 
     // Nội dung hợp đồng đã bị đổi so với lúc tạo phiên bản này chưa (không nên xảy ra vì content
-    // không có form nào cho sửa sau khi tạo, đây là lớp kiểm tra toàn vẹn thêm — phòng trường
+    // không có form nào cho sửa sau khi tạo, đây là lớp kiểm tra toàn vẹn thêm — sân trường
     // hợp sửa DB trực tiếp).
     public function contentIntegrityValid(): bool
     {

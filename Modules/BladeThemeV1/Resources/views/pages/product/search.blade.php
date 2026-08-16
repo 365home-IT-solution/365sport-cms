@@ -4,7 +4,7 @@
 
 @section('content')
     @php
-        // ?view=branches — panel bên phải hiển thị danh sách phòng + bảng đặt khung giờ của chi
+        // ?view=branches — panel bên phải hiển thị danh sách sân + bảng đặt khung giờ của chi
         // nhánh được chọn (thay cho bản đồ, không có ý nghĩa khi đang liệt kê chi nhánh). Livewire
         // Book component mount 1 lần với config rỗng, "load-branch" (search-results.js) nạp lại
         // dữ liệu chi nhánh mỗi khi người dùng bấm 1 card — xem Book::loadBranch().
@@ -148,7 +148,7 @@
         }
 
         /* Lề trái/phải khớp với .search-count-header ở cùng breakpoint để nội dung (card chi
-           nhánh, danh sách phòng) thẳng hàng với tiêu đề phía trên, không bị thụt vào trong. */
+           nhánh, danh sách sân) thẳng hàng với tiêu đề phía trên, không bị thụt vào trong. */
         #search-results-body {
             padding: 10px 14px 32px;
         }
@@ -158,7 +158,7 @@
             }
         }
 
-        /* Phòng — mặc định (mobile): slide ngang, mỗi lần 1 thẻ chiếm trọn khung hình, có nút
+        /* Sân — mặc định (mobile): slide ngang, mỗi lần 1 thẻ chiếm trọn khung hình, có nút
            prev/next thay vì vuốt tay. Từ md trở lên: lưới cố định 3 cột (kiểu Airbnb). Sheet kéo
            full màn hình (mobile) tự override thêm ở dưới: chi nhánh xếp 1 cột. */
         .room-slider {
@@ -200,7 +200,7 @@
             scroll-snap-align: start;
         }
 
-        /* Card phòng dùng chung window.roomCardHtml() (giống trang chủ) — .home-card vốn có
+        /* Card sân dùng chung window.roomCardHtml() (giống trang chủ) — .home-card vốn có
            bề rộng cố định cho carousel ngang trên trang chủ; ở đây nó nằm trong .branch-card (đã
            được .branch-grid quyết định bề rộng theo slide/lưới) nên cho lấp đầy 100%. */
         .branch-card .home-card {
@@ -337,7 +337,7 @@
                 flex: 1 1 auto;
                 width: auto;
                 /* min-width mặc định của flex item là "auto" — cho phép nó nới rộng vượt khỏi
-                   phần được flex-grow cấp phát để chứa vừa nội dung con (vd carousel phòng rộng
+                   phần được flex-grow cấp phát để chứa vừa nội dung con (vd carousel sân rộng
                    hơn khung nhìn ở panel chi nhánh), phá luôn layout sticky/bản đồ. Ép về 0 để
                    #map-col luôn bám đúng chiều rộng cột phải, phần con tự cuộn riêng. */
                 min-width: 0;
@@ -405,7 +405,7 @@
             z-index: 9000 !important;
         }
 
-        /* Badge tròn hiển thị số phòng ngay sau giá */
+        /* Badge tròn hiển thị số sân ngay sau giá */
         .bpm-count {
             display: inline-flex;
             align-items: center;
@@ -549,7 +549,7 @@
             border-radius: 16px;
         }
 
-        /* Skeleton loading cho danh sách card PHÒNG (tìm kiếm thường, không phải ?view=branches)
+        /* Skeleton loading cho danh sách card SÂN (tìm kiếm thường, không phải ?view=branches)
            trong lúc gọi GraphQL search — hiện ngay khi bắt đầu tải (search-results.js:
            renderSearchSkeleton()) thay vì để #search-results-body trống trơn, dùng đúng khung
            .branch-grid/.branch-card/.home-card như card thật nên không bị giật layout khi thay
@@ -570,7 +570,7 @@
             border-radius: 14px;
         }
 
-        /* Danh sách phòng trong panel chi nhánh (#branch-detail-rooms) — carousel ngang, mỗi
+        /* Danh sách sân trong panel chi nhánh (#branch-detail-rooms) — carousel ngang, mỗi
            card kích thước cố định để tối đa ~3 card lọt khung nhìn, dư ra thì cuộn/bấm prev-next
            (carouselNav() trong home-sections.js) thay vì hiện hết theo lưới dọc dài vô hạn. */
         #branch-detail-rooms .home-card {
@@ -911,7 +911,7 @@
                 +   '<p id="' + popId + '-price" style="font-size:14px;font-weight:800;color:#0f766e;margin:0 0 9px;"></p>'
                 +   '<a id="' + popId + '-btn" href="#" '
                 +     'style="display:block;background:#0f766e;color:#fff;font-size:12px;font-weight:700;text-align:center;padding:7px 10px;border-radius:8px;text-decoration:none;letter-spacing:.01em;" '
-                +     'onclick="return this.href!==\'#\'">Xem phòng →</a>'
+                +     'onclick="return this.href!==\'#\'">Xem sân →</a>'
                 + '</div>'
                 + '</div>';
         }
@@ -932,7 +932,7 @@
             }
 
             // Đọc room data từ JSON script tag (an toàn, không bị HTML encode) — mỗi phần tử
-            // là 1 phòng (đã lọc theo tiêu chí tìm kiếm), 1 pin trên bản đồ = 1 phòng.
+            // là 1 sân (đã lọc theo tiêu chí tìm kiếm), 1 pin trên bản đồ = 1 sân.
             var roomData = [];
             var dataEl = document.getElementById('branch-map-data');
             if (dataEl) {
@@ -959,10 +959,10 @@
             var cards = document.querySelectorAll('.branch-card');
             var bounds = [];
 
-            // Gom các phòng theo toạ độ (làm tròn 5 chữ số thập phân, sai số ~1m) để nhiều phòng ở
+            // Gom các sân theo toạ độ (làm tròn 5 chữ số thập phân, sai số ~1m) để nhiều sân ở
             // cùng 1 địa điểm chỉ có 1 pin duy nhất trên bản đồ — tránh đè chồng giá lên nhau. Bấm/
             // hover vào pin đó sẽ mở popup có nút prev/next (đã có sẵn trong buildPopupHtml khi
-            // rooms.length > 1) để lướt qua từng phòng tại địa điểm này.
+            // rooms.length > 1) để lướt qua từng sân tại địa điểm này.
             var coordGroups = {};
             var groupOrder = [];
             roomData.forEach(function(room, idx) {
@@ -1017,9 +1017,9 @@
                     zIndexOffset: 0
                 }).addTo(map);
 
-                // Hover trên card bên trái -> mở đúng phòng đó trong popup của pin cùng vị trí
-                // (nhiều phòng dùng chung 1 pin + nút prev/next), không tô viền màu trên card list.
-                // Card giờ là link điều hướng thẳng đến trang phòng nên dùng hover thay vì click.
+                // Hover trên card bên trái -> mở đúng sân đó trong popup của pin cùng vị trí
+                // (nhiều sân dùng chung 1 pin + nút prev/next), không tô viền màu trên card list.
+                // Card giờ là link điều hướng thẳng đến trang sân nên dùng hover thay vì click.
                 groupCards.forEach(function(card, roomIdxInGroup) {
                     if (!card) return;
                     card.__leafletPin = lm;
@@ -1105,13 +1105,13 @@
         }
 
         // Không tự gọi initSearchMap() ở đây nữa — search-results.js gọi sau khi fetch xong dữ
-        // liệu phòng và đổ vào #branch-map-data, tránh init bản đồ với dữ liệu rỗng rồi bị khoá
+        // liệu sân và đổ vào #branch-map-data, tránh init bản đồ với dữ liệu rỗng rồi bị khoá
         // (initSearchMap có guard mapEl._leaflet_id, gọi lại lần 2 sẽ không dựng lại marker).
 
-        // ─── Map cho ?view=branches — mỗi pin là 1 CHI NHÁNH (không phải phòng) ────────
+        // ─── Map cho ?view=branches — mỗi pin là 1 CHI NHÁNH (không phải sân) ────────
         // Hàm riêng, không tái dùng initSearchMap(): dữ liệu/mục đích khác hẳn (không có giá
-        // phòng, không cần gom toạ độ trùng + carousel nhiều phòng chung 1 điểm vì mỗi chi nhánh
-        // vốn đã là 1 vị trí riêng biệt) — tách riêng để không đụng/rủi ro tới luồng tìm phòng
+        // sân, không cần gom toạ độ trùng + carousel nhiều sân chung 1 điểm vì mỗi chi nhánh
+        // vốn đã là 1 vị trí riêng biệt) — tách riêng để không đụng/rủi ro tới luồng tìm sân
         // thường (initSearchMap) đang chạy tốt. search-results.js gọi hàm này sau khi fetch xong
         // danh sách chi nhánh (kèm latitude/longitude từ API /v1/search/branches).
         var __branchMapInitRetries = 0;
@@ -1155,7 +1155,7 @@
                 if (!lat || !lng || isNaN(lat) || isNaN(lng)) return;
                 bounds.push([lat, lng]);
 
-                var pinLabel = branch.room_count != null ? branch.room_count + ' phòng' : '';
+                var pinLabel = branch.room_count != null ? branch.room_count + ' sân' : '';
                 var marker = L.marker([lat, lng], {
                     icon: L.divIcon({ className: '', html: '<div class="bpm">' + esc(pinLabel) + '</div>', iconSize: null })
                 }).addTo(map);

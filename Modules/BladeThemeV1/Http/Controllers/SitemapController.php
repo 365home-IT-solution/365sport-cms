@@ -49,7 +49,7 @@ class SitemapController extends Controller
             ->latest('updated_at')
             ->get();
 
-        // 3. Phòng / sản phẩm (type = simple)
+        // 3. Sân / sản phẩm (type = simple)
         $rooms = Product::where([
             'is_activated' => true,
             'type'         => 'simple',

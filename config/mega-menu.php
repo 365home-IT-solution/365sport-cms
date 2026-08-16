@@ -13,7 +13,7 @@ declare(strict_types=1);
 // cột "khác" ở cuối, không bị mất khỏi menu.
 return [
     'Quản lý' => [
-        'Quản lý vận hành / Booking' => ['BOOKING', 'Chi nhánh và khu vực', 'Thiết lập Phòng', 'Mật khẩu khóa thủ công', 'Khai báo lưu trú'],
+        'Quản lý vận hành / Booking' => ['BOOKING', 'Chi nhánh và khu vực', 'Thiết lập Sân', 'Mật khẩu khóa thủ công', 'Khai báo lưu trú'],
         'Giá & Khuyến mãi' => ['Hệ thống giá', 'Ưu đãi', 'Mã giảm giá', 'Pass Cổng'],
         'Nội dung & Marketing' => ['Bài viết', 'Dịch vụ Bổ sung'],
         'Chăm sóc khách hàng' => ['Tư vấn khách hàng', 'Tin nhắn khách hàng'],
@@ -33,8 +33,8 @@ return [
     ],
 
     'Quản lý API' => [
-        'Thông tin & Cấu hình Phòng' => ['Danh mục Phòng', 'Ảnh Phòng', 'Điểm Đặc Biệt', 'Tiện ích Phòng', 'Gán Tiện Ích Phòng', 'Dịch vụ Phòng'],
-        'Vận hành Phòng' => ['Kiểm tra dọn phòng', 'Khách vãng lai'],
+        'Thông tin & Cấu hình Sân' => ['Danh mục Sân', 'Ảnh Sân', 'Điểm Đặc Biệt', 'Tiện ích Sân', 'Gán Tiện Ích Sân', 'Dịch vụ Sân'],
+        'Vận hành Sân' => ['Kiểm tra dọn sân', 'Khách vãng lai'],
         'Nội dung & Giao diện App' => ['Trang App', 'Banner'],
         'Thông báo & Dữ liệu hệ thống' => ['Push Notification', 'Thông báo vào app', 'Tỉnh/Thành phố'],
     ],

@@ -69,7 +69,7 @@ class PromotionResource extends Resource
                 ->distinct()
                 ->pluck('categorizable_id');
 
-        // Tìm room_time_slot_id của các phòng đó
+        // Tìm room_time_slot_id của các sân đó
         $roomTimeSlotIds = $productIds->isEmpty()
             ? collect()
             : RoomTimeSlot::whereIn('room_id', $productIds)

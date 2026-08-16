@@ -15,21 +15,21 @@ use Modules\Product\App\Models\Product;
 use Modules\Product\App\Models\RoomTimeSlot;
 
 /**
- * Khoá/mở khoá lịch phòng ở admin — bản REST API của Filament `Modules\Book\Livewire\
+ * Khoá/mở khoá lịch sân ở admin — bản REST API của Filament `Modules\Book\Livewire\
  * BlockTimeslotModal`, tái dùng ĐÚNG 2 cơ chế lưu trữ hiện có (khác nhau theo `products.styles`)
  * để không phá vỡ logic tính giá/hiển thị đang đọc 2 nơi này:
- *  - styles = 1 (phòng theo khung giờ): ghi vào `room_time_slots.settings.blocked_dates` — theo
- *    TỪNG bản ghi `room_time_slots` (bản mặc định `date IS NULL` của phòng) + từng ngày cụ thể.
- *  - styles = 2 (phòng theo ngày): ghi vào `products.room_config.blocked_ranges` — mảng các
- *    khoảng `{start,end}` áp dụng cho toàn phòng.
+ *  - styles = 1 (sân theo khung giờ): ghi vào `room_time_slots.settings.blocked_dates` — theo
+ *    TỪNG bản ghi `room_time_slots` (bản mặc định `date IS NULL` của sân) + từng ngày cụ thể.
+ *  - styles = 2 (sân theo ngày): ghi vào `products.room_config.blocked_ranges` — mảng các
+ *    khoảng `{start,end}` áp dụng cho toàn sân.
  * Sau khi ghi DB, gọi `SlotRealtimeService` (bắn HTTP nội bộ tới Node WS server) để đồng bộ
- * realtime với các client đang xem lịch phòng — đúng cách Filament đang làm.
+ * realtime với các client đang xem lịch sân — đúng cách Filament đang làm.
  */
 class RoomBlockController extends Controller
 {
     /**
      * POST /api/admin/rooms/{id}/block
-     * styles=1 — body: room_time_slot_ids[] (id của room_time_slots, PHẢI thuộc đúng phòng),
+     * styles=1 — body: room_time_slot_ids[] (id của room_time_slots, PHẢI thuộc đúng sân),
      *            date_from, date_to (Y-m-d, date_to >= date_from).
      * styles=2 — body: date_from, date_to (không cần room_time_slot_ids).
      */
@@ -37,7 +37,7 @@ class RoomBlockController extends Controller
     {
         $room = $this->visibleRoom($request->user(), $id);
         if (! $room) {
-            return response()->json(['message' => 'Không tìm thấy phòng.'], 404);
+            return response()->json(['message' => 'Không tìm thấy sân.'], 404);
         }
 
         if ((int) $room->styles === 2) {
@@ -55,7 +55,7 @@ class RoomBlockController extends Controller
     {
         $room = $this->visibleRoom($request->user(), $id);
         if (! $room) {
-            return response()->json(['message' => 'Không tìm thấy phòng.'], 404);
+            return response()->json(['message' => 'Không tìm thấy sân.'], 404);
         }
 
         if ((int) $room->styles === 2) {
@@ -219,7 +219,7 @@ class RoomBlockController extends Controller
 
         if (! empty($invalid)) {
             return response()->json([
-                'message' => 'room_time_slot_ids không thuộc phòng này: ' . implode(', ', $invalid) . '.',
+                'message' => 'room_time_slot_ids không thuộc sân này: ' . implode(', ', $invalid) . '.',
             ], 422);
         }
 

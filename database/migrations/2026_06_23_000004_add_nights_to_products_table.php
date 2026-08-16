@@ -12,7 +12,7 @@ return new class extends Migration
     {
         Schema::table('products', function (Blueprint $table) {
             $table->boolean('nights')->default(false)->after('styles')
-                ->comment('true = phòng qua đêm (hiện trong filter qua_dem)');
+                ->comment('true = sân qua đêm (hiện trong filter qua_dem)');
         });
     }
 

@@ -18,16 +18,16 @@ class PartnerRolePermissionsSeeder extends Seeder
     // gỡ được với đối tác trong UserResource (Select role ở đó lọc theo created_by = user hiện tại).
     private const PARTNER_RESOURCES = [
         'category',            // Chi nhánh
-        'product',              // Phòng
-        'room::type',           // Danh mục Phòng
-        'room::amenity',        // Tiện ích Phòng
-        'room::amenity::assign', // Gán Tiện Ích Phòng
-        // 'room::image' (Ảnh Phòng) KHÔNG đưa vào đây — RoomImageResource hard-code
+        'product',              // Sân
+        'room::type',           // Danh mục Sân
+        'room::amenity',        // Tiện ích Sân
+        'room::amenity::assign', // Gán Tiện Ích Sân
+        // 'room::image' (Ảnh Sân) KHÔNG đưa vào đây — RoomImageResource hard-code
         // canViewAny()/canCreate()/... chỉ cho super_admin (không dựa vào permission), nên cấp
         // quyền ở đây cũng không có tác dụng.
-        'room::service',        // Dịch vụ Phòng
+        'room::service',        // Dịch vụ Sân
         'room::special',        // Điểm Đặc Biệt
-        // 'room::housekeeping' (Kiểm tra dọn phòng) KHÔNG đưa vào đây — RoomHousekeepingResource
+        // 'room::housekeeping' (Kiểm tra dọn sân) KHÔNG đưa vào đây — RoomHousekeepingResource
         // hard-code canViewAny() chỉ cho super_admin (không dựa vào permission), nên cấp quyền ở
         // đây cũng không có tác dụng.
         'coupon',

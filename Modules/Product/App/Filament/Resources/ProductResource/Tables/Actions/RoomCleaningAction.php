@@ -9,10 +9,10 @@ use Filament\Notifications\Notification;
 use Filament\Tables\Actions\Action;
 use Modules\Product\App\Models\Product;
 
-// Vòng đời "dọn vệ sinh" của 1 phòng: hết giờ đặt → tự động chuyển 'cleaning' (xem
+// Vòng đời "dọn vệ sinh" của 1 sân: hết giờ đặt → tự động chuyển 'cleaning' (xem
 // app/Console/Commands/MarkRoomsForCleaningCommand.php) → nhân viên TRỰC ĐÚNG CHI NHÁNH xác
-// nhận đã dọn xong → phòng quay lại 'available'. Có thêm action đánh dấu thủ công cho trường
-// hợp phòng cần dọn ngoài luồng tự động (khách trả phòng sớm, sự cố...).
+// nhận đã dọn xong → sân quay lại 'available'. Có thêm action đánh dấu thủ công cho trường
+// hợp sân cần dọn ngoài luồng tự động (khách trả sân sớm, sự cố...).
 class RoomCleaningAction
 {
     public static function markForCleaning(): Action
@@ -22,16 +22,16 @@ class RoomCleaningAction
             ->icon('heroicon-o-exclamation-triangle')
             ->color('warning')
             ->requiresConfirmation()
-            ->modalDescription(fn (Product $record) => "Chuyển phòng \"{$record->name}\" sang trạng thái đang dọn vệ sinh?")
+            ->modalDescription(fn (Product $record) => "Chuyển sân \"{$record->name}\" sang trạng thái đang dọn vệ sinh?")
             // Đánh dấu "cần dọn" thủ công CHỈ dành cho chủ đối tác/super_admin — nhân viên chỉ
-            // được xem tình trạng phòng + xác nhận đã dọn xong (confirmCleaning() bên dưới), để
+            // được xem tình trạng sân + xác nhận đã dọn xong (confirmCleaning() bên dưới), để
             // luồng tự động (hết giờ đặt) là nguồn duy nhất tạo lượt "cần dọn" cho nhân viên.
             ->visible(fn () => self::canMarkForCleaning())
             ->action(function (Product $record): void {
                 $record->markForCleaning();
 
                 Notification::make()
-                    ->title('Đã chuyển phòng sang trạng thái đang dọn vệ sinh')
+                    ->title('Đã chuyển sân sang trạng thái đang dọn vệ sinh')
                     ->warning()
                     ->send();
             });
@@ -44,7 +44,7 @@ class RoomCleaningAction
             ->icon('heroicon-o-sparkles')
             ->color('success')
             ->requiresConfirmation()
-            ->modalDescription(fn (Product $record) => "Xác nhận phòng \"{$record->name}\" đã dọn vệ sinh xong và sẵn sàng nhận đặt mới?")
+            ->modalDescription(fn (Product $record) => "Xác nhận sân \"{$record->name}\" đã dọn vệ sinh xong và sẵn sàng nhận đặt mới?")
             ->form([
                 Textarea::make('note')
                     ->label('Ghi chú (không bắt buộc)')
@@ -66,14 +66,14 @@ class RoomCleaningAction
                 $record->confirmCleaned($employee, $data['note'] ?? null);
 
                 Notification::make()
-                    ->title('Đã xác nhận dọn xong — phòng sẵn sàng nhận đặt mới')
+                    ->title('Đã xác nhận dọn xong — sân sẵn sàng nhận đặt mới')
                     ->success()
                     ->send();
             });
     }
 
-    // Chỉ chủ đối tác/super_admin được chủ động đánh dấu phòng "cần dọn" — nhân viên không có
-    // quyền này (chỉ xem + xác nhận đã dọn xong khi phòng đã ở trạng thái 'cleaning').
+    // Chỉ chủ đối tác/super_admin được chủ động đánh dấu sân "cần dọn" — nhân viên không có
+    // quyền này (chỉ xem + xác nhận đã dọn xong khi sân đã ở trạng thái 'cleaning').
     private static function canMarkForCleaning(): bool
     {
         $user = auth()->user();
@@ -82,9 +82,9 @@ class RoomCleaningAction
     }
 
     // Chỉ super_admin, chủ đối tác, hoặc nhân viên TRỰC ĐÚNG CHI NHÁNH (work_branch_ids /
-    // works_all_branches) của phòng này mới được xác nhận đã dọn xong — tránh nhân viên chi
-    // nhánh khác xác nhận nhầm phòng không thuộc trách nhiệm của mình.
-    // public (không còn private) — tái sử dụng bởi menu thao tác nhanh trên thẻ phòng ở
+    // works_all_branches) của sân này mới được xác nhận đã dọn xong — tránh nhân viên chi
+    // nhánh khác xác nhận nhầm sân không thuộc trách nhiệm của mình.
+    // public (không còn private) — tái sử dụng bởi menu thao tác nhanh trên thẻ sân ở
     // Dashboard (xem Modules/Dashboard/App/Filament/Pages/Dashboard.php::confirmRoomCleaning()).
     public static function canManageCleaning(Product $record): bool
     {

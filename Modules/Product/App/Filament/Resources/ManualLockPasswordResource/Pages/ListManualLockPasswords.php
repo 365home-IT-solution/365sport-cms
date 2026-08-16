@@ -43,8 +43,8 @@ class ListManualLockPasswords extends ListRecords
                 '<div class="text-sm text-gray-500 space-y-1">'
                 . '<p>File Excel phải có cấu trúc:</p>'
                 . '<ul class="list-disc pl-4 mt-1 space-y-0.5">'
-                . '<li><strong>Cột A</strong>: Tên phòng (dòng đầu = "Tên phòng", dòng cuối = "Pass Cổng")</li>'
-                . '<li><strong>Cột B, C, …</strong>: Ngày (hàng 1 chứa ngày, các ô bên dưới là mật khẩu phòng, dòng Pass Cổng là mật khẩu cổng)</li>'
+                . '<li><strong>Cột A</strong>: Tên sân (dòng đầu = "Tên sân", dòng cuối = "Pass Cổng")</li>'
+                . '<li><strong>Cột B, C, …</strong>: Ngày (hàng 1 chứa ngày, các ô bên dưới là mật khẩu sân, dòng Pass Cổng là mật khẩu cổng)</li>'
                 . '</ul>'
                 . '</div>'
             ))
@@ -113,19 +113,19 @@ class ListManualLockPasswords extends ListRecords
                         ]),
                     ]),
 
-                Section::make('Thiết lập khớp phòng')
+                Section::make('Thiết lập khớp sân')
                     ->icon('heroicon-o-home')
                     ->iconColor('primary')
                     ->schema([
                         Select::make('match_by')
-                            ->label('Khớp phòng theo')
+                            ->label('Khớp sân theo')
                             ->options([
-                                'name' => 'Tên phòng (name — khớp linh hoạt)',
+                                'name' => 'Tên sân (name — khớp linh hoạt)',
                                 'slug' => 'Slug (chính xác tuyệt đối)',
                             ])
                             ->default('name')
                             ->native(false)
-                            ->helperText('Chọn "Tên phòng" nếu tên trong Excel là tên viết tắt/gần đúng'),
+                            ->helperText('Chọn "Tên sân" nếu tên trong Excel là tên viết tắt/gần đúng'),
 
                         Toggle::make('skip_existing')
                             ->label('Bỏ qua bản ghi đã tồn tại')
@@ -168,8 +168,8 @@ class ListManualLockPasswords extends ListRecords
 
                 if (! empty($result['notFound'])) {
                     Notification::make()
-                        ->title('Không tìm thấy ' . count($result['notFound']) . ' phòng')
-                        ->body('Phòng không khớp: ' . implode(', ', $result['notFound']))
+                        ->title('Không tìm thấy ' . count($result['notFound']) . ' sân')
+                        ->body('Sân không khớp: ' . implode(', ', $result['notFound']))
                         ->warning()
                         ->persistent()
                         ->send();

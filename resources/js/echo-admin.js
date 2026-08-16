@@ -5,7 +5,7 @@ window.Pusher = Pusher;
 
 // Laravel Reverb (self-host, giao thức tương thích Pusher) — CHỈ nạp trong panel Filament (xem
 // AdminPanelProvider::render hook), dùng cho kênh private "admin-timeslot-holds" (giữ chỗ
-// real-time khung giờ đặt phòng, xem App\Services\TimeslotHoldService). Chỉ khởi tạo khi có
+// real-time khung giờ đặt sân, xem App\Services\TimeslotHoldService). Chỉ khởi tạo khi có
 // VITE_REVERB_APP_KEY để tránh lỗi ở môi trường build chưa cấu hình biến này.
 if (import.meta.env.VITE_REVERB_APP_KEY) {
     window.Echo = new Echo({

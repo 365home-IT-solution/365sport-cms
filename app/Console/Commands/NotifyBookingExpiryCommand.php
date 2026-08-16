@@ -10,13 +10,13 @@ use Illuminate\Support\Facades\Log;
 use Modules\Payment\Entities\OrderItem;
 
 /**
- * Gửi thông báo Telegram (admin) + FCM (customer) khi gần hết / hết giờ đặt phòng.
+ * Gửi thông báo Telegram (admin) + FCM (customer) khi gần hết / hết giờ đặt sân.
  * Chạy mỗi 5 phút qua scheduler.
  */
 class NotifyBookingExpiryCommand extends Command
 {
     protected $signature   = 'lock:notify-expiry';
-    protected $description = 'Gửi Telegram khi đặt phòng sắp hết giờ hoặc đã hết giờ';
+    protected $description = 'Gửi Telegram khi đặt sân sắp hết giờ hoặc đã hết giờ';
 
     public function handle(TelegramService $telegram, NotificationFcmService $notifier): int
     {
@@ -74,8 +74,8 @@ class NotifyBookingExpiryCommand extends Command
             try {
                 $notifier->sendToGuestToken(
                     $order->device_token,
-                    'Sắp hết giờ phòng',
-                    "Phòng {$product->name} sẽ hết giờ lúc {$checkout} (còn 5 phút).",
+                    'Sắp hết giờ sân',
+                    "Sân {$product->name} sẽ hết giờ lúc {$checkout} (còn 5 phút).",
                     'checkout_warning',
                     ['order_code' => (string) $order->order_code],
                 );
@@ -119,8 +119,8 @@ class NotifyBookingExpiryCommand extends Command
         if ($order->customer_id && $customer = Customer::find($order->customer_id)) {
             $notifier->sendToCustomer(
                 $customer,
-                'Sắp hết giờ phòng',
-                "Phòng {$product->name} sẽ hết giờ lúc {$checkout} ({$minutesLeft} phút nữa).",
+                'Sắp hết giờ sân',
+                "Sân {$product->name} sẽ hết giờ lúc {$checkout} ({$minutesLeft} phút nữa).",
                 'checkout_warning',
                 ['order_code' => (string) $order->order_code],
             );
@@ -151,8 +151,8 @@ class NotifyBookingExpiryCommand extends Command
         if ($order->customer_id && $customer = Customer::find($order->customer_id)) {
             $notifier->sendToCustomer(
                 $customer,
-                'Đã hết giờ phòng',
-                "Phòng {$product->name} đã hết giờ lúc {$checkout}. Cảm ơn bạn đã sử dụng dịch vụ!",
+                'Đã hết giờ sân',
+                "Sân {$product->name} đã hết giờ lúc {$checkout}. Cảm ơn bạn đã sử dụng dịch vụ!",
                 'checkout_warning',
                 ['order_code' => (string) $order->order_code],
             );

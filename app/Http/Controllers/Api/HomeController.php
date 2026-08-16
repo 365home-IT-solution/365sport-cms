@@ -54,10 +54,10 @@ class HomeController extends Controller
             ->filter()
             ->values();
 
-        // Lịch đặt phòng trực tuyến (component riêng, không nằm trong $sections — luôn render
-        // trước vòng lặp sections ở flash-sale.blade.php) → Flash Sale → Gợi ý theo phòng luôn
+        // Lịch đặt sân trực tuyến (component riêng, không nằm trong $sections — luôn render
+        // trước vòng lặp sections ở flash-sale.blade.php) → Flash Sale → Gợi ý theo sân luôn
         // đứng NGAY SAU nó theo đúng thứ tự này, bất kể admin sắp xếp block thế nào trong CMS —
-        // các block còn lại (danh sách phòng theo chi nhánh, gợi ý theo chi nhánh...) giữ nguyên
+        // các block còn lại (danh sách sân theo chi nhánh, gợi ý theo chi nhánh...) giữ nguyên
         // thứ tự tương đối, xếp sau. Chỉ ưu tiên khi 2 block này thực sự tồn tại trong CMS (nếu
         // admin không cấu hình thì không có phần tử nào khớp, sortBy không có tác dụng).
         $sections = $sections
@@ -144,7 +144,7 @@ class HomeController extends Controller
     private function buildRoomList(array $data, int $index, ?array $wishlistedIds, ?int $tabRoomTypeId, ?Province $province = null): ?array
     {
         $displayMode = $data['display_mode'] ?? 'fixed';
-        // Chỉ có ý nghĩa khi display_mode=by_region — fixed luôn là danh sách phòng.
+        // Chỉ có ý nghĩa khi display_mode=by_region — fixed luôn là danh sách sân.
         $contentType = $displayMode === 'by_region' ? ($data['region_content_type'] ?? 'rooms') : 'rooms';
 
         // by_region: ẩn section khi chưa có khu vực
@@ -156,7 +156,7 @@ class HomeController extends Controller
             ? $this->getRegionBranches($province)
             : $this->getRooms($data, $displayMode, $wishlistedIds, $tabRoomTypeId, $province);
 
-        // by_region: ẩn section khi khu vực không có phòng/chi nhánh
+        // by_region: ẩn section khi khu vực không có sân/chi nhánh
         if ($displayMode === 'by_region' && empty($items)) {
             return null;
         }
@@ -204,7 +204,7 @@ class HomeController extends Controller
             ->toArray();
     }
 
-    // "Xem tất cả" của 1 khối phòng nên đưa thẳng người dùng đến đúng phạm vi phòng mà khối đó
+    // "Xem tất cả" của 1 khối sân nên đưa thẳng người dùng đến đúng phạm vi sân mà khối đó
     // đang hiển thị: theo khu vực (tỉnh đang chọn) hoặc theo (các) chi nhánh cụ thể đã cấu hình —
     // thay vì luôn trỏ về trang tìm kiếm chung chung không có bộ lọc.
     private function buildViewAllUrl(array $data, string $displayMode, ?Province $province): ?string
@@ -228,7 +228,7 @@ class HomeController extends Controller
         $productIds = $data['product_ids'] ?? [];
 
         if (! empty($productIds)) {
-            // Phòng được chọn tay — fixed: lấy hết; by_region: lọc theo tỉnh
+            // Sân được chọn tay — fixed: lấy hết; by_region: lọc theo tỉnh
             $query = Product::whereIn('id', $productIds)
                 ->where('is_activated', true)
                 ->where('is_in_stock', true);
@@ -287,7 +287,7 @@ class HomeController extends Controller
             }
         }
 
-        // Block "Theo khu vực": ưu tiên phòng đánh giá cao và nhiều đơn đặt (đã thanh toán/đặt
+        // Block "Theo khu vực": ưu tiên sân đánh giá cao và nhiều đơn đặt (đã thanh toán/đặt
         // cọc) của khu vực đó lên trước, bất kể order_by cấu hình gì — thay cho ordering mặc định.
         if ($displayMode === 'by_region') {
             $query->withCount(['orderItems as bookings_count' => function ($q) {
@@ -384,7 +384,7 @@ class HomeController extends Controller
             'id'              => $index + 1,
             'sort_order'      => $index + 1,
             'suggestion_type' => $type,
-            // Loại "Chi nhánh" → xem tất cả dẫn đến danh sách chi nhánh của khu vực (không phải phòng).
+            // Loại "Chi nhánh" → xem tất cả dẫn đến danh sách chi nhánh của khu vực (không phải sân).
             'view_all_url'    => $province
                 ? '/s/' . $province->slug . ($type === 'branch' ? '?view=branches' : '')
                 : null,

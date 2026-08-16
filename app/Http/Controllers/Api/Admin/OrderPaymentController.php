@@ -83,7 +83,7 @@ class OrderPaymentController extends Controller
             ]);
         }
 
-        $itemName     = $order->items->first()?->name ?? 'Đặt phòng';
+        $itemName     = $order->items->first()?->name ?? 'Đặt sân';
         $newPayosCode = (int) (intval(substr(strval(microtime(true) * 10000), -6)) . rand(10, 99));
         $expiredAt    = now()->addMinutes(15);
 
@@ -250,7 +250,7 @@ class OrderPaymentController extends Controller
      *  - services[]              : [{service_id, quantity}] — CỘNG DỒN thêm, không thay thế dịch vụ cũ
      *  - guest_count              : SỐ KHÁCH THÊM (cộng dồn vào guest_count hiện có), không phải tổng mới
      *  - room_addition[type]      : slot|daily
-     *  - room_addition[product_id]: tuỳ chọn, mặc định dùng lại đúng phòng hiện tại của đơn
+     *  - room_addition[product_id]: tuỳ chọn, mặc định dùng lại đúng sân hiện tại của đơn
      *  - room_addition[slots][]   : bắt buộc nếu type=slot — [{timeslot_id, date (d-m-Y)}]
      *  - room_addition[checkin_date]/[checkout_date] : bắt buộc nếu type=daily (d-m-Y)
      *  - guests[{guest_index}][front|back] : CCCD khách đi cùng nếu phần đặt thêm qua đêm
@@ -400,7 +400,7 @@ class OrderPaymentController extends Controller
             'buyerPhone'  => $order->buyer_phone ?? '',
             'expiredAt'   => $expiredAt->timestamp,
             'items'       => [[
-                'name'     => 'Tiền còn lại - ' . ($order->items->first()?->name ?? 'Phòng'),
+                'name'     => 'Tiền còn lại - ' . ($order->items->first()?->name ?? 'Sân'),
                 'quantity' => 1,
                 'price'    => $remaining,
             ]],

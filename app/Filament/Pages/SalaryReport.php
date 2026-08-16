@@ -80,7 +80,7 @@ class SalaryReport extends Page implements HasTable
                         ->live()
                         ->required(),
                     TextInput::make('room_cleaning_rate')
-                        ->label('Đơn giá / lượt dọn phòng')
+                        ->label('Đơn giá / lượt dọn sân')
                         ->numeric()
                         ->minValue(0)
                         ->suffix('VNĐ')
@@ -409,7 +409,7 @@ class SalaryReport extends Page implements HasTable
         HTML;
     }
 
-    // Vị trí tính theo lượt (vd Lễ tân) — liệt kê TỪNG lượt dọn phòng (kèm tên phòng + giờ xác
+    // Vị trí tính theo lượt (vd Lễ tân) — liệt kê TỪNG lượt dọn sân (kèm tên sân + giờ xác
     // nhận, lấy từ room_cleaning_logs đã tự động ghi khi xác nhận dọn xong) và TỪNG lượt tư vấn
     // khách hàng (kèm tên khách + giờ, do nhân viên tự ghi ở ConsultationLogResource) trong THÁNG
     // HIỆN TẠI, để đối tác thấy rõ vì sao ra đúng số tiền đó — không chỉ hiện mỗi tổng cộng.
@@ -419,7 +419,7 @@ class SalaryReport extends Page implements HasTable
         $consultationRate = (float) ($employee->salaryType->consultation_rate ?? 0);
 
         $cleaningRows = $employee->monthly_cleaning_logs->map(function ($log) use ($fmt, $cleaningRate) {
-            $roomName = $log->product?->name ?? 'Phòng đã xóa';
+            $roomName = $log->product?->name ?? 'Sân đã xóa';
             $time = $log->cleaned_at->format('d/m H:i');
 
             return <<<HTML
@@ -443,7 +443,7 @@ class SalaryReport extends Page implements HasTable
 
         $cleaningRows = $cleaningRows !== ''
             ? $cleaningRows
-            : '<tr><td colspan="2" style="padding:6px 8px;color:#9ca3af;">Chưa có lượt dọn phòng nào trong tháng</td></tr>';
+            : '<tr><td colspan="2" style="padding:6px 8px;color:#9ca3af;">Chưa có lượt dọn sân nào trong tháng</td></tr>';
 
         $consultationRows = $consultationRows !== ''
             ? $consultationRows
@@ -460,7 +460,7 @@ class SalaryReport extends Page implements HasTable
         // bấm mở ra mới cần xem chi tiết từng dòng.
         return <<<HTML
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
-                <span style="font-weight:600;color:#374151;font-size:0.85rem;">Dọn phòng — đơn giá {$cleaningRateLabel}/lượt</span>
+                <span style="font-weight:600;color:#374151;font-size:0.85rem;">Dọn sân — đơn giá {$cleaningRateLabel}/lượt</span>
                 <span style="font-weight:700;color:#111827;font-size:0.85rem;">Tổng: {$cleaningCount} lượt</span>
             </div>
             <details>

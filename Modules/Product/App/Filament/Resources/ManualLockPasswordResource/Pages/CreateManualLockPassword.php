@@ -17,7 +17,7 @@ class CreateManualLockPassword extends CreateRecord
     }
 
     /**
-     * Đánh dấu các phòng được chọn là dùng khóa thủ công.
+     * Đánh dấu các sân được chọn là dùng khóa thủ công.
      */
     private function markProductsAsManualLock(): void
     {

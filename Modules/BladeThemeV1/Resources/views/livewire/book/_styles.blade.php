@@ -656,7 +656,7 @@
            TWO-PANEL CARD LAYOUT  (mobile)
            ═══════════════════════════════════════════════ */
 
-    /* ── Hàng trên cùng: tên phòng + nút trượt trải rộng hết chiều ngang (w-full) ── */
+    /* ── Hàng trên cùng: tên sân + nút trượt trải rộng hết chiều ngang (w-full) ── */
     .book-top-row {
         display: flex;
         gap: 12px;
@@ -665,7 +665,7 @@
     }
 
     /* ── Room navigation header — tách riêng, nằm trên nền màu của .book-card-outer,
-         không dùng chung nền trắng với khối "Khung giờ" bên dưới. Tên phòng bên trái, cụm nút
+         không dùng chung nền trắng với khối "Khung giờ" bên dưới. Tên sân bên trái, cụm nút
          trượt bên phải (không còn box-shadow nổi khối). ── */
     .book-room-nav-wrap {
         flex: 1;
@@ -767,7 +767,7 @@
         margin: 0;
     }
 
-    /* Icon flash-sale.gif bên phải tên phòng — chỉ hiện khi phòng có khung giờ đang khuyến mãi
+    /* Icon flash-sale.gif bên phải tên sân — chỉ hiện khi sân có khung giờ đang khuyến mãi
        giảm giá (xem $roomHasDiscount trong book/_mobile.blade.php và book/_desktop-grid.blade.php).
        inline-block + vertical-align (thay vì đổi .book-room-name sang flex) để không phá
        text-align:center đang tự canh giữa chính h3 đó ở bản desktop (.book-dt-room-name). */
@@ -790,8 +790,8 @@
     }
 
     .book-grid-header .book-col-header {
-        min-width: 75px;
-        width: 75px;
+        min-width: 82px;
+        width: 82px;
         flex-shrink: 0;
         background: #ffffff;
         border: 1px solid #f0f0f0;
@@ -799,58 +799,112 @@
         border-radius: 10px 10px 0 0;
     }
 
-    .book-slots-headers-wrap {
+    /* Wrapper mang border/bg/bo góc (KHÔNG tự cuộn). Nút Trước/Sau KHÔNG còn nổi đè lên rìa wrapper
+       (từng đè lên chữ ngày trên màn hình hẹp, và ở đây .book-dates-header-wrap từng bị lỗi
+       "position:relative không áp dụng" khiến nút absolute trôi lạc xa khỏi vị trí — cùng lỗi lạ
+       đã gặp với .tsgrid-slots-label) — nay nằm trong 1 hàng điều hướng RIÊNG (.book-date-nav-row)
+       phía trên hàng ngày, chiếm layout bình thường (không position:absolute) nên không thể lạc chỗ
+       hay che chữ. */
+    .book-dates-header-wrap {
         flex: 1;
         min-width: 0;
-        overflow: hidden;
         border-radius: 10px 10px 0 0;
     }
 
-    .book-slots-headers-wrap .book-slots-header-row {
+    .book-date-nav-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 6px;
+        padding: 4px 10px 0;
+    }
+
+    .book-date-nav-hint {
+        font-size: 9px;
+        color: #9ca3af;
+        text-align: center;
+        flex: 1;
+        min-width: 0;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    /* Ghi chú: width/height/flex-shrink của nút được đặt INLINE trực tiếp trên thẻ <button> trong
+       Blade (kèm !important) thay vì chỉ dựa vào class này — rule ở đây có lúc KHÔNG được áp dụng,
+       khiến nút to mặc định ~44px. Giữ class để style thị giác (màu/border/shadow). */
+    .book-date-nav-btn {
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #fff;
+        border: 1px solid #e5e7eb;
+        border-radius: 999px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, .15);
+        color: #374151;
+        padding: 0;
+    }
+
+    .book-date-nav-btn svg { width: 10px; height: 10px; }
+
+    /* Header Ngày dùng chung — tự cuộn bị khoá (overflow-x:hidden, scrollLeft đặt qua JS khi
+       đồng bộ với lưới ô của sân đang active — xem @scroll trong _mobile.blade.php). padding/gap
+       PHẢI khớp CHÍNH XÁC .book-slots-scroll (thân bảng) bên dưới để 2 khối luôn có cùng 1 chiều
+       rộng cuộn tối đa, không lệch dần khi cuộn tới cuối (đúng lỗi đã gặp và sửa ở dashboard
+       admin/tsgrid — xem ghi chú ở đó). */
+    .book-slots-header-row {
         background: #ffffff;
         border: 1px solid #f0f0f0;
         border-bottom: none;
         border-radius: 10px 10px 0 0;
-    }
-
-    /* ── Hiển thị đầy đủ cột Ngày/khung giờ trên mobile (không giới hạn chiều cao + cuộn nội bộ
-         như trước) — nội dung tự nhiên cao bao nhiêu thì card cao bấy nhiêu, người dùng cuộn
-         cả trang thay vì cuộn riêng bên trong từng card. ── */
-    .book-dates-scroll,
-    .book-slots-scroll {
         overflow-x: hidden;
+        scrollbar-width: none;
+        -ms-overflow-style: none;
     }
 
-    .book-dates-scroll::-webkit-scrollbar,
-    .book-slots-scroll::-webkit-scrollbar {
+    .book-slots-header-row::-webkit-scrollbar {
         display: none;
         width: 0;
         height: 0;
     }
 
-    /* ── Outer wrapper (bottom) — nền trong suốt (lộ màu .book-card-outer ở khoảng gap giữa
-         2 cột), không có padding-top để dính liền với header phía trên (.book-grid-header) ── */
+    .book-dates-scroll::-webkit-scrollbar,
+    .book-slots-scroll::-webkit-scrollbar {
+        height: 4px;
+        width: 0;
+    }
+
+    .book-slots-scroll::-webkit-scrollbar-thumb {
+        background: #d1d5db;
+        border-radius: 2px;
+    }
+
+    /* Mỗi sân 1 cặp [cột Khung giờ dọc + lưới ô] hoàn toàn tự đủ, chỉ hiện đúng sân đang active
+       (x-show, xem _mobile.blade.php) — .book-grid-outer giờ chỉ là khung chứa đơn thuần, không
+       tự flex nữa (thay vào đó .book-room-grid-row bên dưới đảm nhận). */
     .book-grid-outer {
+        padding: 0 10px 12px;
+    }
+
+    .book-room-grid-row {
         display: flex;
         gap: 12px;
-        background: transparent;
-        padding: 0 10px 12px;
-        border-radius: 0;
         align-items: stretch;
     }
 
-    /* ── Left dates card — dính liền với header "Ngày" phía trên (cùng nền, chỉ bo góc dưới),
-         tách hẳn khỏi khối khung giờ bên phải. box-shadow inset kiểu Tailwind (shadow-inner)
-         để trông "chìm" nhẹ so với 2 khối trắng nổi bên cạnh. Không giới hạn chiều cao — hiện
-         đầy đủ toàn bộ ngày, không cuộn nội bộ (xem .book-dates-scroll ở trên). ── */
+    /* ── Cột Khung giờ (dọc) — dính liền với header "Khung giờ" phía trên (cùng nền, chỉ bo góc
+         dưới), tách hẳn khỏi lưới ô bên phải. box-shadow inset kiểu Tailwind (shadow-inner) để
+         trông "chìm" nhẹ so với 2 khối trắng nổi bên cạnh. Hiện ĐẦY ĐỦ, không giới hạn chiều cao
+         (người dùng cuộn cả trang theo chiều dọc, giống cách cột Ngày cũ đã làm). ── */
     .book-dates-card {
         background: #f9fafb;
         border: 1px solid #f0f0f0;
         border-top: none;
         border-radius: 0 0 10px 10px;
         box-shadow: inset 0 2px 4px 0 rgb(0 0 0 / 0.05);
-        min-width: 75px;
-        width: 75px;
+        min-width: 82px;
+        width: 82px;
         flex-shrink: 0;
         overflow: hidden;
     }
@@ -865,16 +919,16 @@
         color: #374151;
         letter-spacing: 0.06em;
         text-transform: uppercase;
+        text-align: center;
     }
 
     .book-date-row {
-        height: 30px;
+        height: 34px;
         display: flex;
-        flex-direction: column;
         align-items: center;
         justify-content: center;
+        gap: 3px;
         border-bottom: 1px solid #f3f4f6;
-        gap: 1px;
         padding: 0 4px;
     }
 
@@ -883,28 +937,14 @@
     }
 
     .book-date-day {
-        font-size: 0.62rem;
-        color: #6b7280;
-        opacity: 0.85;
-        font-weight: 500;
-        line-height: 1;
-    }
-
-    .book-date-num {
-        font-size: 0.78rem;
-        font-weight: 700;
+        font-size: 0.6rem;
         color: #111827;
+        font-weight: 700;
         line-height: 1;
+        white-space: nowrap;
     }
 
-    .book-date-row.is-today .book-date-day,
-    .book-date-row.is-today .book-date-num {
-        color: var(--color-primary, #0f766e);
-        font-weight: 800;
-        opacity: 1;
-    }
-
-    /* ── Right slots outer (flex:1) — overflow ẩn để hiệu ứng trượt phòng không lộ ra ngoài ── */
+    /* ── Right slots outer (flex:1) — overflow ẩn để hiệu ứng trượt sân không lộ ra ngoài ── */
     .book-slots-outer {
         flex: 1;
         min-width: 0;
@@ -912,7 +952,7 @@
     }
 
     /* ── Slots card per room — dính liền với header khung giờ phía trên (chỉ bo góc dưới).
-         Không giới hạn chiều cao — hiện đầy đủ toàn bộ ngày, khớp .book-dates-card. ── */
+         Không giới hạn chiều cao — hiện đầy đủ toàn bộ khung giờ, khớp .book-dates-card. ── */
     .book-slots-card {
         background: #ffffff;
         border: 1px solid #f0f0f0;
@@ -922,7 +962,15 @@
         max-width: 100%;
     }
 
-    /* ── Slot column headers ── */
+    /* Thân cuộn NGANG (ngày) riêng bên trong — padding/gap PHẢI khớp CHÍNH XÁC
+       .book-slots-header-row ở trên (xem ghi chú tại đó). Thanh cuộn hiện rõ (mảnh) để khách
+       biết còn ngày khác xem được. */
+    .book-slots-scroll {
+        overflow-x: auto;
+        scrollbar-width: thin;
+    }
+
+    /* ── Header cột NGÀY (đổi vai trò từ header khung giờ cũ) ── */
     .book-slots-header-row {
         display: flex;
         gap: 3px;
@@ -932,14 +980,17 @@
     }
 
     .book-slot-th {
-        flex: 1;
+        flex: 0 0 calc((100% - 12px) / 5);
         text-align: center;
-        font-size: 0.72rem;
+        font-size: 0.62rem;
         font-weight: 700;
         color: #111827;
         letter-spacing: -0.02em;
         line-height: 1.2;
-        min-width: 0;
+    }
+
+    .book-slot-th.is-today {
+        color: var(--color-primary, #0f766e);
     }
 
     /* Mobile mặc định: giờ bắt đầu/kết thúc xếp 2 dòng (dùng <br>), ẩn dấu gạch nối */
@@ -957,11 +1008,19 @@
     }
 
     /* ── Slot data rows ── */
+    /* height PHẢI khớp CHÍNH XÁC .book-date-row (cột nhãn Khung giờ bên trái, 34px) — 2 cột
+       "nhãn dọc" và "lưới ô" là 2 khối HTML tách biệt (không dùng chung 1 bảng <table>), lệch
+       nhau dù chỉ vài px/hàng sẽ cộng dồn qua nhiều hàng: từng bị lệch 34px vs 30px (4px/hàng ×
+       18 hàng = 72px ở hàng cuối) khiến ~2 hàng cuối (khung giờ khuya) hiện trống trơn — cột ô
+       lưới "hết" sớm hơn cột nhãn vì tổng chiều cao 2 cột không bằng nhau, không phải do thiếu ô
+       (ô vẫn render đủ trong DOM, chỉ là toàn bộ khối lưới ngắn hơn khối nhãn nên phần cuối lưới
+       không có gì hiện ra). Luôn set 2 nơi này cùng lúc nếu cần đổi lại.
+    */
     .book-slots-row {
         display: flex;
         gap: 3px;
         padding: 3px 4px;
-        height: 30px;
+        height: 34px;
         align-items: center;
         border-bottom: 1px solid rgba(255, 255, 255, 0.12);
     }
@@ -970,9 +1029,10 @@
         border-bottom: none;
     }
 
+    /* flex-basis theo % chiều rộng khung cuộn (không phải px cố định) để LUÔN hiện đúng 5 cột/khung
+       hình bất kể màn hình rộng bao nhiêu — xem ghi chú tương tự ở product-detail (.pd-slot-cell). */
     .book-slot-cell {
-        flex: 1;
-        min-width: 0;
+        flex: 0 0 calc((100% - 12px) / 5);
         display: flex;
         align-items: center;
         justify-content: center;
@@ -1085,8 +1145,8 @@
     }
 
     /* ── Desktop (≥lg): cột "Thời gian" (ngày) cố định dùng chung + carousel Center Mode/Peek
-         cho khối khung giờ của từng phòng — book/_desktop-grid.blade.php. Phòng đang active hiển
-         thị đầy đủ, rõ; 2 phòng liền kề hé lộ 1 phần, thu nhỏ + mờ, KHÔNG chọn được khung giờ
+         cho khối khung giờ của từng sân — book/_desktop-grid.blade.php. Sân đang active hiển
+         thị đầy đủ, rõ; 2 sân liền kề hé lộ 1 phần, thu nhỏ + mờ, KHÔNG chọn được khung giờ
          (pointer-events:none) cho tới khi được bấm/trượt vào giữa. Phong cách/kích thước ô giữ
          giống khối .pd-dt-* ở trang chi tiết sản phẩm (card bo góc trắng, ô giờ cao 48px). ── */
     .book-dt-wrap { position: relative; }
@@ -1120,7 +1180,7 @@
     }
 
     /* ── Nút Trước/Sau to hơn ở carousel head desktop (khác bản gọn .book-nav-btn-labeled dùng
-         cho carousel phòng ở mobile) — có chữ kèm icon, kích thước đủ lớn để bấm thoải mái. ── */
+         cho carousel sân ở mobile) — có chữ kèm icon, kích thước đủ lớn để bấm thoải mái. ── */
     .book-nav-btn.book-dt-nav-btn-lg {
         width: auto;
         height: 40px;
@@ -1141,21 +1201,19 @@
         white-space: nowrap;
     }
 
-    /* ── Layout: cột ngày cố định bên trái | carousel phòng chiếm phần còn lại (không viền/nền
-         khung ngoài — chỉ .book-dt-carousel-col có overflow:hidden để kẹp gọn peek carousel,
-         tránh tràn đè lên cột ngày hoặc tràn ra ngoài trang, xem ghi chú bên dưới). ── */
-    .book-dt-body {
+    /* ── Layout đổi trục: header NGÀY dùng chung (ngang, đứng yên, không trượt) phía trên |
+         bên dưới carousel sân, mỗi sân tự có cột KHUNG GIỜ riêng (dọc, vì khung giờ có thể khác
+         nhau giữa các sân) + lưới ô theo ngày (khớp cột với header Ngày dùng chung). ── */
+    .book-dt-shared-header {
         display: flex;
         gap: 12px;
-        align-items: stretch;
-    }
-
-    .book-dt-dates-col {
-        width: 92px;
-        flex-shrink: 0;
+        align-items: center;
+        margin-bottom: 8px;
     }
 
     .book-dt-col-header {
+        width: 90px;
+        flex-shrink: 0;
         height: 40px;
         display: flex;
         align-items: center;
@@ -1165,18 +1223,70 @@
         color: #374151;
         text-transform: uppercase;
         letter-spacing: 0.04em;
-        margin-bottom: 8px;
     }
 
-    .book-dt-dates-card {
-        height: 360px;
+    /* Wrapper cùng max-width với thân bảng (.book-dt-slots-card) — nút Trước/Sau nổi ĐÈ LÊN rìa
+       wrapper này (position:absolute, không chiếm chỗ flex layout) nên không làm header rộng hơn
+       thân bảng. */
+    .book-dt-dates-header-wrap {
+        position: relative;
+        max-width: 430px;
+        flex: 1;
+        min-width: 0;
+    }
+
+    /* Chỉ hiện đúng 5 NGÀY/lần (78px x 5 + gap 6px x4 + padding 8px x2 = 430px) — nhiều hơn phải
+       cuộn ngang, không đẩy rộng slide/trang. Tự cuộn bị khoá (overflow-x:hidden) — scrollLeft
+       được đồng bộ theo body của sân đang xem qua Alpine (@scroll trong _desktop-grid.blade.php). */
+    .book-dt-dates-header-row {
+        width: 100%;
+        display: flex;
+        gap: 6px;
+        padding: 4px 8px;
+        min-height: 40px;
+        align-items: center;
         background: #fff;
         border: 1px solid #e5e7eb;
+        border-radius: 12px;
+        overflow-x: hidden;
+        scrollbar-width: none;
+        -ms-overflow-style: none;
+    }
+
+    .book-dt-date-th {
+        flex: 1 0 78px;
+        text-align: center;
+        font-size: 10px;
+        font-weight: 700;
+        color: #111827;
+    }
+
+    .book-dt-date-th.is-today {
+        color: var(--color-primary, #0f766e);
+    }
+
+    .book-dt-body {
+        display: flex;
+        align-items: stretch;
+    }
+
+    .book-dt-slide-row {
+        display: flex;
+        gap: 10px;
+        align-items: stretch;
+    }
+
+    .book-dt-slots-label-card {
+        width: 90px;
+        flex-shrink: 0;
+        height: 360px;
+        background: #fff;
+        border: 1px solid var(--room-border-color, #e5e7eb);
         border-radius: 12px;
         overflow: hidden;
     }
 
-    .book-dt-dates-scroll,
+    .book-dt-slots-label-scroll,
     .book-dt-slots-scroll {
         height: 100%;
         overflow-y: auto;
@@ -1184,42 +1294,76 @@
         -ms-overflow-style: none;
     }
 
-    .book-dt-dates-scroll::-webkit-scrollbar,
-    .book-dt-slots-scroll::-webkit-scrollbar {
+    .book-dt-slots-label-scroll::-webkit-scrollbar {
         display: none;
         width: 0;
         height: 0;
     }
 
-    /* Khi phòng có nhiều khung giờ hơn chiều rộng slide có thể chứa (cột giờ dùng chiều rộng cố
-       định min 78px, xem .book-dt-slot-th/.book-dt-slot-cell bên dưới) — kéo ngang thay vì tràn
-       ra ngoài khung. Header giờ (.book-dt-slots-header-row) và khối ô chọn khung giờ
-       (.book-dt-slots-scroll) đồng bộ scrollLeft với nhau qua @scroll (xem _desktop-grid.blade.php). */
-    .book-dt-slots-scroll { overflow-x: auto; }
+    /* Body cuộn NGANG riêng bên trong (giới hạn max-width khớp header ở trên = đúng 5 ngày),
+       KHÔNG đẩy rộng slide/trang — cuộn thêm để xem các ngày còn lại, đồng bộ ngược lại header
+       dùng chung + mọi sân khác qua Alpine (xem _desktop-grid.blade.php). Thanh cuộn NGANG hiện
+       rõ (mảnh) để khách biết còn ngày khác, không chỉ trông cậy vào nút mũi tên. */
+    .book-dt-slots-scroll {
+        overflow-x: auto;
+        scrollbar-width: thin;
+    }
 
-    .book-dt-date-row {
+    .book-dt-slots-scroll::-webkit-scrollbar {
+        height: 6px;
+        width: 0;
+    }
+
+    .book-dt-slots-scroll::-webkit-scrollbar-thumb {
+        background: #d1d5db;
+        border-radius: 3px;
+    }
+
+    .book-dt-slots-scroll::-webkit-scrollbar-track {
+        background: transparent;
+    }
+
+    .book-dt-date-nav-btn {
+        position: absolute;
+        top: 50%;
+        transform: translateY(-50%);
+        z-index: 5;
+        width: 20px;
+        height: 20px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #fff;
+        border: 1px solid #e5e7eb;
+        border-radius: 999px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, .12);
+        color: #374151;
+        cursor: pointer;
+    }
+
+    .book-dt-date-nav-prev { left: -8px; }
+    .book-dt-date-nav-next { right: -8px; }
+
+    .book-dt-date-nav-btn:hover { background: #f3f4f6; }
+
+    .book-dt-date-nav-btn svg { width: 10px; height: 10px; }
+
+    .book-dt-time-row {
         height: 40px;
         display: flex;
         flex-direction: column;
         align-items: center;
         justify-content: center;
+        gap: 1px;
         border-bottom: 1px solid #f3f4f6;
         text-align: center;
-        font-size: 0.85rem;
     }
 
-    .book-dt-date-row:last-child { border-bottom: none; }
-
-    .book-dt-date-row.is-today { background: #f9fafb; }
-
-    .book-dt-date-row.is-today > div:first-child {
-        color: var(--color-primary, #0f766e);
-    }
+    .book-dt-time-row:last-child { border-bottom: none; }
 
     /* ── Cột carousel: overflow HIDDEN — kẹp gọn slide hé lộ (peek) trong đúng khung của cột
-         này, không cho tràn đè lên cột Ngày bên trái hay tràn ra ngoài trang (từng để
-         overflow:visible gây 2 lỗi: cột Ngày bị slide bên trái đè lên nhìn mờ đục, và trang bị
-         thanh cuộn ngang do slide bên phải tràn qua khung max-w-11xl). ── */
+         này, không cho tràn ra ngoài trang (từng để overflow:visible gây lỗi trang bị thanh cuộn
+         ngang do slide bên phải tràn qua khung max-w-11xl). ── */
     .book-dt-carousel-col {
         flex: 1;
         min-width: 0;
@@ -1239,37 +1383,8 @@
         transition: opacity .3s ease;
     }
 
-    .book-dt-slots-header-row {
-        display: flex;
-        gap: 6px;
-        padding: 4px 8px;
-        min-height: 40px;
-        align-items: center;
-        background: #fff;
-        border: 1px solid var(--room-border-color, #e5e7eb);
-        border-radius: 12px;
-        margin-bottom: 8px;
-        transition: opacity .3s ease;
-        overflow-x: auto;
-        scrollbar-width: none;
-        -ms-overflow-style: none;
-    }
-
-    .book-dt-slots-header-row::-webkit-scrollbar {
-        display: none;
-        width: 0;
-        height: 0;
-    }
-
-    .book-dt-slot-th {
-        flex: 1 0 78px;
-        text-align: center;
-        font-size: 10px;
-        font-weight: 700;
-        color: #111827;
-    }
-
     .book-dt-slots-card {
+        max-width: 430px;
         height: 360px;
         background: #fff;
         border: 1px solid #e5e7eb;
@@ -1282,7 +1397,7 @@
         display: flex;
         gap: 6px;
         padding: 4px 8px;
-        height: 40px;
+        min-height: 40px;
         align-items: center;
         border-bottom: 1px solid #f3f4f6;
     }
@@ -1302,7 +1417,7 @@
 
     /* ── Bảng tính giá đầy đủ (Giá cơ bản, phụ thu, khuyến mãi, tổng tiền tạm tính): ẩn hẳn
          cả mobile lẫn desktop — mobile hiện trong bottom sheet riêng (book.blade.php), desktop
-         thay bằng nút "Đặt phòng ngay" + tổng tiền tạm tính gọn trên hàng chú thích trạng thái
+         thay bằng nút "Đặt sân ngay" + tổng tiền tạm tính gọn trên hàng chú thích trạng thái
          (xem book/_legend.blade.php) để phần này trống/gọn hơn thay vì chiếm cả khối bên dưới. ── */
     .book-pricing-desktop {
         display: none;
@@ -1428,7 +1543,7 @@
         }
     }
 
-    /* ── Nút "Đặt phòng ngay" (giá + chữ gộp làm 1 nút) gọn trên hàng chú thích trạng thái
+    /* ── Nút "Đặt sân ngay" (giá + chữ gộp làm 1 nút) gọn trên hàng chú thích trạng thái
          (chỉ desktop — mobile vẫn dùng bottom sheet đầy đủ như cũ). ── */
     /* .book-cta-btn gốc to/full-width (dùng cho bottom sheet mobile) — bản này gọn lại vừa
        chữ, không chiếm hết chiều ngang, hợp với chỗ đặt chung hàng chú thích trạng thái.
@@ -1461,7 +1576,7 @@
 </style>
 
 {{-- ═══════════════════════════════════════════════════════════════════════════
-     Đồng bộ giao diện lịch đặt phòng với trang chi tiết sản phẩm (product-detail):
+     Đồng bộ giao diện lịch đặt sân với trang chi tiết sản phẩm (product-detail):
      box bo góc vuông nhẹ (không còn pill tròn), nền/viền trung tính, "đã đặt" = màu
      primary (không icon), "đang chờ" (pending) = vàng (không icon), "đang chọn" = đen
      thật, "bị khóa" (blocked, admin khóa ngày) = giống hệt "đã đặt" (màu primary, không
@@ -1492,7 +1607,7 @@
     /* Tắt hẳn các lớp phủ ::before/::after màu cũ (order-color, tickGray…) để nền/màu đặt trực
        tiếp trên .selectable phía dưới được hiển thị đúng. Không tắt .selectable.promo (không
        kèm trạng thái khác) — giữ nguyên hiệu ứng lóe màu cầu vồng "Khuyến mãi" giống trang chi
-       tiết phòng. */
+       tiết sân. */
     .selectable.active::after,
     .selectable.booked::after,
     .selectable.pending::after,
@@ -1617,10 +1732,10 @@
         box-shadow: 0 4px 14px rgba(0, 0, 0, .06) !important;
     }
 
-    /* ── Đường kẻ phân cách dọc giữa 2 phòng hiển thị cạnh nhau trong carousel desktop (mỗi
-       .swiper-slide = 1 phòng, book/_desktop-grid.blade.php) — dùng pseudo-element (không phải
+    /* ── Đường kẻ phân cách dọc giữa 2 sân hiển thị cạnh nhau trong carousel desktop (mỗi
+       .swiper-slide = 1 sân, book/_desktop-grid.blade.php) — dùng pseudo-element (không phải
        border) để kẻ NGẮN lại, bo tròn 2 đầu, nằm lửng lơ giữa gap (top/bottom: 38% → tự động
-       canh giữa theo chiều cao slide, chỉ chiếm ~24% ở giữa), không chạm vào tên phòng hay card
+       canh giữa theo chiều cao slide, chỉ chiếm ~24% ở giữa), không chạm vào tên sân hay card
        khung giờ ở trên/dưới. Mọi slide đều cùng kích thước (không còn peek thu nhỏ) nên chỉ cần
        1 offset cố định, canh giữa khoảng gap (spaceBetween: 16px, xem mountBookDtSwiper()). ── */
     .book-dt-swiper .swiper-slide { position: relative; }

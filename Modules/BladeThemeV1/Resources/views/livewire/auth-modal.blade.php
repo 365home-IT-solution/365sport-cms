@@ -218,7 +218,7 @@
                              padding này thì tiêu đề/phụ đề dài tràn ra hết bề ngang, ở mobile chữ
                              xuống dòng ngay dưới/đè lên nút đóng (đúng lỗi đã gặp). --}}
                         <h2 class="text-2xl font-bold text-gray-900 mb-1 pr-8">365 Home xin chào!</h2>
-                        <p class="text-sm text-gray-500 mb-5 pr-8">Đăng nhập để đặt phòng với những ưu đãi độc quyền dành cho thành viên.</p>
+                        <p class="text-sm text-gray-500 mb-5 pr-8">Đăng nhập để đặt sân với những ưu đãi độc quyền dành cho thành viên.</p>
 
                         <div class="mb-4">
                             <label class="block text-xs font-medium text-gray-500 mb-1.5 uppercase tracking-wide">Số điện thoại</label>

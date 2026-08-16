@@ -13,12 +13,12 @@ use Modules\Product\App\Models\RoomTimeSlot;
 use Modules\Promotion\App\Models\Promotion;
 
 /**
- * Gán/gỡ ưu đãi (Promotion) cho 1 khung giờ của phòng — ghi vào bảng pivot
+ * Gán/gỡ ưu đãi (Promotion) cho 1 khung giờ của sân — ghi vào bảng pivot
  * `promotion_room_time_slot` (promotion_id, room_time_slot_id, min_quantity, custom_value). Bảng
  * này tồn tại sẵn (đọc để tính giá/preview ở PromotionCalculator, PromotionForm Filament) nhưng
  * trước nay CHƯA có bất kỳ nơi nào ghi vào — đây là API ghi đầu tiên.
  *
- * Dùng chung cho cả phòng theo khung giờ (styles=1) lẫn phòng theo ngày (styles=2) vì cả 2 kiểu
+ * Dùng chung cho cả sân theo khung giờ (styles=1) lẫn sân theo ngày (styles=2) vì cả 2 kiểu
  * đều lưu đơn vị "1 khung giờ/1 ngày override" dưới dạng 1 row `room_time_slots` — chỉ khác
  * `time_slots.type` (time|date) liên kết tới.
  */
@@ -26,13 +26,13 @@ class RoomPromotionController extends Controller
 {
     /**
      * GET /api/admin/rooms/{id}/promotions
-     * Liệt kê ưu đãi đang gán cho các khung giờ của phòng này.
+     * Liệt kê ưu đãi đang gán cho các khung giờ của sân này.
      */
     public function index(Request $request, string $id): JsonResponse
     {
         $room = $this->visibleRoom($request->user(), $id);
         if (! $room) {
-            return response()->json(['message' => 'Không tìm thấy phòng.'], 404);
+            return response()->json(['message' => 'Không tìm thấy sân.'], 404);
         }
 
         $promotions = Promotion::whereHas('roomTimeSlots', fn ($q) => $q->where('room_id', $room->id))
@@ -54,7 +54,7 @@ class RoomPromotionController extends Controller
 
     /**
      * POST /api/admin/rooms/{id}/promotions
-     * Body: promotion_id (required), room_time_slot_id (required, phải thuộc đúng phòng),
+     * Body: promotion_id (required), room_time_slot_id (required, phải thuộc đúng sân),
      *       min_quantity (nullable, default 1), custom_value (nullable).
      * Gán lại (đã tồn tại cặp promotion+slot) sẽ cập nhật min_quantity/custom_value thay vì lỗi.
      */
@@ -62,7 +62,7 @@ class RoomPromotionController extends Controller
     {
         $room = $this->visibleRoom($request->user(), $id);
         if (! $room) {
-            return response()->json(['message' => 'Không tìm thấy phòng.'], 404);
+            return response()->json(['message' => 'Không tìm thấy sân.'], 404);
         }
 
         $data = $request->validate([
@@ -81,7 +81,7 @@ class RoomPromotionController extends Controller
 
         $rts = RoomTimeSlot::where('id', $data['room_time_slot_id'])->where('room_id', $room->id)->first();
         if (! $rts) {
-            return response()->json(['message' => 'room_time_slot_id không thuộc phòng này.'], 422);
+            return response()->json(['message' => 'room_time_slot_id không thuộc sân này.'], 422);
         }
 
         $pivotData = [
@@ -105,7 +105,7 @@ class RoomPromotionController extends Controller
     {
         $room = $this->visibleRoom($request->user(), $id);
         if (! $room) {
-            return response()->json(['message' => 'Không tìm thấy phòng.'], 404);
+            return response()->json(['message' => 'Không tìm thấy sân.'], 404);
         }
 
         $data = $request->validate([
@@ -114,7 +114,7 @@ class RoomPromotionController extends Controller
 
         $rts = RoomTimeSlot::where('id', $data['room_time_slot_id'])->where('room_id', $room->id)->first();
         if (! $rts) {
-            return response()->json(['message' => 'room_time_slot_id không thuộc phòng này.'], 422);
+            return response()->json(['message' => 'room_time_slot_id không thuộc sân này.'], 422);
         }
 
         /** @var User $user */

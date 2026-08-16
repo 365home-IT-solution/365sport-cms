@@ -11,8 +11,8 @@ use Modules\Product\App\Models\Product;
 
 /**
  * Dữ liệu "phân tích" ở khu vực dưới trang Tổng quan admin — lọc theo NĂM (khác KpiService,
- * vốn lọc theo kỳ/period): Xếp hạng phòng, Doanh thu theo tháng, Doanh thu từng chi nhánh
- * theo tháng, Top khách đặt phòng nhiều nhất.
+ * vốn lọc theo kỳ/period): Xếp hạng sân, Doanh thu theo tháng, Doanh thu từng chi nhánh
+ * theo tháng, Top khách đặt sân nhiều nhất.
  */
 class RankingService
 {
@@ -28,7 +28,7 @@ class RankingService
         ];
     }
 
-    /** XẾP HẠNG PHÒNG: top N phòng theo doanh thu trong năm — tái dùng logic panel "Doanh thu phòng" */
+    /** XẾP HẠNG SÂN: top N sân theo doanh thu trong năm — tái dùng logic panel "Doanh thu sân" */
     private static function roomRanking($user, int $year, ?array $branchCategoryIds, int $limit): array
     {
         $data = Dashboard::getRoomRevenueData($user, $year, $branchCategoryIds);
@@ -90,7 +90,7 @@ class RankingService
             $childIds  = Category::where('parent_id', $branch->id)->pluck('id')->toArray();
             $allCatIds = array_merge([$branch->id], $childIds);
 
-            // KHÔNG lọc bằng category_id trên đơn — cột này có thể lệch chi nhánh thật của phòng.
+            // KHÔNG lọc bằng category_id trên đơn — cột này có thể lệch chi nhánh thật của sân.
             // Lọc theo product thực sự thuộc chi nhánh qua pivot categories (xem giải thích tại
             // Dashboard::getRoomRevenueData()).
             $branchProductIds = Product::whereHas('categories', function ($q) use ($allCatIds) {
@@ -125,7 +125,7 @@ class RankingService
     }
 
     /**
-     * TOP KHÁCH ĐẶT PHÒNG NHIỀU NHẤT: gộp theo buyer_phone trong năm, sắp theo tổng số lần đặt
+     * TOP KHÁCH ĐẶT SÂN NHIỀU NHẤT: gộp theo buyer_phone trong năm, sắp theo tổng số lần đặt
      * giảm dần — cùng cách gộp số liệu với CustomerOrderCountExport (Modules/Payment/App/Exports),
      * rút gọn cho API (không xuất Excel, chỉ lấy top N).
      */
@@ -150,8 +150,8 @@ class RankingService
         }
 
         if ($branchCategoryIds !== null) {
-            // KHÔNG lọc bằng category_id trên đơn — cột này có thể lệch chi nhánh thật của phòng
-            // (ghi nhận lúc tạo đơn, không đảm bảo khớp chi nhánh sở hữu phòng). Phải lọc theo
+            // KHÔNG lọc bằng category_id trên đơn — cột này có thể lệch chi nhánh thật của sân
+            // (ghi nhận lúc tạo đơn, không đảm bảo khớp chi nhánh sở hữu sân). Phải lọc theo
             // product thực sự thuộc chi nhánh qua bảng pivot categories (xem Dashboard::getRoomRevenueData()).
             $branchProductIds = Product::whereHas('categories', function ($q) use ($branchCategoryIds) {
                 $q->whereIn('categories.id', $branchCategoryIds);

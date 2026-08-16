@@ -47,7 +47,7 @@ class EditRoomAmenityAssign extends EditRecord
 
         return $form->schema(array_merge([
             Placeholder::make('product_name')
-                ->label('Phòng')
+                ->label('Sân')
                 ->content(fn () => $this->getRecord()?->name ?? '—')
                 ->columnSpanFull(),
         ], $sections));

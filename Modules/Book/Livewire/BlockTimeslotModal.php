@@ -23,8 +23,8 @@ class BlockTimeslotModal extends Component
     public bool $showModal = false;
     public bool $isStyle2  = false;
 
-    // true khi modal được mở sẵn cho 1 phòng cụ thể (từ menu ⋮ trên thẻ phòng ở Dashboard) — ẩn
-    // dropdown "Chọn phòng" vì đã biết trước, xem openForProduct().
+    // true khi modal được mở sẵn cho 1 sân cụ thể (từ menu ⋮ trên thẻ sân ở Dashboard) — ẩn
+    // dropdown "Chọn sân" vì đã biết trước, xem openForProduct().
     public bool $lockedToProduct = false;
 
     // ---- Confirmation state ----
@@ -42,7 +42,7 @@ class BlockTimeslotModal extends Component
     public array $roomOptions     = [];
     public array $timeslotOptions = [];
 
-    // Toàn bộ phòng (id/name/branch_id) nạp 1 lần, đẩy xuống Alpine để lọc theo chi nhánh NGAY
+    // Toàn bộ sân (id/name/branch_id) nạp 1 lần, đẩy xuống Alpine để lọc theo chi nhánh NGAY
     // trên trình duyệt — chọn chi nhánh không cần round-trip Livewire nên không phải chờ.
     public array $allRooms = [];
 
@@ -82,8 +82,8 @@ class BlockTimeslotModal extends Component
         return $query->pluck('name', 'id')->toArray();
     }
 
-    // Nạp toàn bộ phòng kèm branch_id đã resolve sẵn (parent category, giống cách
-    // RoomCardsService xác định chi nhánh của phòng) — Alpine dùng mảng này để lọc theo chi nhánh
+    // Nạp toàn bộ sân kèm branch_id đã resolve sẵn (parent category, giống cách
+    // RoomCardsService xác định chi nhánh của sân) — Alpine dùng mảng này để lọc theo chi nhánh
     // ngay trên trình duyệt, không cần gọi lại server mỗi lần đổi chi nhánh.
     private function buildAllRooms(): array
     {
@@ -135,10 +135,10 @@ class BlockTimeslotModal extends Component
         $this->showModal = true;
     }
 
-    // Mở sẵn modal cho 1 phòng cụ thể — gọi từ menu ⋮ trên thẻ phòng ở Dashboard (dispatch event
+    // Mở sẵn modal cho 1 sân cụ thể — gọi từ menu ⋮ trên thẻ sân ở Dashboard (dispatch event
     // 'open-block-timeslot-modal-for-room' kèm productId, xem rcOpenRoomMenu() trong
     // _scripts.blade.php). Khác openModal() ở chỗ KHÔNG để trống product_id, tự load luôn khung
-    // giờ/danh sách đang khóa của đúng phòng đó — admin không cần chọn lại từ đầu.
+    // giờ/danh sách đang khóa của đúng sân đó — admin không cần chọn lại từ đầu.
     #[On('open-block-timeslot-modal-for-room')]
     public function openForProduct($productId): void
     {
@@ -237,7 +237,7 @@ class BlockTimeslotModal extends Component
         }
     }
 
-    // Reactive: chọn phòng → load khung giờ + blocked list
+    // Reactive: chọn sân → load khung giờ + blocked list
     public function updatedProductId(): void
     {
         $this->timeslot_ids       = [];
@@ -278,7 +278,7 @@ class BlockTimeslotModal extends Component
                 'date_from'  => 'required|date',
                 'date_to'    => 'required|date|after_or_equal:date_from',
             ], [
-                'product_id.required'    => 'Vui lòng chọn phòng.',
+                'product_id.required'    => 'Vui lòng chọn sân.',
                 'date_from.required'     => 'Vui lòng chọn ngày bắt đầu.',
                 'date_to.required'       => 'Vui lòng chọn ngày kết thúc.',
                 'date_to.after_or_equal' => 'Ngày kết thúc phải >= ngày bắt đầu.',
@@ -323,7 +323,7 @@ class BlockTimeslotModal extends Component
             'date_from'    => 'required|date',
             'date_to'      => 'required|date|after_or_equal:date_from',
         ], [
-            'product_id.required'    => 'Vui lòng chọn phòng.',
+            'product_id.required'    => 'Vui lòng chọn sân.',
             'timeslot_ids.required'  => 'Vui lòng chọn ít nhất 1 khung giờ.',
             'timeslot_ids.min'       => 'Vui lòng chọn ít nhất 1 khung giờ.',
             'date_from.required'     => 'Vui lòng chọn ngày bắt đầu.',
@@ -411,7 +411,7 @@ class BlockTimeslotModal extends Component
             ->send();
     }
 
-    // Xóa 1 khoảng khóa của phòng styles=2
+    // Xóa 1 khoảng khóa của sân styles=2
     public function removeBlockedRange(int $index): void
     {
         $product = Product::find($this->product_id);
@@ -553,7 +553,7 @@ class BlockTimeslotModal extends Component
         );
     }
 
-    // Xóa tất cả khung giờ bị khóa của phòng đang chọn
+    // Xóa tất cả khung giờ bị khóa của sân đang chọn
     public function clearAllBlocked(): void
     {
         if (!$this->product_id) return;

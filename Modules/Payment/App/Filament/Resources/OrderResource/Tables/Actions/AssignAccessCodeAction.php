@@ -33,7 +33,7 @@ class AssignAccessCodeAction
                 if ($product->has_manual_lock) {
                     return true;
                 }
-                // Phòng đã gán lock_id nhưng chi nhánh KHÔNG CÒN tài khoản TTLock đang hoạt động
+                // Sân đã gán lock_id nhưng chi nhánh KHÔNG CÒN tài khoản TTLock đang hoạt động
                 // (vd tài khoản bị vô hiệu hóa sau khi đã gán khóa) — không thể cấp mã thật sự
                 // được nữa, ẩn nút thay vì hiện ra rồi báo lỗi khi bấm.
                 return $product->lock_id !== null && TTLockService::hasAccountForCategory($record->category_id);
@@ -61,7 +61,7 @@ class AssignAccessCodeAction
                 $product  = $item?->product;
                 $fields   = [];
 
-                // ── Case: Phòng mật khẩu thủ công ──────────────────────────
+                // ── Case: Sân mật khẩu thủ công ──────────────────────────
                 if ($product && $product->has_manual_lock) {
                     $pwdAnchorDate = $record->paid_at ?? $record->deposit_paid_at ?? $record->created_at;
                     $manualPwd     = ManualLockPassword::getForProductAndDate($product, $pwdAnchorDate);
@@ -72,11 +72,11 @@ class AssignAccessCodeAction
                             $lines[] = "🚪 Mã cổng: <b style='font-size:20px;font-family:monospace;letter-spacing:2px'>{$manualPwd->gate_password}</b>";
                         }
                         if ($manualPwd->room_password) {
-                            $lines[] = "🏠 Mã phòng: <b style='font-size:20px;font-family:monospace;letter-spacing:2px'>{$manualPwd->room_password}</b>";
+                            $lines[] = "🏠 Mã sân: <b style='font-size:20px;font-family:monospace;letter-spacing:2px'>{$manualPwd->room_password}</b>";
                         }
 
                         $fields[] = Placeholder::make('manual_pwd_info')
-                            ->label('Mật khẩu hiện tại cho phòng')
+                            ->label('Mật khẩu hiện tại cho sân')
                             ->content(new HtmlString(
                                 '<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:14px 16px;">'
                                 . '<div style="line-height:2.4;">' . implode('<br>', $lines) . '</div>'
@@ -88,9 +88,9 @@ class AssignAccessCodeAction
                             ->label('')
                             ->content(new HtmlString(
                                 '<div style="background:#fef9c3;border:1px solid #fde047;border-radius:8px;padding:14px 16px;">'
-                                . '⚠️ Chưa có mật khẩu thủ công nào được cấu hình cho phòng <b>'
+                                . '⚠️ Chưa có mật khẩu thủ công nào được cấu hình cho sân <b>'
                                 . htmlspecialchars($product->name ?? '')
-                                . '</b>.<br><span style="font-size:12px;color:#6b7280">Vui lòng thêm trong phần quản lý phòng trước.</span>'
+                                . '</b>.<br><span style="font-size:12px;color:#6b7280">Vui lòng thêm trong phần quản lý sân trước.</span>'
                                 . '</div>'
                             ));
                     }
@@ -122,10 +122,10 @@ class AssignAccessCodeAction
                     $lockInfo = $product->lock_id
                         ? "🔑 Lock check-in: <code>{$product->lock_id}</code>"
                           . ($product->lock_id_checkout ? " / Lock check-out: <code>{$product->lock_id_checkout}</code>" : '')
-                        : '⚠️ Phòng <b>chưa có TTLock</b> — sẽ dùng mã từ danh sách thủ công.';
+                        : '⚠️ Sân <b>chưa có TTLock</b> — sẽ dùng mã từ danh sách thủ công.';
 
                     $fields[] = Placeholder::make('product_info')
-                        ->label('Phòng & Khóa')
+                        ->label('Sân & Khóa')
                         ->content(new HtmlString(
                             '<div style="font-size:13px;line-height:1.6;">'
                             . "<div>🏠 <b>{$product->name}</b></div>"
@@ -163,15 +163,15 @@ class AssignAccessCodeAction
                 $checkoutDate = $data['valid_until'] ?? $record->items->max('checkout_date');
                 $product      = $item?->product;
 
-                // ── Case: Phòng mật khẩu thủ công ──────────────────────────
+                // ── Case: Sân mật khẩu thủ công ──────────────────────────
                 if ($product && $product->has_manual_lock) {
                     $pwdAnchorDate = $record->paid_at ?? $record->deposit_paid_at ?? $record->created_at;
                     $manualPwd = ManualLockPassword::getForProductAndDate($product, $pwdAnchorDate);
 
                     if (!$manualPwd || (!$manualPwd->gate_password && !$manualPwd->room_password)) {
                         Notification::make()
-                            ->title('Chưa có mật khẩu cho phòng này')
-                            ->body('Vui lòng thêm mật khẩu thủ công trong phần quản lý phòng trước.')
+                            ->title('Chưa có mật khẩu cho sân này')
+                            ->body('Vui lòng thêm mật khẩu thủ công trong phần quản lý sân trước.')
                             ->warning()
                             ->send();
                         return;
@@ -179,7 +179,7 @@ class AssignAccessCodeAction
 
                     $parts = [];
                     if ($manualPwd->gate_password) $parts[] = 'Mã cổng: ' . $manualPwd->gate_password;
-                    if ($manualPwd->room_password) $parts[] = 'Mã phòng: ' . $manualPwd->room_password;
+                    if ($manualPwd->room_password) $parts[] = 'Mã sân: ' . $manualPwd->room_password;
 
                     $notifTitle = "Đơn #{$record->order_code}: Mã cổng đã được cấp";
                     $notifBody  = implode(' | ', $parts);

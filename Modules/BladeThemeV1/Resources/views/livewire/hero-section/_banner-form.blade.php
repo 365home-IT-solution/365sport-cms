@@ -237,7 +237,7 @@
 
                     <div class="relative z-10 self-center w-px h-8 bg-gray-200 shrink-0"></div>
 
-                    {{-- Thời gian — tách 2 cột Nhận phòng / Trả phòng (giống mẫu tham khảo) nhưng vẫn
+                    {{-- Thời gian — tách 2 cột Nhận sân / Trả sân (giống mẫu tham khảo) nhưng vẫn
                          cùng 1 data-field="date" bọc ngoài để highlight-slider đo trọn khối này, và
                          cả 2 nút đều mở chung 1 dropdown lịch (x-ref="dateDropdownDesktop") như cũ —
                          không tách rời logic chọn ngày, chỉ tách hiển thị. --}}
@@ -250,7 +250,7 @@
                             </svg>
                             <span class="min-w-0">
                                 <span :class="open ? 'text-[var(--color-primary)]' : 'text-gray-900'"
-                                    class="block text-sm font-bold leading-none transition-colors duration-200 whitespace-nowrap">Nhận phòng</span>
+                                    class="block text-sm font-bold leading-none transition-colors duration-200 whitespace-nowrap">Nhận sân</span>
                                 <span class="block text-sm font-medium mt-1 truncate"
                                     :class="displayCheckIn ? 'text-gray-900' : 'text-gray-400'"
                                     x-text="displayCheckIn || '{{ $checkIn ?: 'Bất kỳ' }}'"></span>
@@ -264,7 +264,7 @@
                             </svg>
                             <span class="min-w-0">
                                 <span :class="open ? 'text-[var(--color-primary)]' : 'text-gray-900'"
-                                    class="block text-sm font-bold leading-none transition-colors duration-200 whitespace-nowrap">Trả phòng</span>
+                                    class="block text-sm font-bold leading-none transition-colors duration-200 whitespace-nowrap">Trả sân</span>
                                 <span class="block text-sm font-medium mt-1 truncate"
                                     :class="displayCheckOut ? 'text-gray-900' : 'text-gray-400'"
                                     x-text="displayCheckOut || '{{ $checkOut ?: 'Bất kỳ' }}'"></span>
@@ -437,10 +437,10 @@
                                 </div>
                             </div>
 
-                            {{-- Badge giờ nhận / trả phòng --}}
+                            {{-- Badge giờ nhận / trả sân --}}
                             <div class="border-l border-gray-100 pl-4 space-y-4">
                                 <div>
-                                    <p class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">Giờ nhận phòng</p>
+                                    <p class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">Giờ nhận sân</p>
                                     <div class="flex flex-wrap gap-2">
                                         <template x-for="h in hourBadges" :key="'in-' + h">
                                             <button type="button" x-show="availableStartHourBadges.includes(h)"
@@ -455,7 +455,7 @@
                                     </div>
                                 </div>
                                 <div>
-                                    <p class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">Giờ trả phòng</p>
+                                    <p class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">Giờ trả sân</p>
                                     <div class="flex flex-wrap gap-2">
                                         <template x-for="h in hourBadges" :key="'out-' + h">
                                             <button type="button" x-show="availableEndHourBadges.includes(h)"

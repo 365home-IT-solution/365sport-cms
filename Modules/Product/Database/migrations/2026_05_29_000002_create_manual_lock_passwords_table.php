@@ -12,7 +12,7 @@ return new class extends Migration
             $table->id();
             $table->string('name')->nullable()->comment('Tên nhóm/ghi chú cho bộ mật khẩu này');
             $table->string('gate_password')->comment('Mật khẩu cổng (Pass Cổng)');
-            $table->string('room_password')->nullable()->comment('Mật khẩu phòng (Pass Phòng)');
+            $table->string('room_password')->nullable()->comment('Mật khẩu sân (Pass Sân)');
             $table->unsignedBigInteger('category_id')->nullable()->comment('Chi nhánh');
             $table->text('notes')->nullable();
             $table->timestamps();

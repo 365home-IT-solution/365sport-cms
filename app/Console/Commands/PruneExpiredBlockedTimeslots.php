@@ -10,7 +10,7 @@ use Modules\Product\App\Models\RoomTimeSlot;
 // Tự động gỡ khoá dài hạn (BlockTimeslotModal/Dashboard "Lịch" — RoomTimeSlot.settings
 // ['blocked_dates']) cho các ngày đã QUA GIỜ KẾT THÚC của đúng khung giờ đó — vd khoá khung giờ
 // 10:30-13:20 ngày 08/08/2026 thì sau 13:20 cùng ngày, mục khoá đó tự biến mất, không cần admin
-// tự tay mở khoá cho ngày đã qua (không còn ý nghĩa chặn đặt phòng nữa). Cùng cách tổ chức với
+// tự tay mở khoá cho ngày đã qua (không còn ý nghĩa chặn đặt sân nữa). Cùng cách tổ chức với
 // ReleaseExpiredTimeslotHolds — chạy định kỳ qua Kernel::schedule().
 class PruneExpiredBlockedTimeslots extends Command
 {

@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>Tra cứu đặt phòng - {{ $order->order_code }}</title>
+    <title>Tra cứu đặt sân - {{ $order->order_code }}</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
@@ -28,9 +28,33 @@
                     <span class="text-2xl">💰</span>
                     <div>
                         <p class="font-semibold text-amber-800">Thanh toán cọc thành công!</p>
-                        <p class="text-sm text-amber-700 mt-0.5">Vui lòng thanh toán số tiền còn lại khi nhận phòng hoặc
+                        <p class="text-sm text-amber-700 mt-0.5">Vui lòng thanh toán số tiền còn lại khi nhận sân hoặc
                             qua link bên dưới.</p>
                     </div>
+                </div>
+                @endif
+
+                {{-- Kết quả huỷ đơn (xem BladeThemeV1Controller::cancelBooking()) --}}
+                @if(session('cancel_success') !== null)
+                <div class="mb-4 p-4 rounded-xl bg-green-50 border border-green-200 flex items-start gap-3">
+                    <span class="text-2xl">✅</span>
+                    <div>
+                        <p class="font-semibold text-green-800">Đã huỷ đơn thành công.</p>
+                        <p class="text-sm text-green-700 mt-0.5">
+                            @if (session('cancel_success') > 0)
+                                Số tiền hoàn: <strong>{{ number_format(session('cancel_success'), 0, ',', '.') }}đ</strong> —
+                                chúng tôi sẽ liên hệ chuyển khoản trong thời gian sớm nhất.
+                            @else
+                                Đơn chưa phát sinh khoản hoàn nào.
+                            @endif
+                        </p>
+                    </div>
+                </div>
+                @endif
+                @if(session('cancel_error'))
+                <div class="mb-4 p-4 rounded-xl bg-red-50 border border-red-200 flex items-start gap-3">
+                    <span class="text-2xl">⚠️</span>
+                    <p class="text-sm text-red-700">{{ session('cancel_error') }}</p>
                 </div>
                 @endif
 
@@ -78,14 +102,18 @@
                     class="bg-white mb-5 rounded-2xl border border-gray-200 shadow-[0_8px_30px_rgb(0,0,0,0.04)] overflow-hidden">
                     <div class="px-6 py-5 border-b border-gray-100 flex justify-between items-start bg-gray-50/50">
                         <div>
-                            <p class="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Mã đặt phòng</p>
+                            <p class="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Mã đặt sân</p>
                             <div class="flex items-center gap-2">
                                 <span class="text-xl font-semibold tracking-tight text-gray-900">{{ $order->order_code }}</span>
                             </div>
                             <span class="text-base font-normal italic tracking-tight text-gray-600">Dear: {{ $buyerName }}</span>
                         </div>
                         <div class="flex flex-col items-end">
-                            @if($isDepositPaid)
+                            @if($order->isCancelled())
+                            <span class="inline-flex items-center gap-1 px-3 py-2 rounded-full text-gray-600 text-xs font-medium border border-gray-300 bg-gray-100">
+                                    🚫 Đã huỷ
+                                </span>
+                            @elseif($isDepositPaid)
                             <span class="inline-flex items-center gap-1 px-3 py-2 rounded-full text-amber-700 text-xs font-medium border border-amber-200" style="background-color: rgba(255,251,235);">
                                     💰 Đã cọc {{ $order->deposit_percent }}% — Chờ thanh toán còn lại
                                 </span>
@@ -96,10 +124,68 @@
                                 </span>
                             @endif
                             <span class="text-sm text-gray-400 mt-1">Đặt ngày {{ $create_at }}</span>
+
+                            {{-- Khách tự huỷ đơn/xin hoàn tiền — chỉ hiện khi còn huỷ được (xem
+                                 Order::canBeCancelledByCustomer(): đã thanh toán, chưa huỷ, chưa
+                                 tới giờ nhận sân). --}}
+                            @if($order->canBeCancelledByCustomer())
+                            <div x-data="{ confirming: false }" class="mt-2">
+                                <button type="button" @click="confirming = true"
+                                    class="text-xs font-medium text-red-600 hover:text-red-700 underline underline-offset-2">
+                                    Huỷ đơn / xin hoàn tiền
+                                </button>
+                                <div x-show="confirming" x-cloak
+                                    class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+                                    <div @click.outside="confirming = false" class="bg-white rounded-2xl p-5 max-w-sm w-full shadow-xl">
+                                        <p class="font-semibold text-gray-900 mb-1">Xác nhận huỷ đơn?</p>
+                                        <p class="text-sm text-gray-600 mb-4">
+                                            Bạn sẽ được hoàn <strong>{{ number_format($order->computeCustomerCancelRefundAmount(), 0, ',', '.') }}đ</strong>
+                                            (70% số tiền đã thanh toán, trừ 10% phí xử lý). Thao tác này không thể hoàn tác.
+                                        </p>
+                                        <form method="POST" action="{{ route('booking.cancel', ['code' => $order->order_code]) }}" class="flex gap-2">
+                                            @csrf
+                                            <button type="button" @click="confirming = false"
+                                                class="flex-1 px-3 py-2 rounded-lg border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50">
+                                                Đóng
+                                            </button>
+                                            <button type="submit"
+                                                class="flex-1 px-3 py-2 rounded-lg bg-red-600 text-white text-sm font-semibold hover:bg-red-700">
+                                                Xác nhận huỷ
+                                            </button>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                            @endif
                         </div>
                     </div>
 
                     <div class="p-6">
+                        @if ($isPackagePurchase)
+                        {{-- Đơn mua gói nhiều buổi — không có khung giờ/mã cổng thật để hiện, thay
+                             bằng thẻ tóm tắt gói vừa kích hoạt (xem BladeThemeV1Controller::
+                             bookingDetail(), $customerPackage). --}}
+                        <div class="bg-emerald-50 border border-emerald-200 rounded-xl p-5 flex items-start gap-3">
+                            <span class="text-3xl">🎫</span>
+                            <div class="flex-1 min-w-0">
+                                <p class="text-lg font-semibold text-emerald-800">
+                                    Gói "{{ $customerPackage->name ?? $order->description }}" đã được kích hoạt!
+                                </p>
+                                @if ($customerPackage)
+                                    <p class="text-sm text-emerald-700 mt-1">
+                                        Còn <strong>{{ $customerPackage->sessions_remaining }}</strong>/{{ $customerPackage->sessions_total }} buổi
+                                        cho sân <strong>{{ $customerPackage->product?->name }}</strong>.
+                                        @if ($customerPackage->expires_at)
+                                            Hết hạn {{ $customerPackage->expires_at->format('d/m/Y') }}.
+                                        @endif
+                                    </p>
+                                    <p class="text-xs text-emerald-600 mt-2">
+                                        Số điện thoại <strong>{{ $customerPackage->buyer_phone }}</strong> — nhập đúng số này khi đặt sân để tự động dùng gói thay vì trả tiền.
+                                    </p>
+                                @endif
+                            </div>
+                        </div>
+                        @else
                         @foreach($order->items as $item)
                         @php
                         $itemProduct = $item->product;
@@ -163,7 +249,7 @@
                                 <div class="absolute top-1/2 left-0 w-full h-px bg-gray-100" style="z-index: -10;">
                                 </div>
                                 <div class="flex flex-col gap-1 pr-4 bg-white">
-                                    <span class="text-xs font-medium text-gray-400 uppercase tracking-wide">Nhận phòng</span>
+                                    <span class="text-xs font-medium text-gray-400 uppercase tracking-wide">Nhận sân</span>
                                     <div class="flex items-center gap-2">
                                         <x-filament::icon-button icon="heroicon-m-arrow-right-end-on-rectangle"
                                             color="black" size="xs" />
@@ -176,7 +262,7 @@
                                         size="sm" />
                                 </div>
                                 <div class="flex flex-col gap-1 pl-4 items-end bg-white">
-                                    <span class="text-xs font-medium text-gray-400 uppercase tracking-wide">Trả phòng</span>
+                                    <span class="text-xs font-medium text-gray-400 uppercase tracking-wide">Trả sân</span>
                                     <div class="flex items-center gap-2">
                                         <span class="text-sm sm:text-base text-center sm:text-left font-semibold text-gray-900">{{ $checkOut }}</span>
                                         <x-filament::icon-button icon="heroicon-m-arrow-right-start-on-rectangle"
@@ -206,7 +292,7 @@
                                 </div>
                             </div>
                             @elseif($firstProduct && $firstProduct->has_manual_lock)
-                            {{-- Phòng khóa thủ công: hiển thị pass cổng + pass phòng --}}
+                            {{-- Sân khóa thủ công: hiển thị pass cổng + pass sân --}}
                             <div class="flex items-start gap-3 flex-1 flex-wrap">
                                 <div
                                     class="w-10 h-10 bg-white rounded-lg border border-gray-200 flex items-center justify-center text-gray-700 shadow-sm shrink-0">
@@ -220,14 +306,14 @@
                                     </div>
                                     @if($manualLockPassword->room_password)
                                     <div class="border-l border-dashed border-blue-400 pl-4">
-                                        <p class="text-xs font-semibold uppercase tracking-wider text-gray-400">Pass Phòng</p>
+                                        <p class="text-xs font-semibold uppercase tracking-wider text-gray-400">Pass Sân</p>
                                         <span class="text-lg font-bold font-mono tracking-widest text-gray-900">{{ $manualLockPassword->room_password }}</span>
                                     </div>
                                     @endif
                                 </div>
                                 @else
                                 <div>
-                                    <p class="text-sm text-gray-500 mt-0.5">Vui lòng liên hệ để nhận mật khẩu phòng</p>
+                                    <p class="text-sm text-gray-500 mt-0.5">Vui lòng liên hệ để nhận mật khẩu sân</p>
                                 </div>
                                 @endif
                             </div>
@@ -273,7 +359,7 @@
                                     <x-filament::icon-button icon="heroicon-m-map-pin" color="black" size="sm" />
                                 </div>
                                 <div>
-                                    <p class="text-sm text-gray-500 truncate mt-0.5">Địa chỉ phòng</p>
+                                    <p class="text-sm text-gray-500 truncate mt-0.5">Địa chỉ sân</p>
                                     <span class="text-sm font-semibold text-gray-900">{{ $branchAddress }}</span>
                                 </div>
                             </div>
@@ -283,6 +369,7 @@
                                 Xem bản đồ
                             </a>
                         </div>
+                        @endif {{-- /$isPackagePurchase --}}
 
                         <div style="padding-top: 1.5rem" class="mt-8 border-t border-gray-100 space-y-3">
                             <div class="flex justify-between text-sm">
@@ -306,7 +393,7 @@
                             $pct2 = (int)$order->deposit_percent;
                             @endphp
                             <div class="flex justify-between text-sm">
-                                <span class="text-gray-500">Tổng tiền phòng</span>
+                                <span class="text-gray-500">Tổng tiền sân</span>
                                 <span class="font-semibold text-gray-900">{{ number_format($fullAmt2, 0, ',', '.') }}đ</span>
                             </div>
                             @if($isDepositPaid)
@@ -415,7 +502,7 @@
                                 class="text-blue-700 rounded-lg p-3 flex gap-3 items-start mt-2">
                                 <x-filament::icon-button icon="heroicon-c-information-circle" color="white" size="sm" />
                                 <p class="text-xs leading-relaxed">Bạn đã thanh toán 100%. Vui lòng check-in đúng giờ và
-                                    mã mở khóa khi đến nhận phòng. Chúc quý khách có trải nghiệm tuyệt vời tại 365Home!
+                                    mã mở khóa khi đến nhận sân. Chúc quý khách có trải nghiệm tuyệt vời tại 365Home!
                                 </p>
                             </div>
                             @endif

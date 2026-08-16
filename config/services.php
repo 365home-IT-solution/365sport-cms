@@ -70,7 +70,7 @@ return [
         'bot_token'       => env('TELEGRAM_BOT_TOKEN'),
         'chat_id'         => env('TELEGRAM_CHAT_ID'),
         'lock_chat_id'    => env('TELEGRAM_LOCK_CHAT_ID'),    // Nhóm check-in/check-out riêng
-        'deposit_chat_id' => env('TELEGRAM_DEPOSIT_CHAT_ID'), // Nhóm nhận thông báo cọc phòng (style=2)
+        'deposit_chat_id' => env('TELEGRAM_DEPOSIT_CHAT_ID'), // Nhóm nhận thông báo cọc sân (style=2)
     ],
 
     /*

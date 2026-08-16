@@ -14,7 +14,7 @@ return new class extends Migration
 
         Schema::table('products', function (Blueprint $table) {
             // available: sẵn sàng nhận đặt mới | cleaning: hết giờ đặt, đang chờ nhân viên dọn |
-            // maintenance: đang bảo trì, tạm khóa khỏi vòng quay đặt phòng (không tự động dọn).
+            // maintenance: đang bảo trì, tạm khóa khỏi vòng quay đặt sân (không tự động dọn).
             $table->enum('housekeeping_status', ['available', 'cleaning', 'maintenance'])
                 ->default('available')
                 ->after('is_in_stock');

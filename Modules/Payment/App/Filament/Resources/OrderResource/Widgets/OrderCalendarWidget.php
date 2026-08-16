@@ -159,7 +159,7 @@ class OrderCalendarWidget extends CalendarWidget
                <rect width="18" height="18" x="3" y="4" rx="2"/>
                <path d="M3 10h18"/>
            </svg>
-           <span style="font-weight: 600; font-size: 1.125rem;">Các đơn đặt phòng - Calendar 365Home</span>
+           <span style="font-weight: 600; font-size: 1.125rem;">Các đơn đặt sân - Calendar 365Home</span>
         </div>');
     }
 
@@ -365,8 +365,8 @@ class OrderCalendarWidget extends CalendarWidget
                                     ]),
                             ]),
 
-                        // TAB 2: THÔNG TIN ĐẶT PHÒNG
-                        Tabs\Tab::make('Thông tin đơn đặt phòng')
+                        // TAB 2: THÔNG TIN ĐẶT SÂN
+                        Tabs\Tab::make('Thông tin đơn đặt sân')
                             ->icon('heroicon-m-home-modern')
                             ->schema([
                                 Section::make('Mã cổng')
@@ -389,7 +389,7 @@ class OrderCalendarWidget extends CalendarWidget
                                     ->collapsible(),
 
                                 Grid::make(2)->schema([
-                                    Section::make('Chi tiết đặt phòng')
+                                    Section::make('Chi tiết đặt sân')
                                         ->icon('heroicon-m-calendar-days')
                                         ->iconColor('primary')
                                         ->schema([
@@ -409,7 +409,7 @@ class OrderCalendarWidget extends CalendarWidget
                                                 ->schema([
                                                     Grid::make(2)->schema([
                                                         Select::make('product_id')
-                                                            ->label('Phòng')
+                                                            ->label('Sân')
                                                             ->options(Product::query()->pluck('name', 'id'))
                                                             ->disabled(),
 
@@ -428,20 +428,20 @@ class OrderCalendarWidget extends CalendarWidget
 
                                                     Grid::make(2)->schema([
                                                         DateTimePicker::make('checkin_date')
-                                                            ->label('Ngày & Giờ nhận phòng')
+                                                            ->label('Ngày & Giờ nhận sân')
                                                             ->displayFormat('d/m/Y H:i')
                                                             ->disabled(),
 
                                                         DateTimePicker::make('checkout_date')
-                                                            ->label('Ngày & Giờ trả phòng')
+                                                            ->label('Ngày & Giờ trả sân')
                                                             ->displayFormat('d/m/Y H:i')
                                                             ->disabled(),
                                                     ]),
                                                 ])
                                                 ->columns(2)
-                                                ->label('Danh sách phòng đặt')
+                                                ->label('Danh sách sân đặt')
                                                 ->collapsible()
-                                                ->itemLabel(fn($state) => !empty($state['name']) ? $state['name'] : 'Phòng')
+                                                ->itemLabel(fn($state) => !empty($state['name']) ? $state['name'] : 'Sân')
                                                 ->addable(false)
                                                 ->deletable(false)
                                                 ->reorderable(false),
@@ -576,7 +576,7 @@ class OrderCalendarWidget extends CalendarWidget
                 'resourceTimelineMonth' => 'Timeline tháng',
             ],
             'allDayText' => 'Cả ngày',
-            'noEventsText' => 'Không có đơn đặt phòng',
+            'noEventsText' => 'Không có đơn đặt sân',
             'dayHeaderFormat' => [
                 'weekday' => 'short',
                 'day' => 'numeric',

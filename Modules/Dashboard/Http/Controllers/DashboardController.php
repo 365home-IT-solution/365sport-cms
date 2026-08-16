@@ -20,7 +20,7 @@ class DashboardController extends Controller
 
     /**
      * GET /api/admin/dashboard/kpi-stats
-     * Thống kê BOOKING dạng thẻ tổng quan: Tổng đơn đặt phòng, Đơn hoàn thành, Doanh thu
+     * Thống kê BOOKING dạng thẻ tổng quan: Tổng đơn đặt sân, Đơn hoàn thành, Doanh thu
      * (thực thu), Chuyển khoản, Tiền mặt, Chuyển khoản - Đặt cọc, Tiền mặt - Đặt cọc — mỗi số
      * kèm %delta so với kỳ trước (xem KpiService::getData()).
      *
@@ -52,8 +52,8 @@ class DashboardController extends Controller
 
     /**
      * GET /api/admin/dashboard/rankings
-     * Dữ liệu phân tích theo NĂM (khác kpi-stats — lọc theo period): Xếp hạng phòng, Top khách
-     * đặt phòng nhiều nhất, Doanh thu theo tháng, Doanh thu từng chi nhánh theo tháng.
+     * Dữ liệu phân tích theo NĂM (khác kpi-stats — lọc theo period): Xếp hạng sân, Top khách
+     * đặt sân nhiều nhất, Doanh thu theo tháng, Doanh thu từng chi nhánh theo tháng.
      * (xem RankingService::getData()).
      *
      * Query params:
@@ -81,7 +81,7 @@ class DashboardController extends Controller
 
     /**
      * GET /api/admin/dashboard/occupancy
-     * Công suất phòng (tỉ lệ lấp đầy): % tổng trong kỳ + chuỗi theo ngày/tháng để vẽ biểu đồ
+     * Công suất sân (tỉ lệ lấp đầy): % tổng trong kỳ + chuỗi theo ngày/tháng để vẽ biểu đồ
      * đường, kèm breakdown theo từng chi nhánh (xem OccupancyService::getData()).
      *
      * Query params:
@@ -112,7 +112,7 @@ class DashboardController extends Controller
     /**
      * GET /api/admin/dashboard/overview
      * Trả về toàn bộ số liệu tổng quan admin — 7 block, MỖI block lọc kỳ ĐỘC LẬP với nhau:
-     *   Kinh doanh, Lễ tân, Đặt phòng, Công suất phòng, Top 5 công suất, Doanh thu, Top 5 doanh thu.
+     *   Kinh doanh, Lễ tân, Đặt sân, Công suất sân, Top 5 công suất, Doanh thu, Top 5 doanh thu.
      * (Lễ tân: 2 số "có khách"/"ở quá giờ" luôn là ảnh chụp tức thời, không đổi theo kỳ chọn.)
      *
      * Giá trị period hợp lệ cho mọi block:
@@ -123,8 +123,8 @@ class DashboardController extends Controller
      *  - branch_id: id chi nhánh (category_type=product, parent_id=null); bỏ trống = tất cả chi nhánh được phép xem
      *  - business_period,      business_start,      business_end      (mặc định: today)      — Kinh doanh
      *  - front_desk_period,    front_desk_start,    front_desk_end    (mặc định: today)      — Lễ tân
-     *  - booking_period,       booking_start,       booking_end       (mặc định: today)      — Đặt phòng
-     *  - occupancy_period,     occupancy_start,     occupancy_end     (mặc định: this_month) — Công suất phòng
+     *  - booking_period,       booking_start,       booking_end       (mặc định: today)      — Đặt sân
+     *  - occupancy_period,     occupancy_start,     occupancy_end     (mặc định: this_month) — Công suất sân
      *  - occupancy_top_period, occupancy_top_start, occupancy_top_end (mặc định: this_month) — Top 5 công suất
      *  - revenue_period,       revenue_start,       revenue_end       (mặc định: this_month) — Doanh thu
      *  - revenue_top_period,   revenue_top_start,   revenue_top_end   (mặc định: this_month) — Top 5 doanh thu

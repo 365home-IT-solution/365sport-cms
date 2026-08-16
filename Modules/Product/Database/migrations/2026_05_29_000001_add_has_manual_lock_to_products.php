@@ -12,7 +12,7 @@ return new class extends Migration
             $table->boolean('has_manual_lock')
                 ->default(false)
                 ->after('lock_id_checkout')
-                ->comment('Phòng dùng mật khẩu thủ công thay vì khóa TTLock');
+                ->comment('Sân dùng mật khẩu thủ công thay vì khóa TTLock');
         });
     }
 

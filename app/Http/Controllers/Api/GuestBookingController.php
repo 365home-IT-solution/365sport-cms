@@ -29,7 +29,7 @@ class GuestBookingController extends Controller
 {
     // ══════════════════════════════════════════════════════════════════════
     // POST /api/guest/orders
-    // Đặt phòng cho khách không đăng nhập (slot hoặc daily)
+    // Đặt sân cho khách không đăng nhập (slot hoặc daily)
     // ══════════════════════════════════════════════════════════════════════
 
     public function store(Request $request): JsonResponse
@@ -107,7 +107,7 @@ class GuestBookingController extends Controller
             return $ageError;
         }
 
-        // ── 2. Load phòng ─────────────────────────────────────────────────────
+        // ── 2. Load sân ─────────────────────────────────────────────────────
         $room = Product::where('id', $request->input('room_id'))
             ->where('is_activated', true)
             ->with([
@@ -119,7 +119,7 @@ class GuestBookingController extends Controller
             ->first();
 
         if (! $room) {
-            return response()->json(['message' => 'Phòng không tồn tại hoặc đã ngừng hoạt động.'], 404);
+            return response()->json(['message' => 'Sân không tồn tại hoặc đã ngừng hoạt động.'], 404);
         }
 
         // ── 3. Xây dựng items ─────────────────────────────────────────────────
@@ -134,7 +134,7 @@ class GuestBookingController extends Controller
 
         // ── 3.5 CCCD người đi cùng (bắt buộc khi có khung giờ qua đêm) ─────────
         // Luật Cư trú (hiệu lực 01/07/2026) yêu cầu khai báo lưu trú ĐỦ TỪNG NGƯỜI khi lưu trú
-        // qua đêm — không chỉ người đặt phòng chính (cccd_front/cccd_back/cccd_data ở trên).
+        // qua đêm — không chỉ người đặt sân chính (cccd_front/cccd_back/cccd_data ở trên).
         // Không còn chặn cứng ở 2 khách nữa — khách 2..guest_count đều cần CCCD, gửi lên qua
         // guests[{index}][front]/guests[{index}][back] (index bắt đầu từ 2).
         $hasOvernight  = $rtsCollection->contains(fn ($rts) => (bool) $rts->over_night);
@@ -263,10 +263,10 @@ class GuestBookingController extends Controller
         }
 
         // Dữ liệu đối tác cũ (vd 365home) tổ chức category 2 CẤP: chi nhánh thật (parent_id NULL)
-        // → danh mục phòng con CÙNG TÊN với phòng (parent_id = chi nhánh) — Product được gán
+        // → danh mục sân con CÙNG TÊN với sân (parent_id = chi nhánh) — Product được gán
         // categorizable vào danh mục CON đó, không phải thẳng vào chi nhánh. Nếu dùng thẳng kết
         // quả categories()->first(), 'category_id' của đơn sẽ lưu NHẦM thành danh mục con (hiện
-        // tên phòng thay vì tên chi nhánh khi admin mở sửa đơn) — leo lên tới đúng cấp chi nhánh
+        // tên sân thay vì tên chi nhánh khi admin mở sửa đơn) — leo lên tới đúng cấp chi nhánh
         // (parent_id NULL) trước khi lưu vào đơn.
         $category = $room->categories()->first();
         // Giới hạn tối đa 5 lần leo lên — đủ dư cho mọi cấu trúc thực tế (thường chỉ 1-2 cấp),
@@ -327,7 +327,7 @@ class GuestBookingController extends Controller
                 'deposit_percent' => $depositPercentToSave,
                 'coupon_code'     => $firstCode,
                 'coupon_codes'    => $appliedCouponCodes ?: null,
-                'description'     => 'Đặt phòng - ' . $room->name,
+                'description'     => 'Đặt sân - ' . $room->name,
                 'buyer_name'      => $buyerName,
                 'buyer_phone'     => $buyerPhone,
                 'cccd_front'      => $cccdFront,
@@ -340,7 +340,7 @@ class GuestBookingController extends Controller
                 // Đơn đặt qua API khách hàng KHÔNG đăng nhập bằng App\Models\User (mà là Customer/
                 // khách vãng lai) nên BelongsToPartner::creating() không tự gán được partner_id
                 // (chỉ tự gán khi người tạo là User — xem app/Models/Concerns/BelongsToPartner.php).
-                // Gán thẳng theo đúng partner_id của CHÍNH phòng đang đặt — nếu không, đơn tạo ra
+                // Gán thẳng theo đúng partner_id của CHÍNH sân đang đặt — nếu không, đơn tạo ra
                 // sẽ có partner_id = null, khiến admin mở sửa đơn bị "mất" thông tin đối tác/chi
                 // nhánh (Select "Đối tác" không tự chọn được, "Chi nhánh" không hiện tên).
                 'partner_id'      => $room->partner_id,
@@ -624,12 +624,12 @@ class GuestBookingController extends Controller
         if ($request->has('services')) {
             $productId = $order->items->first()?->product_id;
             if (! $productId) {
-                return response()->json(['message' => 'Đơn hàng không có phòng.'], 422);
+                return response()->json(['message' => 'Đơn hàng không có sân.'], 422);
             }
 
             $room = Product::where('id', $productId)->with('additionalServices')->first();
             if (! $room) {
-                return response()->json(['message' => 'Phòng không tồn tại.'], 404);
+                return response()->json(['message' => 'Sân không tồn tại.'], 404);
             }
 
             $availableServices = $room->additionalServices->keyBy('id');
@@ -642,7 +642,7 @@ class GuestBookingController extends Controller
 
                 if (! $service || ! $service->is_active) {
                     throw ValidationException::withMessages([
-                        "services.{$index}.service_id" => ["Dịch vụ #{$serviceId} không tồn tại hoặc không khả dụng cho phòng này."],
+                        "services.{$index}.service_id" => ["Dịch vụ #{$serviceId} không tồn tại hoặc không khả dụng cho sân này."],
                     ]);
                 }
 
@@ -698,7 +698,7 @@ class GuestBookingController extends Controller
             ($priceChanged || ! $order->checkout_url) &&
             $dueNow >= 2000
         ) {
-            $itemName = $order->items->first()?->name ?? 'Đặt phòng';
+            $itemName = $order->items->first()?->name ?? 'Đặt sân';
             $this->rebuildPayOSLink($order, $itemName);
             $order->refresh();
         }
@@ -956,7 +956,7 @@ class GuestBookingController extends Controller
                 'buyerPhone'  => $order->buyer_phone ?? '',
                 'expiredAt'   => $expiredAt->timestamp,
                 'items'       => [[
-                    'name'     => 'Tiền còn lại - ' . ($order->items->first()?->name ?? 'Phòng'),
+                    'name'     => 'Tiền còn lại - ' . ($order->items->first()?->name ?? 'Sân'),
                     'quantity' => 1,
                     'price'    => $remaining,
                 ]],
@@ -1111,7 +1111,7 @@ class GuestBookingController extends Controller
 
             if (! $dateStr) {
                 throw ValidationException::withMessages([
-                    "slots.{$index}.date" => ['Vui lòng cung cấp ngày đặt phòng.'],
+                    "slots.{$index}.date" => ['Vui lòng cung cấp ngày đặt sân.'],
                 ]);
             }
 
@@ -1122,7 +1122,7 @@ class GuestBookingController extends Controller
 
             if (! $rts || ! $rts->timeSlot) {
                 throw ValidationException::withMessages([
-                    "slots.{$index}.timeslot_id" => ['Khung giờ không tồn tại cho phòng này.'],
+                    "slots.{$index}.timeslot_id" => ['Khung giờ không tồn tại cho sân này.'],
                 ]);
             }
 
@@ -1213,7 +1213,7 @@ class GuestBookingController extends Controller
 
         if ($conflict) {
             throw ValidationException::withMessages([
-                'checkin_date' => ['Phòng đã được đặt trong khoảng thời gian này.'],
+                'checkin_date' => ['Sân đã được đặt trong khoảng thời gian này.'],
             ]);
         }
 
@@ -1290,7 +1290,7 @@ class GuestBookingController extends Controller
 
             if (! $service || ! $service->is_active) {
                 throw ValidationException::withMessages([
-                    "services.{$index}.service_id" => ["Dịch vụ #{$serviceId} không tồn tại hoặc không khả dụng cho phòng này."],
+                    "services.{$index}.service_id" => ["Dịch vụ #{$serviceId} không tồn tại hoặc không khả dụng cho sân này."],
                 ]);
             }
 
@@ -1559,7 +1559,7 @@ class GuestBookingController extends Controller
 
             if (! $applicable) {
                 throw ValidationException::withMessages([
-                    $field => ["Mã \"{$code}\" không áp dụng cho phòng hoặc khung giờ này."],
+                    $field => ["Mã \"{$code}\" không áp dụng cho sân hoặc khung giờ này."],
                 ]);
             }
 
@@ -2129,7 +2129,7 @@ class GuestBookingController extends Controller
 
         if ($birthDate->age < 18) {
             return response()->json([
-                'message' => 'Người đặt phòng phải đủ 18 tuổi trở lên.',
+                'message' => 'Người đặt sân phải đủ 18 tuổi trở lên.',
             ], 422);
         }
 

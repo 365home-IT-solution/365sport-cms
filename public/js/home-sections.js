@@ -1,7 +1,7 @@
-// ── Carousel 2 phòng/hàng cho lịch đặt phòng (book/_desktop-grid.blade.php) — cả 2 phòng đang
-// hiện ra đều "active" (chọn được khung giờ). Bấm Trước/Sau chỉ trượt 1 phòng mỗi lần (không
-// phải cả cặp): phòng thứ 2 đôn lên vị trí đầu, phòng thứ 1 ẩn đi, lộ ra 1 phòng mới ở vị trí
-// sau — không nhảy cả cặp 2 phòng như carousel thường (xem slidesPerGroup: 1 bên dưới).
+// ── Carousel 2 sân/hàng cho lịch đặt sân (book/_desktop-grid.blade.php) — cả 2 sân đang
+// hiện ra đều "active" (chọn được khung giờ). Bấm Trước/Sau chỉ trượt 1 sân mỗi lần (không
+// phải cả cặp): sân thứ 2 đôn lên vị trí đầu, sân thứ 1 ẩn đi, lộ ra 1 sân mới ở vị trí
+// sau — không nhảy cả cặp 2 sân như carousel thường (xem slidesPerGroup: 1 bên dưới).
 // Đặt ở đây (thay vì 1 <script> nằm trong chính view của Book) vì view đó chỉ xuất hiện trong DOM
 // SAU KHI Livewire morph vào (Book mount với config rỗng trước, nạp chi nhánh đầu tiên qua sự
 // kiện 'load-branch' — xem homeBookingBoard() bên dưới) — trình duyệt KHÔNG tự thực thi <script>
@@ -18,8 +18,8 @@ if (typeof window.mountBookDtSwiper === 'undefined') {
         if (!container || !container.querySelector('.swiper-slide')) return;
         if (container.swiper) container.swiper.destroy(true, true);
 
-        // Vòng lặp chỉ có ý nghĩa khi còn phòng nằm ngoài cặp đang hiển thị (>2 phòng) — 1-2
-        // phòng thì luôn vừa đủ 1 "trang", loop vô nghĩa (Swiper cũng không cho loop khi số
+        // Vòng lặp chỉ có ý nghĩa khi còn sân nằm ngoài cặp đang hiển thị (>2 sân) — 1-2
+        // sân thì luôn vừa đủ 1 "trang", loop vô nghĩa (Swiper cũng không cho loop khi số
         // slide ít hơn slidesPerView*2).
         const slideCount = container.querySelectorAll('.swiper-slide').length;
         const enableLoop = slideCount > 2;
@@ -134,7 +134,7 @@ if (typeof window.roomCardHtml === 'undefined') {
 
         const unavailableHtml = room.is_available === false
             ? '<div style="position:absolute; inset:0; background:rgba(255,255,255,.55); display:flex; align-items:center; justify-content:center; z-index:2;">'
-                + '<span style="background:#111827; color:#fff; font-size:11px; font-weight:700; padding:4px 12px; border-radius:99px;">Tạm hết phòng</span></div>'
+                + '<span style="background:#111827; color:#fff; font-size:11px; font-weight:700; padding:4px 12px; border-radius:99px;">Tạm hết sân</span></div>'
             : '';
 
         const wishlistActive = room.wishlist_status === true;

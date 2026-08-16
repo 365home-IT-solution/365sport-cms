@@ -31,7 +31,7 @@ class ExpireManualLockPasswords extends Command
 
                 $productNames = $record->products->pluck('name')->join(', ') ?: '(không có)';
 
-                $this->line("  ⏰ [{$record->id}] {$record->name} — hết hạn {$record->valid_until?->format('d/m/Y H:i')} — phòng: {$productNames}");
+                $this->line("  ⏰ [{$record->id}] {$record->name} — hết hạn {$record->valid_until?->format('d/m/Y H:i')} — sân: {$productNames}");
 
                 Log::info('ManualLockPassword expired', [
                     'id'          => $record->id,
@@ -40,7 +40,7 @@ class ExpireManualLockPasswords extends Command
                     'products'    => $record->products->pluck('name')->toArray(),
                 ]);
 
-                // Tìm và log bộ mật khẩu đang hoạt động mới nhất cho mỗi phòng liên quan
+                // Tìm và log bộ mật khẩu đang hoạt động mới nhất cho mỗi sân liên quan
                 foreach ($record->products as $product) {
                     $latest = ManualLockPassword::active()
                         ->whereHas('products', fn ($q) => $q->where('products.id', $product->id))
@@ -49,9 +49,9 @@ class ExpireManualLockPasswords extends Command
                         ->first();
 
                     if ($latest) {
-                        $this->line("    ✅ Phòng [{$product->name}] → mật khẩu mới nhất: Pass Cổng={$latest->gate_password}" . ($latest->room_password ? ", Pass Phòng={$latest->room_password}" : ''));
+                        $this->line("    ✅ Sân [{$product->name}] → mật khẩu mới nhất: Pass Cổng={$latest->gate_password}" . ($latest->room_password ? ", Pass Sân={$latest->room_password}" : ''));
                     } else {
-                        $this->warn("    ⚠️  Phòng [{$product->name}] không còn bộ mật khẩu nào đang hoạt động.");
+                        $this->warn("    ⚠️  Sân [{$product->name}] không còn bộ mật khẩu nào đang hoạt động.");
                     }
                 }
             } catch (\Exception $e) {

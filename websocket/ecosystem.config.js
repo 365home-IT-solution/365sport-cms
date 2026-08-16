@@ -14,9 +14,9 @@ function readEnv(key) {
 module.exports = {
     apps: [
         {
-            name: '365home-ws',
+            name: '365sport-ws',
             script: 'server.js',
-            cwd: '/home/dev/www/365home.vn/websocket',
+            cwd: '/home/dev/www/365sport-cms/websocket',
             instances: 1,
             exec_mode: 'fork',
             autorestart: true,
@@ -26,10 +26,10 @@ module.exports = {
                 NODE_ENV: 'production',
                 WS_PORT:          readEnv('WS_PORT')          || 3001,
                 WS_INTERNAL_KEY:  readEnv('WS_INTERNAL_KEY'),
-                WS_ALLOWED_ORIGIN: readEnv('WS_ALLOWED_ORIGIN') || 'https://365home.vn',
+                WS_ALLOWED_ORIGIN: readEnv('WS_ALLOWED_ORIGIN') || 'https://365sport-cms.vn',
             },
-            error_file: '/home/dev/.pm2/logs/365home-ws-error.log',
-            out_file:   '/home/dev/.pm2/logs/365home-ws-out.log',
+            error_file: '/home/dev/.pm2/logs/365sport-ws-error.log',
+            out_file:   '/home/dev/.pm2/logs/365sport-ws-out.log',
             log_date_format: 'YYYY-MM-DD HH:mm:ss',
         },
     ],

@@ -91,7 +91,7 @@ class EditUser extends EditRecord
     // Với Filament, saveRelationships() (đồng bộ field 'roles' đã chọn ở tab Phân quyền) chạy
     // BÊN TRONG $this->form->getState() — tức là chạy TRƯỚC handleRecordUpdate(), rồi afterSave()
     // mới chạy sau cùng. Đảm bảo ở đây: tài khoản "Chủ đối tác" (không có hồ sơ Employee) luôn
-    // giữ role 'partner', phòng trường hợp super_admin lỡ bỏ chọn role này khi sửa — nếu không,
+    // giữ role 'partner', sân trường hợp super_admin lỡ bỏ chọn role này khi sửa — nếu không,
     // tài khoản sẽ mất hết role, không đăng nhập được và bị xếp nhầm vào tab "Khách hàng".
     protected function afterSave(): void
     {

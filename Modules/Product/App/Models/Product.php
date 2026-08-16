@@ -171,7 +171,7 @@ class Product extends Model implements HasMedia, Resourceable
         return $this->hasMany(RoomCleaningLog::class, 'product_id')->latest('marked_for_cleaning_at');
     }
 
-    // Lượt dọn đang chờ xác nhận (nếu phòng đang ở trạng thái 'cleaning') — dùng để cập nhật
+    // Lượt dọn đang chờ xác nhận (nếu sân đang ở trạng thái 'cleaning') — dùng để cập nhật
     // đúng dòng log khi nhân viên xác nhận đã dọn xong, thay vì tạo dòng mới mỗi lần.
     public function pendingCleaningLog()
     {

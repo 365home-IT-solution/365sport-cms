@@ -23,7 +23,7 @@ class SlotRealtimeService
      * Giải phóng ĐÚNG các khung giờ cụ thể (khác broadcastReleased() — hàm đó không nhận slot_ids,
      * ý nghĩa mơ hồ nếu ngày đó còn khung giờ KHÁC vẫn đang bị chiếm bởi đơn khác). Dùng khi admin
      * sửa đơn đổi khung giờ (xoá items cũ, tạo items mới) — các khung giờ cũ cần báo lại "available"
-     * chính xác từng ô, không đụng tới các khung giờ khác cùng ngày của phòng.
+     * chính xác từng ô, không đụng tới các khung giờ khác cùng ngày của sân.
      */
     public function broadcastSlotsAvailable(string $roomId, string $date, array $slotIds): void
     {
@@ -75,7 +75,7 @@ class SlotRealtimeService
     /**
      * Broadcast tô đen / gỡ tô đen nhiều ngày cùng lúc (style 1 - theo khung giờ).
      *
-     * @param  array   $slotIds  RoomTimeSlot IDs bị tô đen (rỗng = toàn bộ slot của phòng)
+     * @param  array   $slotIds  RoomTimeSlot IDs bị tô đen (rỗng = toàn bộ slot của sân)
      * @param  string  $status   'blocked' | 'available'
      */
     public function broadcastBlockedRange(string $roomId, array $dates, array $slotIds = [], string $status = 'blocked'): void
@@ -102,7 +102,7 @@ class SlotRealtimeService
     }
 
     /**
-     * Broadcast cập nhật blocked_ranges cho phòng theo ngày (style 2).
+     * Broadcast cập nhật blocked_ranges cho sân theo ngày (style 2).
      *
      * @param  array  $blockedRanges  Danh sách khoảng khóa hiện tại [['start'=>..,'end'=>..], ...]
      */
@@ -149,7 +149,7 @@ class SlotRealtimeService
     }
 
     /**
-     * Hold "đang chọn" cho phòng theo khung giờ (style 1) — xem TimeSlotHoldController. Bắn theo
+     * Hold "đang chọn" cho sân theo khung giờ (style 1) — xem TimeSlotHoldController. Bắn theo
      * ĐÚNG 1 ngày (cùng channel room:{room_id}:{date} dùng cho slot.updated ở trên) — $holds là
      * danh sách {session_id, timeslot_id} còn giữ của RIÊNG ngày này, có thể rỗng (vừa release hold
      * cuối cùng của ngày đó, vẫn cần bắn để client biết ngày này hết hold).

@@ -27,13 +27,13 @@
             </h3>
             <div class="grid grid-cols-2 gap-2">
                 <div class="bg-white rounded-lg p-3 text-center">
-                    <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1">Nhận phòng
+                    <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1">Nhận sân
                     </p>
                     <p class="text-xl font-extrabold text-gray-900">{{ $checkinDt->format('H:i') }}</p>
                     <p class="text-xs text-gray-500 mt-0.5">{{ $checkinDt->format('d/m/Y') }}</p>
                 </div>
                 <div class="bg-white rounded-lg p-3 text-center">
-                    <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1">Trả phòng
+                    <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1">Trả sân
                     </p>
                     <p class="text-xl font-extrabold text-gray-900">{{ $checkoutDt->format('H:i') }}</p>
                     <p class="text-xs text-gray-500 mt-0.5">{{ $checkoutDt->format('d/m/Y') }}</p>
@@ -54,7 +54,7 @@
         </div>
     @endif
 
-    {{-- Style 2: Tóm tắt ngày nhận/trả phòng (chỉ hiển thị ngày, không có giờ) --}}
+    {{-- Style 2: Tóm tắt ngày nhận/trả sân (chỉ hiển thị ngày, không có giờ) --}}
 @elseif($bookingStyle == 2)
     @if (!empty($startTime) && !empty($endTime))
         @php
@@ -74,13 +74,13 @@
             </h3>
             <div class="grid grid-cols-2 gap-2">
                 <div class="bg-white rounded-lg p-3 text-center">
-                    <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1">Nhận phòng
+                    <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1">Nhận sân
                     </p>
                     <p class="text-xl font-extrabold text-gray-900">{{ $style2CheckinTimeDisplay }}</p>
                     <p class="text-xs text-gray-500 mt-0.5">{{ $checkinDt2->format('d/m/Y') }}</p>
                 </div>
                 <div class="bg-white rounded-lg p-3 text-center">
-                    <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1">Trả phòng
+                    <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1">Trả sân
                     </p>
                     <p class="text-xl font-extrabold text-gray-900">{{ $style2CheckoutTimeDisplay }}</p>
                     <p class="text-xs text-gray-500 mt-0.5">{{ $checkoutDt2->format('d/m/Y') }}</p>
@@ -105,7 +105,7 @@
                             d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
                     </svg>
                     <span class="text-xs text-amber-700 font-semibold">Cọc {{ $dpPct }}% để xác nhận đặt
-                        phòng</span>
+                        sân</span>
                 </div>
             @else
                 <div
@@ -184,7 +184,7 @@
                 <rect x="1" y="4" width="22" height="16" rx="2" ry="2" />
                 <line x1="1" y1="10" x2="23" y2="10" />
             </svg>
-            Tóm tắt đơn đặt phòng
+            Tóm tắt đơn đặt sân
         </h3>
 
         {{-- Tổng tiền + cọc (style=2) --}}
@@ -290,7 +290,7 @@
             @endphp
             @if (isset($extraFee) && $extraFee > 0)
                 <div class="flex items-center justify-between mb-1">
-                    <span class="text-sm text-gray-500">Tiền phòng:</span>
+                    <span class="text-sm text-gray-500">Tiền sân:</span>
                     <span
                         class="text-sm font-semibold text-gray-700">{{ number_format($totalAmount - $extraFee, 0, ',', '.') }}đ</span>
                 </div>
@@ -300,13 +300,13 @@
                         style="color:#b45309">+{{ number_format($extraFee, 0, ',', '.') }}đ</span>
                 </div>
                 <div class="flex items-center justify-between mb-2 pb-2 border-b border-gray-300">
-                    <span class="text-sm font-bold text-gray-700">Tổng tiền phòng:</span>
+                    <span class="text-sm font-bold text-gray-700">Tổng tiền sân:</span>
                     <span
                         class="text-sm font-bold text-gray-800">{{ number_format($totalAmount, 0, ',', '.') }}đ</span>
                 </div>
             @else
                 <div class="flex items-center justify-between mb-1">
-                    <span class="text-sm text-gray-500">Tổng tiền phòng:</span>
+                    <span class="text-sm text-gray-500">Tổng tiền sân:</span>
                     <span
                         class="text-sm font-semibold text-gray-700">{{ number_format($totalAmount, 0, ',', '.') }}đ</span>
                 </div>
@@ -326,7 +326,7 @@
                             <line x1="12" y1="16" x2="12" y2="12" />
                             <line x1="12" y1="8" x2="12" y2="8.01" />
                         </svg>
-                        Còn lại {{ number_format($remaining, 0, ',', '.') }}đ thanh toán khi nhận phòng
+                        Còn lại {{ number_format($remaining, 0, ',', '.') }}đ thanh toán khi nhận sân
                     </p>
                 </div>
                 <p class="text-[11px] text-gray-400 italic text-center">
@@ -350,7 +350,7 @@
             @endphp
             @if (isset($extraFee) && $extraFee > 0)
                 <div class="flex items-center justify-between mb-1">
-                    <span class="text-sm text-gray-500">Tiền phòng:</span>
+                    <span class="text-sm text-gray-500">Tiền sân:</span>
                     <span
                         class="text-sm font-semibold text-gray-700">{{ number_format($totalAmount - $extraFee, 0, ',', '.') }}đ</span>
                 </div>

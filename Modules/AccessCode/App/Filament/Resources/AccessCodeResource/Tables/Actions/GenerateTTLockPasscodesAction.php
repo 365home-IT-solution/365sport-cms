@@ -23,11 +23,11 @@ class GenerateTTLockPasscodesAction
             ->label('Tạo mã TTLock mới')
             ->icon('heroicon-o-plus-circle')
             ->color('success')
-            ->modalHeading('Tạo mã TTLock mới cho các phòng')
-            ->modalDescription('Chọn phòng và thời gian. Hệ thống sẽ sinh mã 6 chữ số ngẫu nhiên và cấp vào TTLock cho từng phòng (cả khóa check-in và check-out).')
+            ->modalHeading('Tạo mã TTLock mới cho các sân')
+            ->modalDescription('Chọn sân và thời gian. Hệ thống sẽ sinh mã 6 chữ số ngẫu nhiên và cấp vào TTLock cho từng sân (cả khóa check-in và check-out).')
             ->modalWidth('lg')
             ->form(function (): array {
-                // Lấy danh sách phòng có lock_id
+                // Lấy danh sách sân có lock_id
                 $products = Product::whereNotNull('lock_id')
                     ->orderBy('name')
                     ->get();
@@ -45,7 +45,7 @@ class GenerateTTLockPasscodesAction
                             ->label('')
                             ->content(new HtmlString(
                                 '<div class="text-danger-600 bg-danger-50 rounded-lg p-3 text-sm">'
-                                . '⚠️ Không có phòng nào được gán khóa TTLock. Vào <b>Phòng</b> → chọn Gán khóa TTLock trước.'
+                                . '⚠️ Không có sân nào được gán khóa TTLock. Vào <b>Sân</b> → chọn Gán khóa TTLock trước.'
                                 . '</div>'
                             )),
                     ];
@@ -53,7 +53,7 @@ class GenerateTTLockPasscodesAction
 
                 return [
                     CheckboxList::make('product_ids')
-                        ->label('Chọn phòng')
+                        ->label('Chọn sân')
                         ->options($options)
                         ->columns(1)
                         ->bulkToggleable()
@@ -93,12 +93,12 @@ class GenerateTTLockPasscodesAction
                         continue;
                     }
 
-                    // Lấy category_id của phòng (primary category)
+                    // Lấy category_id của sân (primary category)
                     $categoryId = $product->branch_category_id
                         ?? $product->categories()->value('categories.id');
 
                     if (!$categoryId) {
-                        $failed[] = "{$product->name}: phòng chưa được gán chi nhánh (category)";
+                        $failed[] = "{$product->name}: sân chưa được gán chi nhánh (category)";
                         continue;
                     }
 
@@ -160,7 +160,7 @@ class GenerateTTLockPasscodesAction
                         'valid_until'                     => $data['valid_until'],
                         'ttlock_keyboard_pwd_id'          => $checkinPwdId,
                         'ttlock_keyboard_pwd_id_checkout' => $checkoutPwdId,
-                        'notes'                           => "Tự động cấp qua TTLock API cho phòng {$product->name}",
+                        'notes'                           => "Tự động cấp qua TTLock API cho sân {$product->name}",
                     ]);
 
                     $created++;
@@ -175,7 +175,7 @@ class GenerateTTLockPasscodesAction
 
                 if (!empty($failed)) {
                     Notification::make()
-                        ->title(count($failed) . ' phòng lỗi')
+                        ->title(count($failed) . ' sân lỗi')
                         ->body(implode("\n", $failed))
                         ->warning()
                         ->persistent()

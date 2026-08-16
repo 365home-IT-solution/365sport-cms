@@ -332,15 +332,20 @@ class AccountPage extends Component
             }
 
             return [
-                'id'            => $order->id,
-                'order_code'    => $order->order_code,
-                'amount'        => (int) $order->amount,
-                'status'        => $order->status ?? 'pending',
-                'room_name'     => $item?->name ?? 'Phòng',
-                'checkin_date'  => $item?->checkin_date?->format('d/m/Y H:i'),
-                'checkout_date' => $item?->checkout_date?->format('d/m/Y H:i'),
-                'thumbnail'     => $thumbnail,
-                'created_at'    => $order->created_at?->format('d/m/Y'),
+                'id'                   => $order->id,
+                'order_code'           => $order->order_code,
+                'amount'               => (int) $order->amount,
+                'status'               => $order->status ?? 'pending',
+                'room_name'            => $item?->name ?? 'Sân',
+                'checkin_date'         => $item?->checkin_date?->format('d/m/Y H:i'),
+                'checkout_date'        => $item?->checkout_date?->format('d/m/Y H:i'),
+                'thumbnail'            => $thumbnail,
+                'created_at'           => $order->created_at?->format('d/m/Y'),
+                // Khách tự huỷ đơn/xin hoàn tiền — xem Order::canBeCancelledByCustomer()/
+                // computeCustomerCancelRefundAmount() + OrderCancellationService::cancelByCustomer().
+                'is_cancelled'         => $order->isCancelled(),
+                'can_cancel'           => $order->canBeCancelledByCustomer(),
+                'cancel_refund_amount' => $order->canBeCancelledByCustomer() ? $order->computeCustomerCancelRefundAmount() : 0,
             ];
         })->toArray();
     }
@@ -348,6 +353,36 @@ class AccountPage extends Component
     public function totalPages(): int
     {
         return (int) ceil($this->totalCount / $this->perPage) ?: 1;
+    }
+
+    // Khách tự huỷ đơn/xin hoàn tiền online — xem App\Services\OrderCancellationService. Chỉ được
+    // huỷ đơn CỦA CHÍNH MÌNH — dùng lại phoneQuery() (khớp buyer_phone/customer_id đang đăng nhập)
+    // làm điều kiện WHERE thay vì Order::find($orderId) trần, chặn khách sửa tay id trên
+    // wire:click để huỷ đơn của người khác.
+    public function cancelOrder(int $orderId): void
+    {
+        $order = $this->phoneQuery()->whereKey($orderId)->with('items')->first();
+
+        if (! $order) {
+            $this->dispatch('notify', ['message' => 'Không tìm thấy đơn hàng.', 'type' => 'error']);
+            return;
+        }
+
+        $result = app(\App\Services\OrderCancellationService::class)->cancelByCustomer($order);
+
+        if (! $result['ok']) {
+            $this->dispatch('notify', ['message' => $result['error'], 'type' => 'error']);
+            return;
+        }
+
+        $this->dispatch('notify', [
+            'message' => $result['refund_amount'] > 0
+                ? 'Đã huỷ đơn. Số tiền hoàn: ' . number_format($result['refund_amount'], 0, ',', '.') . 'đ.'
+                : 'Đã huỷ đơn.',
+            'type' => 'success',
+        ]);
+
+        $this->fetchPage();
     }
 
     private function resetUserState(): void

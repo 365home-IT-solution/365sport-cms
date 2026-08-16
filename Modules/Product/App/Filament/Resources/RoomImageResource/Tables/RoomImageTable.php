@@ -25,7 +25,7 @@ class RoomImageTable
                     ->width(100),
 
                 TextColumn::make('room.name')
-                    ->label('Phòng')
+                    ->label('Sân')
                     ->searchable()
                     ->sortable(),
 
@@ -67,7 +67,7 @@ class RoomImageTable
                     ]),
 
                 SelectFilter::make('room_id')
-                    ->label('Phòng')
+                    ->label('Sân')
                     ->relationship('room', 'name'),
 
                 PartnerTableHelpers::filterThroughRelation('room'),

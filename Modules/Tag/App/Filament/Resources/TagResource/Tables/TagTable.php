@@ -17,7 +17,7 @@ class TagTable
 {
     private static array $typeMap = [
         'Post' => 'Bài viết',
-        'Product' => 'Phòng sử dụng'
+        'Product' => 'Sân sử dụng'
     ];
 
     public static function table(Table $table): Table

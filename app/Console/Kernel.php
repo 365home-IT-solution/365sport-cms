@@ -71,7 +71,7 @@ class Kernel extends ConsoleKernel
             ->timezone('Asia/Ho_Chi_Minh')
             ->withoutOverlapping();
 
-        // Safety-net: tự trả phòng khi khách quá giờ checkout mà không tự mở khoá lần 2.
+        // Safety-net: tự trả sân khi khách quá giờ checkout mà không tự mở khoá lần 2.
         $schedule->command('orders:sync-lifecycle')
             ->everyMinute()
             ->timezone('Asia/Ho_Chi_Minh')

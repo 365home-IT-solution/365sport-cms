@@ -8,14 +8,14 @@ use Modules\Payment\Entities\Order;
 use Modules\Payment\Entities\OrderItem;
 
 /**
- * Safety-net: tự động trả phòng (order_status = checked_out) khi khách quá giờ
+ * Safety-net: tự động trả sân (order_status = checked_out) khi khách quá giờ
  * checkout nhưng không tự mở khoá lần 2. Các transition khác (chờ→đang ở,
- * đang ở→trả phòng khi khách tự mở khoá) đã event-driven qua UnlockController.
+ * đang ở→trả sân khi khách tự mở khoá) đã event-driven qua UnlockController.
  */
 class SyncOrderLifecycleCommand extends Command
 {
     protected $signature   = 'orders:sync-lifecycle';
-    protected $description = 'Tự động chuyển order_status sang checked_out khi quá giờ checkout mà khách chưa tự trả phòng';
+    protected $description = 'Tự động chuyển order_status sang checked_out khi quá giờ checkout mà khách chưa tự trả sân';
 
     public function handle(OrderRealtimeService $realtime): int
     {
@@ -40,7 +40,7 @@ class SyncOrderLifecycleCommand extends Command
             );
         }
 
-        $this->info("Đã tự động trả phòng {$orders->count()} đơn quá giờ checkout.");
+        $this->info("Đã tự động trả sân {$orders->count()} đơn quá giờ checkout.");
 
         return self::SUCCESS;
     }

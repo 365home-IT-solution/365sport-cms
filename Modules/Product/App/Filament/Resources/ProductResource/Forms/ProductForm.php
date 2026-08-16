@@ -105,8 +105,8 @@ class ProductForm
                 ->searchable()
                 ->preload()
                 ->multiple()
-                ->placeholder('Chọn dịch vụ bổ sung cho phòng...')
-                ->helperText('Dịch vụ sẽ được gán vào phòng này')
+                ->placeholder('Chọn dịch vụ bổ sung cho sân...')
+                ->helperText('Dịch vụ sẽ được gán vào sân này')
                 ->inlineLabel(),
         ])->columns(1);
     }
@@ -166,7 +166,7 @@ class ProductForm
                 ->url()
                 ->maxLength(500)
                 ->placeholder('https://maps.app.goo.gl/...')
-                ->helperText('Link Google Maps trực tiếp đến địa chỉ phòng')
+                ->helperText('Link Google Maps trực tiếp đến địa chỉ sân')
                 ->inlineLabel(),
 
             TextInput::make('hotline')
@@ -175,7 +175,7 @@ class ProductForm
                 ->inlineLabel(),
 
             ToggleButtons::make('styles')
-                ->label('Kiểu đặt phòng')
+                ->label('Kiểu đặt sân')
                 ->options([
                     1 => 'Theo khung giờ',
                     2 => 'Theo ngày',
@@ -235,7 +235,7 @@ class ProductForm
 
                 TextInput::make('setting_video_room.title')
                     ->label('Tiêu đề video')
-                    ->placeholder('VD: Trải nghiệm phòng Deluxe - 365 Home')
+                    ->placeholder('VD: Trải nghiệm sân Deluxe - 365 Home')
                     ->maxLength(200)
                     ->inlineLabel(),
             ])

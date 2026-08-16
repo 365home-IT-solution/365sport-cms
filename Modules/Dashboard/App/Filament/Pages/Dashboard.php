@@ -303,15 +303,15 @@ class Dashboard extends FilamentDashboard
         return $data;
     }
 
-    /** Tóm tắt phòng đang "đang dọn vệ sinh" — hiện ngay đầu Dashboard */
+    /** Tóm tắt sân đang "đang dọn vệ sinh" — hiện ngay đầu Dashboard */
     public static function getHousekeepingData($user = null): array
     {
         return HousekeepingSummaryService::getData($user);
     }
 
-    // Xác nhận đã dọn xong 1 phòng NGAY từ menu thao tác nhanh trên thẻ phòng (Dashboard), không
+    // Xác nhận đã dọn xong 1 sân NGAY từ menu thao tác nhanh trên thẻ sân (Dashboard), không
     // cần điều hướng sang trang Housekeeping — tái sử dụng ĐÚNG logic quyền hạn +
-    // Product::confirmCleaned() mà RoomCleaningAction::confirmCleaning() (trang quản lý phòng)
+    // Product::confirmCleaned() mà RoomCleaningAction::confirmCleaning() (trang quản lý sân)
     // đang dùng, tránh 2 nơi có 2 luật khác nhau. Livewire action bình thường — panel menu tuy
     // do JS dựng động (innerHTML) nhưng Livewire v3 (chạy trên Alpine) tự quan sát DOM bằng
     // MutationObserver nên directive wire:click gắn trong HTML chèn sau vẫn được nhận diện bình
@@ -325,12 +325,12 @@ class Dashboard extends FilamentDashboard
         }
 
         if ($product->housekeeping_status !== 'cleaning') {
-            Notification::make()->warning()->title('Phòng không ở trạng thái cần dọn')->send();
+            Notification::make()->warning()->title('Sân không ở trạng thái cần dọn')->send();
             return;
         }
 
         if (! RoomCleaningAction::canManageCleaning($product)) {
-            Notification::make()->danger()->title('Bạn không có quyền xác nhận dọn phòng này')->send();
+            Notification::make()->danger()->title('Bạn không có quyền xác nhận dọn sân này')->send();
             return;
         }
 
@@ -343,10 +343,10 @@ class Dashboard extends FilamentDashboard
 
         $product->confirmCleaned($employee);
 
-        Notification::make()->success()->title('Đã xác nhận dọn xong — phòng sẵn sàng nhận đặt mới')->send();
+        Notification::make()->success()->title('Đã xác nhận dọn xong — sân sẵn sàng nhận đặt mới')->send();
     }
 
-    // Xác nhận hoàn tiền NGAY từ menu thao tác nhanh trên thẻ phòng — tái sử dụng ĐÚNG
+    // Xác nhận hoàn tiền NGAY từ menu thao tác nhanh trên thẻ sân — tái sử dụng ĐÚNG
     // ExtraChargeService::markRefundAsDone() + cách ghi AuditLogger mà
     // EditOrder::quickMarkRefundTransfer()/quickMarkRefundCash() (nút hoàn tiền ở trang sửa đơn)
     // đang dùng, chỉ khác nơi gọi — không viết luật hoàn tiền riêng ở đây.
@@ -399,7 +399,7 @@ class Dashboard extends FilamentDashboard
         return KpiService::getData($period, $user, $customStart, $customEnd);
     }
 
-    /** Doanh thu từng phòng trong năm chỉ định (top 10, status=paid, PayOS+cod) */
+    /** Doanh thu từng sân trong năm chỉ định (top 10, status=paid, PayOS+cod) */
     public static function getRoomRevenueData($user = null, ?int $year = null, ?array $branchCategoryIds = null): array
     {
         if ($user === null) {
@@ -442,7 +442,7 @@ class Dashboard extends FilamentDashboard
 
         if ($branchCategoryIds !== null) {
             // KHÔNG lọc bằng o.category_id — cột này ghi nhận danh mục lúc TẠO đơn (có thể lệch
-            // chi nhánh thật của phòng do nhập liệu), dẫn tới lộ phòng của chi nhánh khác khi lọc.
+            // chi nhánh thật của sân do nhập liệu), dẫn tới lộ sân của chi nhánh khác khi lọc.
             // Phải lọc theo product thực sự thuộc chi nhánh (qua bảng pivot categories), giống
             // cách allowedCategoryIds ở trên đã làm cho phân quyền nhân viên.
             $branchProductIds = Product::whereHas('categories', function ($q) use ($branchCategoryIds) {

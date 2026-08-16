@@ -13,11 +13,11 @@ use Modules\Payment\App\Filament\Resources\OrderResource;
 use Modules\Payment\App\Filament\Resources\OrderResource\Forms\OrderForm;
 use Modules\Product\App\Models\Product;
 
-// Popup "Khóa tạm thời (realtime)" mở từ menu ⋮ trên thẻ phòng ở Dashboard — cho admin bấm trực
+// Popup "Khóa tạm thời (realtime)" mở từ menu ⋮ trên thẻ sân ở Dashboard — cho admin bấm trực
 // tiếp vào lưới NGÀY × KHUNG GIỜ (dùng lại ĐÚNG view 'payment::components.timeslot-grid-table'
 // và OrderForm::getTimeslotGridData() của trang tạo/sửa đơn, không dựng lưới riêng) để giữ chỗ
 // real-time (TimeslotHold, tự hết hạn sau 5 phút nếu không gia hạn — xem TimeslotHoldService) mà
-// KHÔNG cần tạo đơn ngay. Khi đã giữ xong, bấm "Đặt phòng" để mang các khung giờ này qua trang
+// KHÔNG cần tạo đơn ngay. Khi đã giữ xong, bấm "Đặt sân" để mang các khung giờ này qua trang
 // tạo đơn (CreateOrder::mount() tự đọc lại các TimeslotHold đang giữ của admin này, không cần
 // truyền lại qua URL/session).
 class RoomLockGrid extends Component
@@ -31,7 +31,7 @@ class RoomLockGrid extends Component
     public array $slots = [];
     public array $cells = [];
 
-    // Khung giờ ĐANG THẬT SỰ được admin này giữ (TimeslotHold trong DB) cho đúng phòng này —
+    // Khung giờ ĐANG THẬT SỰ được admin này giữ (TimeslotHold trong DB) cho đúng sân này —
     // không phải state Repeater như OrderForm, load lại từ DB mỗi lần mở popup để luôn khớp với
     // TTL thật (nếu hold cũ đã hết hạn giữa các lần mở thì sẽ không còn xuất hiện ở đây nữa).
     public array $selectedSlots = [];
@@ -60,7 +60,7 @@ class RoomLockGrid extends Component
         $this->showModal = false;
     }
 
-    // Đồng bộ khi ADMIN KHÁC giữ/trả khung giờ CHO PHÒNG NÀY trong lúc popup này đang mở —
+    // Đồng bộ khi ADMIN KHÁC giữ/trả khung giờ CHO SÂN NÀY trong lúc popup này đang mở —
     // echo-admin.js nghe kênh Reverb "admin-timeslot-holds" rồi tự gọi
     // Livewire.dispatch('timeslotHoldsChanged') (xem TimeslotHoldService). Khác với
     // CreateOrder/EditOrder (lưới đọc DB live mỗi lần render, chỉ cần no-op ép re-render),
@@ -205,7 +205,7 @@ class RoomLockGrid extends Component
         $this->refreshGrid();
     }
 
-    // Bỏ giữ TOÀN BỘ khung giờ đang chọn của phòng này — dùng khi admin muốn huỷ hết mà không cần
+    // Bỏ giữ TOÀN BỘ khung giờ đang chọn của sân này — dùng khi admin muốn huỷ hết mà không cần
     // đợi tự hết hạn.
     public function releaseAll(): void
     {
@@ -226,11 +226,11 @@ class RoomLockGrid extends Component
     }
 
     // Mang các khung giờ ĐANG GIỮ sang trang tạo đơn — không truyền dữ liệu qua URL/session, vì
-    // CreateOrder::mount() tự đọc lại đúng các TimeslotHold hiện có của admin này cho phòng này.
+    // CreateOrder::mount() tự đọc lại đúng các TimeslotHold hiện có của admin này cho sân này.
     public function goToBooking()
     {
         if (! $this->productId || empty($this->selectedSlots)) {
-            Notification::make()->title('Chưa chọn khung giờ nào để đặt phòng')->warning()->send();
+            Notification::make()->title('Chưa chọn khung giờ nào để đặt sân')->warning()->send();
 
             return;
         }

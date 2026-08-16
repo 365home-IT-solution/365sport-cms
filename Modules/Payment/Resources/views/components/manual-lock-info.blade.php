@@ -1,14 +1,14 @@
 {{--
-    Thay thế cho access-code-info.blade.php khi phòng dùng KHÓA THỦ CÔNG (has_manual_lock) — chi
+    Thay thế cho access-code-info.blade.php khi sân dùng KHÓA THỦ CÔNG (has_manual_lock) — chi
     nhánh không có tài khoản TTLock nên không có gì để tra ở bảng access_codes (OrderForm chỉ tạo
-    Placeholder này khi hasAccessCodeSection() xác định phòng là manual lock, xem OrderForm.php).
+    Placeholder này khi hasAccessCodeSection() xác định sân là manual lock, xem OrderForm.php).
     Nhận vào: $manualPwd (?ManualLockPassword, xem ManualLockPassword::getForProductAndDate() —
     PHẢI truyền mốc "chốt đơn" paid_at/deposit_paid_at/created_at, KHÔNG phải checkin_date/now()
     — xem docblock trên hàm đó), $order.
 --}}
 @if(!$manualPwd || (!$manualPwd->gate_password && !$manualPwd->room_password))
 <div class="rounded-2xl border border-dashed p-5 text-center" style="border-color: var(--boulder-80, #e5e7eb); background: var(--boulder-95, #f9fafb);">
-    <p class="text-sm" style="color: var(--boulder-50, #6b7280);">Chưa có mật khẩu thủ công cho phòng này — liên hệ quản lý chi nhánh để cập nhật.</p>
+    <p class="text-sm" style="color: var(--boulder-50, #6b7280);">Chưa có mật khẩu thủ công cho sân này — liên hệ quản lý chi nhánh để cập nhật.</p>
 </div>
 @else
 @php
@@ -39,7 +39,7 @@
         @endif
     </div>
 
-    {{-- Mã cổng + mã phòng — phòng thủ công có thể có 1 hoặc cả 2 loại mật khẩu, hiện đủ ô nào
+    {{-- Mã cổng + mã sân — phòng thủ công có thể có 1 hoặc cả 2 loại mật khẩu, hiện đủ ô nào
          có giá trị, không ép luôn phải có cả 2 (giống cách assignAccessCode action ghép chuỗi
          thông báo cho khách, xem EditOrder.php). --}}
     <div class="space-y-3 mb-4">
@@ -64,12 +64,12 @@
 
         @if($manualPwd->room_password)
         <div>
-            <p class="text-[10px] font-semibold uppercase tracking-wide mb-1" style="color: var(--boulder-50, #9ca3af);">Mã phòng</p>
+            <p class="text-[10px] font-semibold uppercase tracking-wide mb-1" style="color: var(--boulder-50, #9ca3af);">Mã sân</p>
             <div class="flex items-center gap-3">
                 <span id="manualRoomCode" class="text-2xl sm:text-3xl font-bold font-mono tracking-[0.25em]" style="color: var(--boulder-30, #374151);">
                     {{ $manualPwd->room_password }}
                 </span>
-                <button type="button" onclick="window.copyManualLockCode(this, 'manualRoomCode')" title="Sao chép mã phòng"
+                <button type="button" onclick="window.copyManualLockCode(this, 'manualRoomCode')" title="Sao chép mã sân"
                     class="inline-flex items-center justify-center w-9 h-9 rounded-lg transition-colors shrink-0"
                     style="background: var(--boulder-20, #111827); color: var(--boulder-99, #fff);">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

@@ -19,7 +19,7 @@ use Modules\Product\App\Models\Product;
 use Modules\Product\App\Models\RoomType;
 
 /**
- * Logic tìm kiếm phòng — dùng chung cho REST (SearchController::index) và GraphQL
+ * Logic tìm kiếm sân — dùng chung cho REST (SearchController::index) và GraphQL
  * (GraphQLController), để tránh chép lại cùng 1 bộ filter (tỉnh/ward/chi nhánh, khoảng
  * cách Haversine, time slot, từ khoá...) ở 2 nơi.
  */
@@ -92,7 +92,7 @@ class RoomSearchService
             : null;
 
         // Không lọc theo tỉnh/ward cụ thể (vd bấm room type từ trang chủ, tìm toàn quốc) — vẫn
-        // cần xác định chi nhánh của từng phòng để client nhóm hiển thị (mỗi chi nhánh 1 dòng),
+        // cần xác định chi nhánh của từng sân để client nhóm hiển thị (mỗi chi nhánh 1 dòng),
         // nên lấy toàn bộ chi nhánh đang active trên hệ thống làm tập tra cứu.
         if (empty($branchCatIds)) {
             $branchCatIds = ProvinceBranch::where('status', true)->pluck('categorie_id')->unique()->values()->toArray();
@@ -112,8 +112,8 @@ class RoomSearchService
 
             $card['address'] = $room->address;
 
-            // Chi nhánh mà phòng này thuộc về (trực tiếp hoặc qua category con) — để client tự
-            // nhóm phòng theo chi nhánh khi hiển thị (mỗi chi nhánh 1 dòng riêng).
+            // Chi nhánh mà sân này thuộc về (trực tiếp hoặc qua category con) — để client tự
+            // nhóm sân theo chi nhánh khi hiển thị (mỗi chi nhánh 1 dòng riêng).
             $card['branch'] = null;
             if ($branchCats->isNotEmpty()) {
                 foreach ($room->categories as $cat) {
@@ -159,11 +159,11 @@ class RoomSearchService
     }
 
     /**
-     * Giống search() nhưng gom kết quả theo CHI NHÁNH (Category cha) thay vì trả từng phòng —
+     * Giống search() nhưng gom kết quả theo CHI NHÁNH (Category cha) thay vì trả từng sân —
      * dùng cho GET /v1/search khi client cần card chi nhánh (id, name, slug, ảnh...) áp dụng
      * đúng bộ filter tìm kiếm (q, category, time_type/date/time_from/time_to, ward, province...),
      * khác với branches() trong SearchController vốn chỉ lọc theo province. Dùng chung
-     * applyFilters() với search() để không lệch logic lọc phòng giữa 2 đường.
+     * applyFilters() với search() để không lệch logic lọc sân giữa 2 đường.
      */
     public function searchBranches(array $filters, ?Authenticatable $authUser = null): array
     {
@@ -193,7 +193,7 @@ class RoomSearchService
             ?? ($branchCategories?->isNotEmpty() ? $branchCategories->pluck('name')->implode(', ') : null);
 
         // Không lọc theo tỉnh/ward/chi nhánh cụ thể → lấy toàn bộ chi nhánh đang active làm tập
-        // tra cứu, cùng cách fallback đã dùng trong search() để gắn branch cho từng phòng.
+        // tra cứu, cùng cách fallback đã dùng trong search() để gắn branch cho từng sân.
         if (empty($branchCatIds)) {
             $branchCatIds = ProvinceBranch::where('status', true)->pluck('categorie_id')->unique()->values()->toArray();
             if (! empty($branchCatIds)) {
@@ -318,12 +318,12 @@ class RoomSearchService
     }
 
     // Áp toàn bộ filter tìm kiếm (tỉnh/ward/chi nhánh, category/room type, buổi/qua đêm, số
-    // khách, phòng đã đặt, từ khoá, time slot, Haversine) lên $query (mutate trực tiếp, dùng
-    // chung cho cả search() lẫn searchBranches() để không lệch logic lọc phòng giữa 2 đường).
+    // khách, sân đã đặt, từ khoá, time slot, Haversine) lên $query (mutate trực tiếp, dùng
+    // chung cho cả search() lẫn searchBranches() để không lệch logic lọc sân giữa 2 đường).
     private function applyFilters(Builder $query, array $filters, array $validated, ?Customer $authUser): array
     {
-        // branchCatIds/branchChildMap dùng để gắn thông tin "chi nhánh" (branch) vào từng phòng
-        // trả về, cho phép client tự nhóm phòng theo chi nhánh — chi tiết hơn (ward) ghi đè
+        // branchCatIds/branchChildMap dùng để gắn thông tin "chi nhánh" (branch) vào từng sân
+        // trả về, cho phép client tự nhóm sân theo chi nhánh — chi tiết hơn (ward) ghi đè
         // tỉnh nếu có, giống thứ tự ưu tiên filter bên dưới.
         $branchCatIds  = [];
         $branchChildMap = [];
@@ -331,7 +331,7 @@ class RoomSearchService
         $province = $this->resolveProvince($filters, $authUser);
 
         // "location" (path /s/{location} → query ?province=) có thể là slug tỉnh (ở trên) hoặc —
-        // khi nút "Xem tất cả" của 1 khối phòng theo chi nhánh cụ thể được bấm — slug của 1 hoặc
+        // khi nút "Xem tất cả" của 1 khối sân theo chi nhánh cụ thể được bấm — slug của 1 hoặc
         // nhiều chi nhánh (category cha, cách nhau bởi dấu phẩy), vd /s/254-xuan-thuy-an-binh-can-tho
         // hoặc /s/branch-a,branch-b khi khối đó chọn nhiều chi nhánh cùng lúc.
         $branchCategories = null;
@@ -429,7 +429,7 @@ class RoomSearchService
             $query->where('styles', (int) $validated['buoi']);
         }
 
-        // Tab "Qua đêm" (buoi=1 + overnight=1): phòng đạt tiêu chí này nếu khớp 1 TRONG 2 điều
+        // Tab "Qua đêm" (buoi=1 + overnight=1): sân đạt tiêu chí này nếu khớp 1 TRONG 2 điều
         // kiện (OR, không phải AND) — tự nó đã được cấu hình cho ở qua đêm (cột products.nights),
         // HOẶC có ít nhất 1 khung giờ (room_time_slots) được đánh dấu qua đêm (over_night=true,
         // xem book/_desktop-grid.blade.php dùng cùng khái niệm này để hiện icon "(Qua đêm)"). Chỉ
@@ -441,11 +441,11 @@ class RoomSearchService
             });
         }
 
-        // Lọc theo số khách — loại phòng nếu adults > "Số khách tối đa không phụ thu"
-        // (room_config.max_free_guests, mặc định 2 nếu phòng chưa cấu hình — khớp đúng giá trị
+        // Lọc theo số khách — loại sân nếu adults > "Số khách tối đa không phụ thu"
+        // (room_config.max_free_guests, mặc định 2 nếu sân chưa cấu hình — khớp đúng giá trị
         // mặc định dùng khi tính phụ thu ở nơi khác, vd ProductDetail.php/Book.php). Không có
         // trường sức chứa cứng nào khác trên Product, nên coi ngưỡng miễn phụ thu này là ngưỡng
-        // hiển thị trong tìm kiếm — phòng cần phụ thu cho số khách đó thì không hiện ra nữa.
+        // hiển thị trong tìm kiếm — sân cần phụ thu cho số khách đó thì không hiện ra nữa.
         if (! empty($validated['adults'])) {
             $query->whereRaw(
                 "COALESCE(CAST(JSON_UNQUOTE(JSON_EXTRACT(room_config, '$.max_free_guests')) AS UNSIGNED), 2) >= ?",
@@ -453,7 +453,7 @@ class RoomSearchService
             );
         }
 
-        // Loại phòng đã bị đặt trong khung giờ tìm kiếm (checkin/checkout dạng d/m/Y H:i, đến từ
+        // Loại sân đã bị đặt trong khung giờ tìm kiếm (checkin/checkout dạng d/m/Y H:i, đến từ
         // hero search — khác định dạng Y-m-d của time_type=day/date ở trên).
         $bookedIds = $this->resolveBookedIds($validated['checkin'] ?? null, $validated['checkout'] ?? null);
         if (! empty($bookedIds)) {
@@ -481,12 +481,12 @@ class RoomSearchService
         }
 
         // Filter rooms by available time slots khi tìm theo_gio có time_from & time_to — khớp
-        // theo kiểu OVERLAP (khung giờ của phòng chỉ cần giao nhau với [time_from, time_to] khách
+        // theo kiểu OVERLAP (khung giờ của sân chỉ cần giao nhau với [time_from, time_to] khách
         // chọn). BẮT BUỘC dùng overlap chứ không phải containment: dữ liệu time_slots thực tế mỗi
-        // phòng dài ~2h50-3h và lệch phút (vd 13:50-16:40, 14:20-17:10...), gần như không có phòng
+        // sân dài ~2h50-3h và lệch phút (vd 13:50-16:40, 14:20-17:10...), gần như không có sân
         // nào nằm gọn trong khung giờ tròn khách chọn trên UI (mặc định 14:00-16:00) — containment
-        // trả về 0 kết quả ngay cả khi phòng thực sự trống trong khoảng đó. Client hiển thị đúng
-        // khung giờ thực của từng phòng (không phải khung giờ khách tìm) nên overlap không gây
+        // trả về 0 kết quả ngay cả khi sân thực sự trống trong khoảng đó. Client hiển thị đúng
+        // khung giờ thực của từng sân (không phải khung giờ khách tìm) nên overlap không gây
         // hiểu nhầm.
         $timeFrom = null;
         $timeTo   = null;
@@ -608,7 +608,7 @@ class RoomSearchService
             ->toArray();
     }
 
-    // Tìm tỉnh khớp tên → trả về category IDs (branch + child) để filter phòng
+    // Tìm tỉnh khớp tên → trả về category IDs (branch + child) để filter sân
     private function getCategoryIdsByProvinceName(string $q): array
     {
         $provinceIds = Province::where('name', 'like', "%{$q}%")->pluck('id');

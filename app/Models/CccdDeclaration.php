@@ -16,7 +16,7 @@ class CccdDeclaration extends Model
 {
     protected $fillable = [
         'order_id',
-        // 1 = khách chính (người đặt phòng), 2 = khách thứ 2 cùng lưu trú qua đêm — Luật Cư trú
+        // 1 = khách chính (người đặt sân), 2 = khách thứ 2 cùng lưu trú qua đêm — Luật Cư trú
         // yêu cầu khai báo đủ từng người khi ở qua đêm 2 khách (xem CccdDeclarationService).
         'guest_index',
         'full_name',
@@ -67,7 +67,7 @@ class CccdDeclaration extends Model
     // Đơn ở các trạng thái này mới coi là khách THỰC SỰ sẽ đến ở (đã đặt cọc/thanh toán) — đơn
     // 'pending' có thể tự huỷ sau 15 phút nếu khách không thanh toán (xem ExpirePaymentOrders),
     // nên KHÔNG tính vào danh sách/xuất Excel dù bản ghi lưu trú đã được tạo sẵn ngay từ lúc đặt
-    // phòng (tạo sớm để không mất dữ liệu CCCD nếu khách quay lại thanh toán sau).
+    // sân (tạo sớm để không mất dữ liệu CCCD nếu khách quay lại thanh toán sau).
     public const CONFIRMED_ORDER_STATUSES = ['paid', 'deposit', 'shipped'];
 
     public function hasConfirmedOrder(): bool
@@ -120,7 +120,7 @@ class CccdDeclaration extends Model
     }
 
     // Hạn khai báo (declarationDeadline()) RƠI VÀO HÔM NAY — tức là khách này BẮT BUỘC phải nộp
-    // xong trong ngày hôm nay (dù ngày khách NHẬN PHÒNG có thể là hôm nay hay hôm qua, tuỳ giờ đến
+    // xong trong ngày hôm nay (dù ngày khách NHẬN SÂN có thể là hôm nay hay hôm qua, tuỳ giờ đến
     // trước/sau 23h — xem declarationDeadline()).
     public function isDeclarationDueToday(): bool
     {
@@ -136,7 +136,7 @@ class CccdDeclaration extends Model
         return ! $this->isDeclared() && ($this->isOverdue() || $this->isDeclarationDueToday());
     }
 
-    // Chưa khai báo, hạn còn ở tương lai (chưa tới hôm nay) — khách đặt phòng trước, chưa tới ngày
+    // Chưa khai báo, hạn còn ở tương lai (chưa tới hôm nay) — khách đặt sân trước, chưa tới ngày
     // phải nộp, chỉ hiển thị để theo dõi/lên kế hoạch trước, KHÔNG được xuất Excel (chưa đủ điều
     // kiện khai báo với KBTT — xem CccdDeclarationExcelExporter).
     public function isUpcomingDeclaration(): bool
@@ -181,7 +181,7 @@ class CccdDeclaration extends Model
         'cccd_number'       => 'Số giấy tờ (CCCD)',
         'checked_in_at'     => 'Ngày đến',
         'checked_out_at'    => 'Ngày đi dự kiến',
-        'room_number'       => 'Số phòng',
+        'room_number'       => 'Số sân',
         'stay_address'      => 'Địa chỉ lưu trú (chi nhánh)',
         'reason_for_stay'   => 'Lý do lưu trú',
         'current_residence' => 'Nơi thường trú (theo CCCD)',

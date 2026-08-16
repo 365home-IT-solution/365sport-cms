@@ -17,7 +17,7 @@ class RatingController extends Controller
         $room = Product::where('id', $roomId)->where('is_activated', true)->first();
 
         if (! $room) {
-            return response()->json(['message' => 'Phòng không tồn tại.'], 404);
+            return response()->json(['message' => 'Sân không tồn tại.'], 404);
         }
 
         $ratings = RoomRating::where('room_id', $roomId)
@@ -75,7 +75,7 @@ class RatingController extends Controller
         $room = Product::where('id', $roomId)->where('is_activated', true)->first();
 
         if (! $room) {
-            return response()->json(['message' => 'Phòng không tồn tại.'], 404);
+            return response()->json(['message' => 'Sân không tồn tại.'], 404);
         }
 
         $data = $request->validate([
@@ -116,7 +116,7 @@ class RatingController extends Controller
         $room = Product::where('id', $roomId)->where('is_activated', true)->first();
 
         if (! $room) {
-            return response()->json(['message' => 'Phòng không tồn tại.'], 404);
+            return response()->json(['message' => 'Sân không tồn tại.'], 404);
         }
 
         $user = auth('sanctum')->user();
@@ -126,7 +126,7 @@ class RatingController extends Controller
             ->first();
 
         if (! $rating) {
-            return response()->json(['message' => 'Bạn chưa đánh giá phòng này.'], 404);
+            return response()->json(['message' => 'Bạn chưa đánh giá sân này.'], 404);
         }
 
         $rating->delete();

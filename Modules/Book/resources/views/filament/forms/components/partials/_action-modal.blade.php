@@ -167,9 +167,9 @@
                 </div>
             </div>
 
-            {{-- [Ghi đè tab] Giờ nhận & trả phòng --}}
+            {{-- [Ghi đè tab] Giờ nhận & trả sân --}}
             <div x-show="actionTab==='override'">
-                <p class="bk-section-label">Giờ nhận & trả phòng</p>
+                <p class="bk-section-label">Giờ nhận & trả sân</p>
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
 
                     {{-- Checkin --}}

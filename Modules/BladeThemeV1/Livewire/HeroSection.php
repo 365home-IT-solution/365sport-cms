@@ -43,7 +43,7 @@ class HeroSection extends Component
 
     public function mount(): void
     {
-        $this->logo = (new GeneralSettings())->brand_logo;
+        $this->logo = (new GeneralSettings())->brand_logo ?? '';
         $this->logoHeight = $this->getHeaderLogoHeight();
 
         $this->roomTypes = RoomType::where('is_active', true)
@@ -60,7 +60,7 @@ class HeroSection extends Component
                 'icon'  => '<svg style="width:16px;height:16px;color:#6b7280;flex-shrink:0;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>',
             ],
             [
-                'label' => 'Tìm phòng',
+                'label' => 'Tìm sân',
                 'url'   => route('product.search'),
                 'icon'  => '<svg style="width:16px;height:16px;color:#6b7280;flex-shrink:0;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>',
             ],
@@ -121,7 +121,7 @@ class HeroSection extends Component
             return;
         }
 
-        // Chỉ lấy tỉnh nào có sản phẩm thuộc loại phòng đã chọn,
+        // Chỉ lấy tỉnh nào có sản phẩm thuộc loại sân đã chọn,
         // duyệt qua: province_branches → category (branch) → products (hoặc qua children categories)
         $this->locations = Province::whereHas('branches', function ($q) use ($roomTypeSlug) {
             $q->where('status', true)

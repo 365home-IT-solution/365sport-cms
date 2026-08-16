@@ -2,9 +2,9 @@
     {{-- Nút "Tô đen khung giờ" + modal tích hợp --}}
     <livewire:book::block-timeslot-modal />
 
-    {{-- Lọc theo chi nhánh + phân trang — trước đây trang này build form cho TOÀN BỘ phòng cùng
-         lúc (mỗi phòng 1 Tab + TableRepeater khung giờ/khuyến mãi), đối tác nhiều phòng làm server
-         tốn RAM rất lớn. Giờ chỉ build {{ $this->perPage }} phòng/trang, dùng link GET thường
+    {{-- Lọc theo chi nhánh + phân trang — trước đây trang này build form cho TOÀN BỘ sân cùng
+         lúc (mỗi sân 1 Tab + TableRepeater khung giờ/khuyến mãi), đối tác nhiều sân làm server
+         tốn RAM rất lớn. Giờ chỉ build {{ $this->perPage }} sân/trang, dùng link GET thường
          (không phải wire:click) để tải lại trang với query string mới — tránh phải giữ toàn bộ
          state phân trang qua Livewire. --}}
     <div class="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-gray-200 bg-white p-3 dark:border-white/10 dark:bg-white/5">
@@ -22,7 +22,7 @@
         <div class="flex w-full flex-wrap items-center gap-3 text-sm text-gray-600 dark:text-gray-300 sm:w-auto">
             <span class="w-full sm:w-auto">
                 Trang {{ $this->paginatorMeta['current_page'] }}/{{ $this->paginatorMeta['last_page'] }}
-                &middot; {{ $this->paginatorMeta['total'] }} phòng
+                &middot; {{ $this->paginatorMeta['total'] }} sân
             </span>
             @php
                 $bookQueryBase = request()->except('page');

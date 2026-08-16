@@ -50,18 +50,18 @@
             }
         }
 
-        /* Khung danh sách card phòng — tái dùng đúng khung của trang chủ (.home-card, ló 1 phần
+        /* Khung danh sách card sân — tái dùng đúng khung của trang chủ (.home-card, ló 1 phần
            card tiếp theo trên mobile để gợi ý vuốt ngang). */
         .hide-scrollbar { -ms-overflow-style: none; }
         .hide-scrollbar::-webkit-scrollbar { display: none; }
 
-        /* Skeleton loading cho danh sách phòng (#branch-rooms-root) trong lúc fetch
+        /* Skeleton loading cho danh sách sân (#branch-rooms-root) trong lúc fetch
            /api/v1/search — thay cho dòng chữ "Đang tải..." cũ, tránh giật layout vì dùng đúng
            khung .home-card + x-ref="track" như card thật (grid 2 cột mobile/desktop đã định
            nghĩa sẵn ở #branch-rooms-root [x-ref="track"] phía dưới). Định nghĩa riêng
            (room-skel-shimmer, không dùng chung book-skel-shimmer của book/_skeleton.blade.php)
            vì khối lịch (component Livewire "book") chỉ render khi
-           bookConfig['bookable_room_count'] khác rỗng — nếu chi nhánh chưa có phòng theo khung
+           bookConfig['bookable_room_count'] khác rỗng — nếu chi nhánh chưa có sân theo khung
            giờ thì style đó sẽ không tồn tại trên trang. */
         @keyframes room-skel-shimmer {
             0% { background-position: -400px 0; }
@@ -151,7 +151,7 @@
             100% { transform: scale(1); }
         }
 
-        /* Trang chi nhánh: mobile (< 1024px) hiển thị Lịch đặt phòng trước, danh sách card phòng
+        /* Trang chi nhánh: mobile (< 1024px) hiển thị Lịch đặt sân trước, danh sách card sân
            dạng lưới thường (không phải bottom-sheet) ngay bên dưới — dùng flex-direction:column +
            order để đảo thứ tự hiển thị mà không phải đổi thứ tự HTML (rooms vẫn đứng trước booking
            trong DOM, chỉ đổi order để giữ được thứ tự cột như cũ ở desktop). Desktop (≥1024px):
@@ -165,7 +165,7 @@
         .branch-col-booking { order: 1; }
 
         @media (max-width: 1023.98px) {
-            /* Danh sách phòng dạng lưới 2 cột thường thay vì carousel cuộn ngang —
+            /* Danh sách sân dạng lưới 2 cột thường thay vì carousel cuộn ngang —
                #branch-rooms-root [x-ref="track"] vốn có style inline (flex ngang, cuộn tay) do JS
                tự sinh ra, cần !important để thắng (đúng pattern desktop bên dưới đã dùng cho lý
                do tương tự). */
@@ -184,8 +184,8 @@
         }
 
         @media (min-width: 1024px) {
-            /* Cột danh sách phòng thu hẹp lại (đủ chỗ cho 2 card/hàng thay vì 3), cột lịch đặt
-               phòng giãn rộng ra chiếm phần còn lại — minmax để cột phòng không co quá hẹp khi
+            /* Cột danh sách sân thu hẹp lại (đủ chỗ cho 2 card/hàng thay vì 3), cột lịch đặt
+               sân giãn rộng ra chiếm phần còn lại — minmax để cột sân không co quá hẹp khi
                màn hình nhỏ (vẫn đủ chỗ cho 2 card) nhưng cũng không phình quá to trên màn rộng. */
             .branch-columns {
                 display: grid;
@@ -223,7 +223,7 @@
                    TOÀN TRANG dù đã đặt max-width — chứ không co gọn vào đúng track đã cấp. Set
                    min-width:0 buộc cột (và track) co lại đúng bề rộng được cấp; phần nội dung dư
                    (khung giờ 6+, slide kế bên) đã có sẵn overflow-x:auto ở bên trong
-                   (.book-dt-slots-scroll/.book-dt-slots-header-row, book/_styles.blade.php) để tự
+                   (.book-dt-slots-scroll/.book-dt-dates-header-row, book/_styles.blade.php) để tự
                    cuộn ngang trong đúng khung cột 2, không tràn ra ngoài nữa. */
                 min-width: 0;
                 /* Rộng hơn mốc 760px cũ nhưng vẫn phải chặn trần — bảng lịch bên trong dùng
@@ -232,7 +232,7 @@
                    màn hình rộng) khiến mỗi ô khung giờ bị kéo dãn thành vệt mỏng gần như vô hình
                    thay vì pill vuông vắn như thiết kế.
                    1100px: ở breakpoint Swiper rộng nhất (slidesPerView 2.1, spaceBetween 20 —
-                   xem mountBookDtSwiper() trong public/js/home-sections.js), mỗi thẻ phòng
+                   xem mountBookDtSwiper() trong public/js/home-sections.js), mỗi thẻ sân
                    (slide) cần tối thiểu ~430px để đủ chỗ cho cả 5 khung giờ (mỗi ô tối thiểu
                    78px + gap 6px + padding 16px) không bị cắt/cuộn ngang — 960px cũ cho slide
                    chỉ ~397px nên khung giờ thứ 5 bị hụt. 1100px cho slide ~460px, đủ dư cho 5
@@ -240,8 +240,8 @@
                 max-width: 1100px;
             }
 
-            /* Danh sách phòng: carousel ngang (mobile) -> lưới 2 cột (desktop, khớp cột đã thu
-               hẹp ở trên) kiểu ảnh trên/chữ dưới, lấy theo đúng kiểu thẻ phòng của trang kết quả
+            /* Danh sách sân: carousel ngang (mobile) -> lưới 2 cột (desktop, khớp cột đã thu
+               hẹp ở trên) kiểu ảnh trên/chữ dưới, lấy theo đúng kiểu thẻ sân của trang kết quả
                tìm kiếm (.branch-grid/.branch-card ở search.blade.php). */
             #branch-rooms-root [x-ref="track"] {
                 display: grid !important;
@@ -262,15 +262,15 @@
     <main class="branch-page-main" style="background:#fff; min-height:100vh;">
         <div class="w-full max-w-11xl mx-auto px-4 sm:px-6 pb-6">
             <div class="branch-columns">
-                {{-- Cột 1: Danh sách phòng thuộc chi nhánh này. Desktop: danh sách dọc, sticky
-                     cạnh bảng đặt lịch (như cũ). Mobile: hiển thị ngay bên dưới Lịch đặt phòng
+                {{-- Cột 1: Danh sách sân thuộc chi nhánh này. Desktop: danh sách dọc, sticky
+                     cạnh bảng đặt lịch (như cũ). Mobile: hiển thị ngay bên dưới Lịch đặt sân
                      dạng lưới 2 cột thường (order:2, xem CSS phía trên), không còn là bottom-sheet
                      nổi lên. --}}
                 <div class="branch-col-rooms">
                     <div id="branch-rooms-root" x-data="carouselNav()" x-init="init()" style="min-height:80px;"></div>
                 </div>
 
-                {{-- Cột 2: Bảng đặt lịch khung giờ của từng phòng --}}
+                {{-- Cột 2: Bảng đặt lịch khung giờ của từng sân --}}
                 <div class="branch-col-booking">
                     <div style="margin:0 0 16px;">
                     
@@ -278,7 +278,7 @@
 
                     @if(empty($bookConfig['bookable_room_count']))
                         <div style="padding:40px 16px; text-align:center; border:1px solid #f3f4f6; border-radius:14px; background:#f9fafb;">
-                            <p style="margin:0; color:#6b7280; font-size:14px;">Chi nhánh này chưa có phòng theo khung giờ để hiển thị.</p>
+                            <p style="margin:0; color:#6b7280; font-size:14px;">Chi nhánh này chưa có sân theo khung giờ để hiển thị.</p>
                         </div>
                     @else
                         @livewire('bladethemev1::book', ['config' => $bookConfig])
@@ -304,11 +304,11 @@
                 + '<svg style="width:40px;height:40px;color:#d1d5db;margin:0 auto 12px;" fill="none" stroke="currentColor" viewBox="0 0 24 24">'
                 + '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>'
                 + '</svg>'
-                + '<p style="color:#6b7280;font-size:14px;margin:0;">Không tìm thấy phòng nào phù hợp.</p>'
+                + '<p style="color:#6b7280;font-size:14px;margin:0;">Không tìm thấy sân nào phù hợp.</p>'
                 + '</div>';
 
             const errorStateHtml = '<div style="padding:2.5rem 1rem; text-align:center;">'
-                + '<p style="color:#6b7280;font-size:14px;margin:0;">Không tải được danh sách phòng. Vui lòng thử lại.</p>'
+                + '<p style="color:#6b7280;font-size:14px;margin:0;">Không tải được danh sách sân. Vui lòng thử lại.</p>'
                 + '</div>';
 
             // Skeleton: cùng khung .home-card + x-ref="track" như card thật (tự thừa hưởng grid
@@ -346,7 +346,7 @@
                     const cards = rooms.map((room) => window.roomCardHtml ? window.roomCardHtml(room) : '').join('');
 
                     root.innerHTML = '<div style="display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:16px;">'
-                        + '<h2 class="branch-col-heading" style="font-size:16px; line-height:1.3; font-weight:800; color:#111827; margin:0;">Danh sách phòng <span style="color:#9ca3af; font-weight:600;">(' + rooms.length + ')</span></h2>'
+                        + '<h2 class="branch-col-heading" style="font-size:16px; line-height:1.3; font-weight:800; color:#111827; margin:0;">Danh sách sân <span style="color:#9ca3af; font-weight:600;">(' + rooms.length + ')</span></h2>'
                         + '<div class="branch-carousel-nav hidden lg:flex" style="align-items:center; gap:6px; flex-shrink:0;">'
                         + '<button type="button" class="carousel-nav-btn" aria-label="Trước" x-show="canScrollPrev" @click="prev()">'
                         + '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>'

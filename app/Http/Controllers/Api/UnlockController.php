@@ -89,7 +89,7 @@ class UnlockController extends Controller
         if (!$product) {
             return response()->json([
                 'success' => false,
-                'message' => 'Không tìm thấy phòng trong đơn hàng.',
+                'message' => 'Không tìm thấy sân trong đơn hàng.',
             ], 422);
         }
 
@@ -125,9 +125,9 @@ class UnlockController extends Controller
 
             if ($datedItems->isNotEmpty() && !$activeItem) {
                 $message = $earliestItem
-                    ? 'Ngoài thời gian đặt phòng. Khung giờ tiếp theo bắt đầu lúc '
+                    ? 'Ngoài thời gian đặt sân. Khung giờ tiếp theo bắt đầu lúc '
                       . Carbon::parse($earliestItem->checkin_date)->format('H:i d/m') . '.'
-                    : 'Đã hết tất cả khung giờ đặt phòng.';
+                    : 'Đã hết tất cả khung giờ đặt sân.';
 
                 return response()->json(['success' => false, 'message' => $message], 422);
             }
@@ -198,7 +198,7 @@ class UnlockController extends Controller
             $checkedInAt = null;
             if ($isCheckin) {
                 $checkedInAt = now()->toIso8601String();
-                // "nhận phòng" và "bắt đầu ở" xảy ra cùng lúc (không có sự kiện nào tách 2 mốc này) → ghi thẳng order_status = staying.
+                // "nhận sân" và "bắt đầu ở" xảy ra cùng lúc (không có sự kiện nào tách 2 mốc này) → ghi thẳng order_status = staying.
                 $order->update(['checked_in_at' => now(), 'order_status' => 'staying']);
             } else {
                 $order->update(['checked_out_at' => now(), 'order_status' => 'checked_out']);
@@ -244,7 +244,7 @@ class UnlockController extends Controller
         return response()->json([
             'success' => false,
             'type'    => 'ttlock_error',
-            'message' => 'Không thể mở cổng tự động và chưa có mã dự phòng. Vui lòng liên hệ nhân viên để được hỗ trợ.',
+            'message' => 'Không thể mở cổng tự động và chưa có mã dự sân. Vui lòng liên hệ nhân viên để được hỗ trợ.',
         ], 503);
     }
 
@@ -296,7 +296,7 @@ class UnlockController extends Controller
              . now()->format('H:i d/m/Y') . "\n\n"
              . "Khách: {$order->buyer_name} | {$order->buyer_phone}\n"
              . "Mã đơn: <code>{$order->order_code}</code>\n"
-             . "Lý do: Gateway offline và không có mã dự phòng.\n"
+             . "Lý do: Gateway offline và không có mã dự sân.\n"
              . "→ Cần hỗ trợ khách ngay!";
 
         try {

@@ -8,9 +8,9 @@ use Filament\Resources\Resource;
 use Modules\Product\App\Filament\Resources\RoomHousekeepingResource\Pages;
 use Modules\Product\App\Models\Product;
 
-// Màn hình RIÊNG để theo dõi/kiểm tra tình trạng dọn vệ sinh từng phòng — tách khỏi ProductResource
-// ("Thiết lập Phòng", nhiều field không liên quan) để không phải đào bới. Chỉ xem + 2 action dọn
-// phòng (đã có sẵn từ ProductAction/RoomCleaningAction).
+// Màn hình RIÊNG để theo dõi/kiểm tra tình trạng dọn vệ sinh từng sân — tách khỏi ProductResource
+// ("Thiết lập Sân", nhiều field không liên quan) để không phải đào bới. Chỉ xem + 2 action dọn
+// sân (đã có sẵn từ ProductAction/RoomCleaningAction).
 //
 // CHỈ super_admin được xem trang này — canViewAny() hard-code isSuperAdmin(), KHÔNG dựa vào
 // permission Shield (*_room::housekeeping), nên tick/bỏ tick quyền này ở Roles & Permissions cho
@@ -24,15 +24,15 @@ class RoomHousekeepingResource extends Resource
 
     protected static ?string $navigationGroup = 'Quản lý API';
 
-    protected static ?string $navigationLabel = 'Kiểm tra dọn phòng';
+    protected static ?string $navigationLabel = 'Kiểm tra dọn sân';
 
     // BẮT BUỘC khai báo riêng — nếu không, Filament tự suy nhãn từ tên MODEL dùng chung
     // (Product::class, giống hệt ProductResource/RoomAmenityAssignResource) thành "Product", khiến
     // trang phân quyền (Shield) hiện nhiều mục cùng tên "Product" không phân biệt được — đây chính
-    // là lý do "Kiểm tra dọn phòng" tưởng như biến mất khỏi trang chọn quyền dù thực ra vẫn ở đó,
+    // là lý do "Kiểm tra dọn sân" tưởng như biến mất khỏi trang chọn quyền dù thực ra vẫn ở đó,
     // chỉ bị đặt nhầm tên trùng với mục khác.
-    protected static ?string $modelLabel       = 'Kiểm tra dọn phòng';
-    protected static ?string $pluralModelLabel = 'Kiểm tra dọn phòng';
+    protected static ?string $modelLabel       = 'Kiểm tra dọn sân';
+    protected static ?string $pluralModelLabel = 'Kiểm tra dọn sân';
 
     protected static ?string $slug = 'room-housekeeping';
 

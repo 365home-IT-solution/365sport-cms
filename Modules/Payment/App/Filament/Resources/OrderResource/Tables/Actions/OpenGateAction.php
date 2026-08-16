@@ -33,7 +33,7 @@ class OpenGateAction
             })
             ->requiresConfirmation()
             ->modalHeading(fn (Order $record) => "Mở cổng — Đơn #{$record->order_code}")
-            ->modalDescription('Hệ thống sẽ gửi lệnh mở khóa TTLock ngay lập tức. Chỉ dùng khi cần hỗ trợ khách vào phòng khẩn cấp.')
+            ->modalDescription('Hệ thống sẽ gửi lệnh mở khóa TTLock ngay lập tức. Chỉ dùng khi cần hỗ trợ khách vào sân khẩn cấp.')
             ->modalSubmitActionLabel('Mở cổng ngay')
             ->action(function (Order $record): void {
                 $record->load('items.product');
@@ -41,7 +41,7 @@ class OpenGateAction
 
                 if (!$product || !$product->lock_id) {
                     Notification::make()
-                        ->title('Phòng này không có TTLock')
+                        ->title('Sân này không có TTLock')
                         ->danger()
                         ->send();
                     return;

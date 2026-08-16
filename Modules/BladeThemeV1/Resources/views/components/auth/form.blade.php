@@ -189,8 +189,8 @@
         </h2>
         <p class="text-sm text-gray-500 mb-5 pr-8">
             {{ $mode === 'register'
-                ? 'Đăng ký để đặt phòng nhanh hơn và nhận ưu đãi độc quyền dành cho thành viên.'
-                : 'Đăng nhập để đặt phòng với những ưu đãi độc quyền dành cho thành viên.' }}
+                ? 'Đăng ký để đặt sân nhanh hơn và nhận ưu đãi độc quyền dành cho thành viên.'
+                : 'Đăng nhập để đặt sân với những ưu đãi độc quyền dành cho thành viên.' }}
         </p>
 
         <div class="mb-4">

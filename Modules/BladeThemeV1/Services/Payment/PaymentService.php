@@ -72,11 +72,11 @@ class PaymentService
 
         if ($order->items && $order->items->count() > 0) {
             foreach ($order->items as $item) {
-                // Thêm item phòng với giá gốc
+                // Thêm item sân với giá gốc
                 $items[] = [
-                    'name' => $item->name . ' (1 phòng)',
+                    'name' => $item->name . ' (1 sân)',
                     'quantity' => $item->quantity ?? 1,
-                    'price' => (int) $item->price, // Giá phòng gốc không cộng extra_fee
+                    'price' => (int) $item->price, // Giá sân gốc không cộng extra_fee
                 ];
                 $totalAmount += (int) $item->price * ($item->quantity ?? 1);
 
@@ -93,7 +93,7 @@ class PaymentService
         } else {
             // Fallback nếu không có items
             $items[] = [
-                'name' => 'Đặt phòng - ' . ($roomDetails['productName'] ?? 'Phòng'),
+                'name' => 'Đặt sân - ' . ($roomDetails['productName'] ?? 'Sân'),
                 'quantity' => 1,
                 'price' => $dueNow,
             ];
@@ -135,7 +135,7 @@ class PaymentService
         $expiredAt = now()->addMinutes(15)->timestamp;
         $description = $order->description;
         if (empty($description)) {
-            $description = 'Thanh toán đặt phòng';
+            $description = 'Thanh toán đặt sân';
         }
         $data = [
             "orderCode" => $order->order_code,

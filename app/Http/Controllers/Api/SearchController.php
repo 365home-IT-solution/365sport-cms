@@ -24,7 +24,7 @@ class SearchController extends Controller
         $nearby = [
             'id'          => 'nearby',
             'name'        => 'Lân cận',
-            'description' => 'Tìm phòng xung quanh bạn',
+            'description' => 'Tìm sân xung quanh bạn',
             'type'        => 'nearby',
             'icon'        => 'navigate-outline',
             'icon_color'  => '#4A90D9',
@@ -47,7 +47,7 @@ class SearchController extends Controller
             ->map(fn ($row, $index) => [
                 'id'          => (string) ($index + 1),
                 'name'        => $row->address,
-                'description' => $row->room_count . ' phòng',
+                'description' => $row->room_count . ' sân',
                 'type'        => 'location',
                 'icon'        => 'location-outline',
                 'icon_color'  => '#4CAF50',
@@ -63,7 +63,7 @@ class SearchController extends Controller
 
     // ─── GET /v1/search/branches ─────────────────────────────────────────────
     // Dùng cho "Xem tất cả" của block Gợi ý điểm đến (loại Chi nhánh) trên mobile —
-    // trả về danh sách chi nhánh của khu vực thay vì danh sách phòng.
+    // trả về danh sách chi nhánh của khu vực thay vì danh sách sân.
     public function branches(Request $request): JsonResponse
     {
         $province = $this->resolveProvince($request);
@@ -83,7 +83,7 @@ class SearchController extends Controller
             ->sortBy(fn ($branch) => $branch->category->sort_order)
             ->values();
 
-        // Đếm số phòng khả dụng theo từng chi nhánh (tính cả category con) — cùng pattern đã
+        // Đếm số sân khả dụng theo từng chi nhánh (tính cả category con) — cùng pattern đã
         // dùng ở ProvinceList::mount() (Modules/BladeThemeV1/Livewire/ProvinceList.php).
         $branchCatIds = $branchRows->pluck('category.id')->filter()->values()->toArray();
         $childToBranchMap = Category::whereIn('parent_id', $branchCatIds)->pluck('parent_id', 'id')->toArray();
@@ -97,10 +97,10 @@ class SearchController extends Controller
             $roomCountByBranch[$branchCatId] = ($roomCountByBranch[$branchCatId] ?? 0) + $count;
         }
 
-        // Chi nhánh nào có phòng đang khuyến mãi giảm giá (percentage/fixed) hiệu lực ngay bây
+        // Chi nhánh nào có sân đang khuyến mãi giảm giá (percentage/fixed) hiệu lực ngay bây
         // giờ thì đẩy lên đầu danh sách — cùng cách xác định "có khuyến mãi" như đã dùng cho icon
-        // flash-sale cạnh tên phòng (book/_mobile.blade.php, book/_desktop-grid.blade.php), chỉ
-        // khác là gộp theo TOÀN BỘ chi nhánh (branch + category con) thay vì từng phòng riêng lẻ.
+        // flash-sale cạnh tên sân (book/_mobile.blade.php, book/_desktop-grid.blade.php), chỉ
+        // khác là gộp theo TOÀN BỘ chi nhánh (branch + category con) thay vì từng sân riêng lẻ.
         $catIdsWithPromo = Product::whereHas('categories', fn ($q) => $q->whereIn('categories.id', $allCatIds))
             ->whereHas('roomTimeSlots.promotions', function ($q) {
                 $q->whereIn('type', ['percentage', 'fixed'])
@@ -164,8 +164,8 @@ class SearchController extends Controller
     // ─── GET /v1/search ──────────────────────────────────────────────────────
     // Có từ khoá "q" (tìm kiếm tự do, vd màn tìm kiếm chính trên app) → trả về card CHI
     // NHÁNH (RoomSearchService::searchBranches()) để client nhóm kết quả theo chi nhánh.
-    // Không có "q" (đã ở 1 khu vực/chi nhánh cụ thể, vd lịch đặt phòng theo tháng) → giữ
-    // nguyên hành vi cũ, trả về danh sách PHÒNG (RoomSearchService::search()).
+    // Không có "q" (đã ở 1 khu vực/chi nhánh cụ thể, vd lịch đặt sân theo tháng) → giữ
+    // nguyên hành vi cũ, trả về danh sách SÂN (RoomSearchService::search()).
 
     public function index(Request $request, RoomSearchService $searchService): JsonResponse
     {

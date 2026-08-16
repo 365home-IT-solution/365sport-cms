@@ -49,13 +49,13 @@ class OrderTable
                     ->toggleable(isToggledHiddenByDefault: true)
                     ->sortable(),
 
-                // Hiện TÊN PHÒNG thay vì tên chi nhánh (theo yêu cầu — nhiều đơn cùng 1 chi nhánh
-                // trùng địa chỉ nên khó tìm, tên phòng phân biệt rõ hơn). Lấy từ dòng order_item
-                // ĐẦU TIÊN — hệ thống hiện giới hạn 1 phòng/đơn nên mọi dòng cùng 1 phòng, không
+                // Hiện TÊN SÂN thay vì tên chi nhánh (theo yêu cầu — nhiều đơn cùng 1 chi nhánh
+                // trùng địa chỉ nên khó tìm, tên sân phân biệt rõ hơn). Lấy từ dòng order_item
+                // ĐẦU TIÊN — hệ thống hiện giới hạn 1 sân/đơn nên mọi dòng cùng 1 sân, không
                 // cần gộp nhiều tên. 'items.product' đã eager-load sẵn ở modifyQueryUsing() phía
                 // trên nên không phát sinh N+1.
                 TextColumn::make('room_name')
-                    ->label('Phòng')
+                    ->label('Sân')
                     ->getStateUsing(fn ($record) => $record->items->first()?->product?->name
                         ?: $record->items->first()?->name
                         ?: '—')
@@ -104,7 +104,7 @@ class OrderTable
                         return __("payment::order.table.status.$state");
                     }),
 
-                // Cạnh "Trạng thái" — đơn "paid" chỉ phản ánh giá phòng GỐC đã trả đủ, KHÔNG tự đổi
+                // Cạnh "Trạng thái" — đơn "paid" chỉ phản ánh giá sân GỐC đã trả đủ, KHÔNG tự đổi
                 // khi có phát sinh/hoàn tiền phát sinh SAU đó (sửa đơn thêm khung giờ/dịch vụ) — nếu
                 // không có cột riêng, admin dễ bỏ sót đơn đang còn nợ/cần hoàn vì bảng chỉ hiện
                 // "Đã thanh toán" (xanh) như bình thường. Dùng lại ĐÚNG 2 điều kiện đã có sẵn ở
@@ -195,7 +195,7 @@ class OrderTable
                     ->toggleable(isToggledHiddenByDefault: true),
 
                 TextColumn::make('stay_checkin')
-                    ->label('Ngày nhận phòng')
+                    ->label('Ngày nhận sân')
                     ->getStateUsing(function ($record) {
                         $item = $record->items->firstWhere('product_id', '!=', null);
                         if (!$item || ($item->product?->styles ?? 1) != 2) return null;
@@ -206,7 +206,7 @@ class OrderTable
                     ->color('success'),
 
                 TextColumn::make('stay_checkout')
-                    ->label('Ngày trả phòng')
+                    ->label('Ngày trả sân')
                     ->getStateUsing(function ($record) {
                         $item = $record->items->firstWhere('product_id', '!=', null);
                         if (!$item || ($item->product?->styles ?? 1) != 2) return null;
@@ -256,7 +256,7 @@ class OrderTable
                     ->falseIcon('heroicon-o-lock-closed')
                     ->trueColor('warning')
                     ->falseColor('gray')
-                    ->tooltip(fn ($record) => $record->unlock_anytime ? 'Khách có thể mở cổng bất kỳ lúc nào' : 'Mở cổng giới hạn theo giờ đặt phòng')
+                    ->tooltip(fn ($record) => $record->unlock_anytime ? 'Khách có thể mở cổng bất kỳ lúc nào' : 'Mở cổng giới hạn theo giờ đặt sân')
                     // Chi nhánh chưa có tài khoản TTLock kích hoạt thì trạng thái "mở cổng tự do"
                     // không có ý nghĩa gì (không có khóa điện tử nào để mở) — ẩn hẳn cột.
                     ->visible(fn ($record) => TTLockService::hasAccountForCategory($record?->category_id))
@@ -502,7 +502,7 @@ class OrderTable
                                                 'buyerPhone'  => $record->buyer_phone ?? '',
                                                 'expiredAt'   => $expiredAt->timestamp,
                                                 'items'       => [[
-                                                    'name'     => 'Tiền còn lại - ' . ($record->items->first()?->name ?? 'Phòng'),
+                                                    'name'     => 'Tiền còn lại - ' . ($record->items->first()?->name ?? 'Sân'),
                                                     'quantity' => 1,
                                                     'price'    => $remaining,
                                                 ]],
@@ -685,7 +685,7 @@ class OrderTable
                                         <thead class="bg-gray-50 border-b border-gray-200">
                                             <tr>
                                                 <th class="py-2 px-4 text-xs font-semibold text-gray-500 uppercase">#</th>
-                                                <th class="py-2 px-4 text-xs font-semibold text-gray-500 uppercase">Phòng</th>
+                                                <th class="py-2 px-4 text-xs font-semibold text-gray-500 uppercase">Sân</th>
                                                 <th class="py-2 px-4 text-xs font-semibold text-gray-500 uppercase">Thời gian</th>
                                                 <th class="py-2 px-4 text-xs font-semibold text-gray-500 uppercase text-right">Giá</th>
                                             </tr>
@@ -816,15 +816,15 @@ class OrderTable
                     ? 'Khoá lại giờ mở cổng?'
                     : 'Cho phép khách mở cổng bất kỳ lúc nào?')
                 ->modalDescription(fn ($record) => $record->unlock_anytime
-                    ? 'Khách sẽ chỉ được mở cổng trong khung giờ đặt phòng (±30 phút).'
-                    : 'Khách có thể nhấn mở cổng bất kỳ lúc nào, dù chưa đến hoặc đã quá giờ đặt phòng. Dùng khi khách đến sớm hoặc về muộn.')
+                    ? 'Khách sẽ chỉ được mở cổng trong khung giờ đặt sân (±30 phút).'
+                    : 'Khách có thể nhấn mở cổng bất kỳ lúc nào, dù chưa đến hoặc đã quá giờ đặt sân. Dùng khi khách đến sớm hoặc về muộn.')
                 ->modalSubmitActionLabel(fn ($record) => $record->unlock_anytime ? 'Khoá lại' : 'Cho phép')
                 ->action(function ($record) {
                     $record->update(['unlock_anytime' => ! $record->unlock_anytime]);
                     Notification::make()
                         ->title($record->unlock_anytime
                             ? 'Đã cho phép khách mở cổng tự do'
-                            : 'Đã khoá lại theo giờ đặt phòng')
+                            : 'Đã khoá lại theo giờ đặt sân')
                         ->success()
                         ->send();
                 }),
@@ -832,7 +832,7 @@ class OrderTable
     }
 
     /**
-     * Tính tổng đơn hàng áp dụng bulk_discount_rules từ cài đặt phòng.
+     * Tính tổng đơn hàng áp dụng bulk_discount_rules từ cài đặt sân.
      * Mỗi order item = 1 khung giờ; số lượng items cùng product_id xác định mức giảm.
      */
     private static function computeOrderTotal(Order $record): int

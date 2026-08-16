@@ -291,7 +291,7 @@
 
                     @if ($selectedOrderInfo['room_name'])
                     <div>
-                        <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Phòng</p>
+                        <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Sân</p>
                         <p class="text-gray-900 dark:text-white font-medium">{{ $selectedOrderInfo['room_name'] }}</p>
                     </div>
                     @endif

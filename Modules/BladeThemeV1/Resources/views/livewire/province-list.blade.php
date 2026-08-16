@@ -7,7 +7,7 @@
             <div class="flex items-end justify-between mb-8">
                 <div>
                     <h2 class="text-2xl md:text-3xl font-extrabold text-gray-900">Khám phá địa điểm</h2>
-                    {{-- <p class="text-gray-500 mt-1 text-sm">Tìm phòng nghỉ tại các tỉnh thành có chi nhánh 365 HOME</p> --}}
+                    {{-- <p class="text-gray-500 mt-1 text-sm">Tìm sân nghỉ tại các tỉnh thành có chi nhánh 365 HOME</p> --}}
                 </div>
                 {{-- <a href="{{ route('product.search') }}"
                     class="hidden sm:flex items-center gap-1 text-sm font-semibold text-teal-600 hover:text-teal-700 transition-colors shrink-0">
@@ -65,7 +65,7 @@
                                     {{ $province['name'] }}
                                 </p>
                                 {{-- <p style="color:rgba(255,255,255,.75); font-size:11px; margin:3px 0 0; font-weight:500;">
-                                    {{ $province['branch_count'] }} chi nhánh · {{ $province['room_count'] }} phòng
+                                    {{ $province['branch_count'] }} chi nhánh · {{ $province['room_count'] }} sân
                                 </p> --}}
                             </div>
 

@@ -6,8 +6,8 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 // Đánh dấu đối tác ĐẶC BIỆT do chính nền tảng vận hành (vd "365home" — nơi gộp dữ liệu cũ trước
-// khi có multi-tenant). Nhân viên của đối tác này được phép TẠO ĐƠN ĐẶT PHÒNG cho phòng/chi
-// nhánh của BẤT KỲ đối tác nào khác (đóng vai trò như tổng đài đặt phòng hộ) — các dữ liệu khác
+// khi có multi-tenant). Nhân viên của đối tác này được phép TẠO ĐƠN ĐẶT SÂN cho sân/chi
+// nhánh của BẤT KỲ đối tác nào khác (đóng vai trò như tổng đài đặt sân hộ) — các dữ liệu khác
 // (doanh thu, lương, hồ sơ đối tác...) vẫn tách biệt bình thường theo BelongsToPartner, KHÔNG cấp
 // quyền toàn cục kiểu super_admin.
 return new class extends Migration
@@ -22,7 +22,7 @@ return new class extends Migration
         // verification_status/is_platform_partner tồn tại nên không gán được lúc đó) chính là nền
         // tảng — đánh dấu is_platform_partner=true + verification_status='approved' ngay khi 2 cột
         // này đã chắc chắn tồn tại. Không phải đối tác thật cần chờ duyệt — để mặc định 'pending'
-        // sẽ khiến dropdown "Đối tác" ở form đặt phòng ẩn luôn đối tác này, chặn đặt phòng.
+        // sẽ khiến dropdown "Đối tác" ở form đặt sân ẩn luôn đối tác này, chặn đặt sân.
         DB::table('partners')
             ->where('name', '365Home')
             ->update([

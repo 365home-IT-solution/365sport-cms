@@ -45,7 +45,7 @@ public function sendLockMessage(string $message): void
 }
 
 /**
- * Gửi thông báo liên quan đến cọc phòng (style=2) sang nhóm Telegram riêng.
+ * Gửi thông báo liên quan đến cọc sân (style=2) sang nhóm Telegram riêng.
  * Nếu chưa cấu hình TELEGRAM_DEPOSIT_CHAT_ID thì fallback về chat_id chính.
  */
 public function sendDepositMessage(string $message): void

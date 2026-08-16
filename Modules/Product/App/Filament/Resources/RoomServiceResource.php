@@ -43,7 +43,7 @@ class RoomServiceResource extends Resource
 
     public static function getNavigationLabel(): string
     {
-        return 'Dịch vụ Phòng';
+        return 'Dịch vụ Sân';
     }
 
     public static function getModelLabel(): string
@@ -53,7 +53,7 @@ class RoomServiceResource extends Resource
 
     public static function getPluralModelLabel(): string
     {
-        return 'Dịch vụ Phòng';
+        return 'Dịch vụ Sân';
     }
 
     public static function getNavigationBadge(): ?string

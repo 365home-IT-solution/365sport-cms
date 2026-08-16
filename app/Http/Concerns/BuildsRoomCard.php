@@ -28,7 +28,7 @@ trait BuildsRoomCard
         return ['cats' => $cats, 'childMap' => $childMap];
     }
 
-    // Chi nhánh mà 1 phòng thuộc về (trực tiếp hoặc qua category con) — $room->categories phải
+    // Chi nhánh mà 1 sân thuộc về (trực tiếp hoặc qua category con) — $room->categories phải
     // được eager-load trước khi gọi.
     private function resolveBranch(Product $room, \Illuminate\Support\Collection $branchCats, array $branchChildMap): ?array
     {
@@ -112,7 +112,7 @@ trait BuildsRoomCard
         if ($timeFrom !== null && $timeTo !== null) {
             // OVERLAP — khung giờ chỉ cần giao với [timeFrom, timeTo] là tính hợp lệ, không bắt
             // buộc nằm trọn trong khoảng tìm. Phải khớp đúng logic filter DB ở
-            // RoomSearchService::search(), nếu không phòng khớp tìm kiếm (overlap) có thể rơi vào
+            // RoomSearchService::search(), nếu không sân khớp tìm kiếm (overlap) có thể rơi vào
             // đây bị lọc hết slot (containment), khiến card hiển thị giá null dù đã match search.
             $slots = $slots->filter(function ($roomSlot) use ($timeFrom, $timeTo) {
                 if ($roomSlot->over_night) {

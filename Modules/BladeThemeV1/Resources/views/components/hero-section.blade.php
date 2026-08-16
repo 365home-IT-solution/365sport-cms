@@ -99,7 +99,7 @@
                     return `${this.formatDisplay(this.checkIn)} ${String(this.checkInHour).padStart(2,'0')}:${String(this.checkInMin).padStart(2,'0')}`;
                 },
                 get displayCheckOut() {
-                    // Cùng ngày → trả phòng dùng ngày checkIn
+                    // Cùng ngày → trả sân dùng ngày checkIn
                     const date = this.checkOut || this.checkIn;
                     if (!date) return '';
                     return `${this.formatDisplay(date)} ${String(this.checkOutHour).padStart(2,'0')}:${String(this.checkOutMin).padStart(2,'0')}`;
@@ -229,13 +229,13 @@
                         class="w-full h-14 flex items-center justify-between px-4 border border-gray-200 border-r-0
                             bg-white hover:border-teal-500 hover:shadow-sm transition-all text-sm text-left">
                         <div class="flex flex-col min-w-0 gap-0.5">
-                            <span class="text-[10px] font-medium text-gray-400 leading-none uppercase tracking-wide">Nhận phòng</span>
+                            <span class="text-[10px] font-medium text-gray-400 leading-none uppercase tracking-wide">Nhận sân</span>
                             <span class="font-semibold text-gray-800 text-xs truncate"
                                 x-text="displayCheckIn || '--/--/----'"></span>
                         </div>
                         <div class="w-px h-8 bg-gray-200 mx-3 shrink-0"></div>
                         <div class="flex flex-col min-w-0 gap-0.5">
-                            <span class="text-[10px] font-medium text-gray-400 leading-none uppercase tracking-wide">Trả phòng</span>
+                            <span class="text-[10px] font-medium text-gray-400 leading-none uppercase tracking-wide">Trả sân</span>
                             <span class="font-semibold text-gray-800 text-xs truncate"
                                 x-text="displayCheckOut || '--/--/----'"></span>
                         </div>
@@ -246,9 +246,9 @@
                     </button>
                 </div>
 
-                {{-- Loại phòng: 1 = theo giờ, 2 = theo ngày (cột styles trong bảng products) --}}
+                {{-- Loại sân: 1 = theo giờ, 2 = theo ngày (cột styles trong bảng products) --}}
                 <div class="flex flex-col gap-1.5 flex-[2] min-w-0">
-                    <label class="text-xs font-bold text-white/90 uppercase tracking-widest pl-1">Loại phòng</label>
+                    <label class="text-xs font-bold text-white/90 uppercase tracking-widest pl-1">Loại sân</label>
                     <div class="relative">
                         <svg class="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-teal-500 pointer-events-none"
                             fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -465,7 +465,7 @@
         {{-- <div class="mt-10 flex flex-wrap justify-center gap-12">
             <div class="text-center">
                 <p class="text-3xl font-bold text-white drop-shadow-lg">200+</p>
-                <p class="text-white/75 text-sm mt-1.5 tracking-wide">Phòng sẵn sàng</p>
+                <p class="text-white/75 text-sm mt-1.5 tracking-wide">Sân sẵn sàng</p>
             </div>
             <div class="text-center">
                 <p class="text-3xl font-bold text-white drop-shadow-lg">5.000+</p>

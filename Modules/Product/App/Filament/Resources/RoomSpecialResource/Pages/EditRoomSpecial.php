@@ -28,7 +28,7 @@ class EditRoomSpecial extends EditRecord
     {
         return $form->schema([
             Placeholder::make('product_name')
-                ->label('Phòng')
+                ->label('Sân')
                 ->content(fn () => $this->getRecord()?->product?->name ?? '—')
                 ->columnSpanFull(),
 

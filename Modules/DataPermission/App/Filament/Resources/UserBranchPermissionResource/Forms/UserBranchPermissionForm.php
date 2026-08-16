@@ -48,8 +48,8 @@ class UserBranchPermissionForm
                                     ->required(),
 
                                 CheckboxList::make('product_category_ids')
-                                    ->label('Chi nhánh Phòng được phép')
-                                    ->helperText('User sẽ thấy các phòng thuộc chi nhánh này.')
+                                    ->label('Chi nhánh Sân được phép')
+                                    ->helperText('User sẽ thấy các sân thuộc chi nhánh này.')
                                     ->options(function () {
                                         $actor = auth()->user();
                                         $query = Category::query()

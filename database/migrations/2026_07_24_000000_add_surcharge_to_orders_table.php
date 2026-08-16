@@ -9,7 +9,7 @@ return new class extends Migration
     // Khoản phụ thu admin gõ tay ở Section "Tổng thanh toán" (OrderForm), CỘNG THẲNG vào 'amount'
     // lúc tính tổng (giống cách 'orderServices' được cộng vào) — lưu riêng cột này để còn hiển thị/
     // sửa lại đúng số đã nhập khi mở lại đơn, không lẫn vào 'amount' tổng (vốn có thể bị ghi đè bởi
-    // chính admin hoặc bởi calculateTotal() mỗi khi đổi phòng/dịch vụ).
+    // chính admin hoặc bởi calculateTotal() mỗi khi đổi sân/dịch vụ).
     public function up(): void
     {
         Schema::table('orders', function (Blueprint $table) {

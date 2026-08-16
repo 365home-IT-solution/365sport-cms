@@ -26,7 +26,7 @@ class EditManualLockPassword extends EditRecord
         $record = $this->record->fresh(['products']);
         $newProductIds = $record->products->pluck('id')->toArray();
 
-        // Phòng vừa được thêm vào → đánh dấu has_manual_lock = true
+        // Sân vừa được thêm vào → đánh dấu has_manual_lock = true
         $added = array_diff($newProductIds, $this->oldProductIds);
         if ($added) {
             Product::whereIn('id', $added)->update(['has_manual_lock' => true]);
@@ -51,7 +51,7 @@ class EditManualLockPassword extends EditRecord
         return [
             DeleteAction::make()
                 ->before(function () {
-                    // Khi xóa record, gỡ cờ cho các phòng không còn liên kết
+                    // Khi xóa record, gỡ cờ cho các sân không còn liên kết
                     $productIds = $this->record->products()->pluck('products.id')->toArray();
                     foreach ($productIds as $productId) {
                         $otherLinked = \Modules\Product\App\Models\ManualLockPassword::where('id', '!=', $this->record->id)

@@ -57,7 +57,7 @@
                                 if (index > -1) {
                                     this.selectedSlots.splice(index, 1);
                                 } else {
-                                    // Nếu đã chọn slot phòng khác thì không cho chọn thêm
+                                    // Nếu đã chọn slot sân khác thì không cho chọn thêm
                                     const hasDifferentRoomSelected = this.selectedSlots.length > 0 &&
                                         this.selectedSlots.some(slot => slot.roomId !== roomId);
                                     if (hasDifferentRoomSelected) return;
@@ -183,7 +183,7 @@
                                     </th>
                                 </tr>
                                 <tr>
-                                    <th colspan="2" class="py-2 px-3 min-w-[150px] border">Tên phòng</th>
+                                    <th colspan="2" class="py-2 px-3 min-w-[150px] border">Tên sân</th>
                                     @foreach($categoryRoomTimeSlots as $room)
                                         @php
                                             $roomBgColor = $loop->index % 2 == 1 ? 'bg-yellow-100' : '';
@@ -289,7 +289,7 @@
                             </div>
 
                             <div class="w-full text-right">
-                                <button x-on:click="submitBooking" class="py-1 px-4 rounded-full font-bold bg-primary text-white w-full md:w-auto">Đặt phòng</button>
+                                <button x-on:click="submitBooking" class="py-1 px-4 rounded-full font-bold bg-primary text-white w-full md:w-auto">Đặt sân</button>
                             </div>
                         </div>
                     </div>

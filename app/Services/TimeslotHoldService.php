@@ -13,7 +13,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 // Giữ chỗ tạm thời (vài phút) cho 1 ô "khung giờ + ngày" khi admin đang thao tác chọn trên lưới
-// đặt phòng — mục đích CHỈ để tránh 2 admin cùng chọn trùng 1 khung giờ trong lúc đang xử lý đơn,
+// đặt sân — mục đích CHỈ để tránh 2 admin cùng chọn trùng 1 khung giờ trong lúc đang xử lý đơn,
 // KHÔNG thay thế kiểm tra "đã đặt" thật sự (OrderItem::checkin_date/checkout_date, xem
 // OrderForm::getTimeslotGridData()) — hold hết hạn tự động (TTL) nếu admin đóng tab / mất kết nối
 // giữa chừng mà không có cách nào chắc chắn bắt được sự kiện "rời trang" từ trình duyệt.
@@ -107,7 +107,7 @@ class TimeslotHoldService
     }
 
     // broadcast() gọi thẳng tới Reverb qua HTTP (ShouldBroadcastNow, không qua hàng đợi) — nếu
-    // server Reverb chưa chạy/mất kết nối, KHÔNG được để lỗi này làm hỏng luồng đặt phòng thật sự
+    // server Reverb chưa chạy/mất kết nối, KHÔNG được để lỗi này làm hỏng luồng đặt sân thật sự
     // (giữ chỗ vẫn phải thành công trong DB dù real-time không tới được nơi khác kịp).
     //
     // CỐ Ý KHÔNG dùng ->toOthers() — nó cần header X-Socket-ID hợp lệ (Echo phải đã kết nối xong
@@ -145,7 +145,7 @@ class TimeslotHoldService
             ]);
     }
 
-    // Kiểm tra 1 ô có đang bị ADMIN giữ chỗ real-time không — dùng ở luồng đặt phòng CỦA KHÁCH
+    // Kiểm tra 1 ô có đang bị ADMIN giữ chỗ real-time không — dùng ở luồng đặt sân CỦA KHÁCH
     // HÀNG (client, xem ProductDetail::checkSlotConflicts()) để chặn khách đặt trùng đúng lúc admin
     // đang xử lý khung giờ này cho 1 đơn khác (kể cả đơn đó CHƯA lưu xong, chưa có OrderItem thật
     // nên check "đã đặt" bình thường không thấy được).
@@ -161,10 +161,10 @@ class TimeslotHoldService
 
     // Bản gộp của isHeldByAdmin() — nạp 1 lần TẤT CẢ hold đang hiệu lực cho danh sách
     // room_time_slot_id, trả về map "roomTimeSlotId|Y-m-d" => TimeslotHold để tra cứu bằng mảng
-    // (O(1), không query) thay vì gọi isHeldByAdmin() riêng cho MỖI ô lịch. Dùng ở lưới đặt phòng
+    // (O(1), không query) thay vì gọi isHeldByAdmin() riêng cho MỖI ô lịch. Dùng ở lưới đặt sân
     // (book/_slot-cell.blade.php, qua Book::getActiveHoldsMap()) — nơi có thể render tới hàng trăm
-    // ô/lượt (số phòng x số khung giờ x số ngày), gọi isHeldByAdmin() cho từng ô từng gây ra hàng
-    // trăm round-trip DB (kể cả DELETE purge) mỗi lần render, khiến "Xem thêm ngày"/chọn phòng có
+    // ô/lượt (số sân x số khung giờ x số ngày), gọi isHeldByAdmin() cho từng ô từng gây ra hàng
+    // trăm round-trip DB (kể cả DELETE purge) mỗi lần render, khiến "Xem thêm ngày"/chọn sân có
     // khi mất hàng chục giây. Lọc expires_at > now() ngay trong query thay vì DELETE trước (purge
     // thật sự đã có scheduler riêng, xem releaseExpiredHolds()) — tránh ghi DB trong 1 request chỉ
     // để đọc dữ liệu hiển thị.

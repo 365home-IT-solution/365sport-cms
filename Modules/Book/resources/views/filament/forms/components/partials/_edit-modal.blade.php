@@ -53,9 +53,9 @@
                 </div>
             </div>
 
-            {{-- Giờ nhận & trả phòng --}}
+            {{-- Giờ nhận & trả sân --}}
             <div>
-                <label class="block text-xs font-semibold text-gray-600 mb-2">Giờ nhận & trả phòng</label>
+                <label class="block text-xs font-semibold text-gray-600 mb-2">Giờ nhận & trả sân</label>
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
 
                     {{-- Edit Checkin --}}

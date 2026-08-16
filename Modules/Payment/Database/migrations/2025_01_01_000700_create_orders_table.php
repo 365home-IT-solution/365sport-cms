@@ -16,7 +16,7 @@ return new class extends Migration
             $table->id();
             $table->string('order_code')->nullable();
             $table->integer('amount')->nullable();
-            $table->unsignedBigInteger('full_amount')->nullable()->comment('Tổng tiền đặt phòng thực tế. amount = tiền cọc cần thanh toán.');
+            $table->unsignedBigInteger('full_amount')->nullable()->comment('Tổng tiền đặt sân thực tế. amount = tiền cọc cần thanh toán.');
             $table->unsignedTinyInteger('deposit_percent')->nullable()->comment('% cọc đã áp dụng. NULL = thanh toán đủ 100%.');
             $table->timestamp('deposit_paid_at')->nullable();
             $table->timestamp('remaining_paid_at')->nullable();

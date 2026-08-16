@@ -72,7 +72,7 @@ class SectionsRelationManager extends RelationManager
                 ->default(true),
 
             KeyValue::make('filter_config')
-                ->label('Bộ lọc phòng (filter_config)')
+                ->label('Bộ lọc sân (filter_config)')
                 ->helperText('VD: room_type_id=1, tags=deal, limit=10, order_by=latest')
                 ->keyLabel('Key')
                 ->valueLabel('Giá trị')

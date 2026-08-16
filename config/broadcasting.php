@@ -35,20 +35,26 @@ return [
             'key' => env('REVERB_APP_KEY'),
             'secret' => env('REVERB_APP_SECRET'),
             'app_id' => env('REVERB_APP_ID'),
+            // QUAN TRỌNG: broadcast() PHÍA SERVER gọi THẲNG cổng nội bộ Reverb (REVERB_SERVER_HOST/
+            // PORT, plain HTTP) — KHÔNG đi qua domain public/proxy WSS như trình duyệt (REVERB_HOST/
+            // PORT/SCHEME/PATH ở .env chỉ dành cho CLIENT, xem VITE_REVERB_* + echo-client.js). 2 lý
+            // do: (1) server và Reverb luôn cùng máy/mạng nội bộ, không cần vòng qua internet/TLS;
+            // (2) từng thử đi qua domain public thật (đúng ý định ban đầu của comment cũ dưới đây,
+            // đã xoá) nhưng POST .../apps/{id}/events qua nginx proxy path /reverb/ bị nuốt mất, rơi
+            // vào route 404 của chính Laravel thay vì tới Reverb — chưa rõ nguyên nhân sâu xa (nghi
+            // proxy_pass/redirect nội bộ của Reverb không biết về tiền tố path), gọi thẳng cổng nội
+            // bộ đơn giản và chắc chắn hơn, sẵn tiện nhanh hơn (khỏi qua TLS + nginx round-trip).
             'options' => [
-                'host' => env('REVERB_HOST'),
-                'port' => env('REVERB_PORT', 443),
-                'scheme' => env('REVERB_SCHEME', 'https'),
-                'useTLS' => env('REVERB_SCHEME', 'https') === 'https',
+                'host' => env('REVERB_SERVER_HOST', '0.0.0.0') === '0.0.0.0' ? '127.0.0.1' : env('REVERB_SERVER_HOST'),
+                'port' => env('REVERB_SERVER_PORT', 8080),
+                'scheme' => 'http',
+                'useTLS' => false,
             ],
-            // Ở local dev, chứng chỉ TLS của domain .test (Herd/Valet) là chứng chỉ tự ký — cURL
-            // của PHP phía SERVER (không phải trình duyệt) không có sẵn CA đó trong trust store nên
-            // luôn báo lỗi "SSL certificate problem: unable to get local issuer certificate", khiến
-            // broadcast() từ server tới Reverb thất bại 100% (đây là nguyên nhân THẬT của việc
-            // real-time không bao giờ chạy, không liên quan gì tới thứ tự nạp script phía trình
-            // duyệt). Cho phép tắt xác thực SSL RIÊNG cho cuộc gọi server→Reverb này qua
-            // REVERB_VERIFY_SSL=false (chỉ set false ở .env local, KHÔNG set ở production — ở đó
-            // domain có chứng chỉ CA thật, không cần và không nên tắt xác thực).
+            // Không còn cần thiết từ khi 'options' ở trên đổi sang gọi THẲNG cổng nội bộ (plain
+            // HTTP, useTLS=false) — giữ lại phòng khi cần đổi hướng dùng domain public/TLS trở lại
+            // (chứng chỉ .test của Herd/Valet là tự ký, cURL PHP phía server sẽ báo lỗi "SSL
+            // certificate problem" nếu không tắt verify qua REVERB_VERIFY_SSL=false, CHỈ set ở local
+            // — production dùng domain có CA thật, không được tắt xác thực).
             'client_options' => [
                 'verify' => filter_var(env('REVERB_VERIFY_SSL', true), FILTER_VALIDATE_BOOLEAN),
             ],

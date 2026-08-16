@@ -25,7 +25,7 @@ class RoomImageForm
                 // ── Cột 1 (1/3): thông tin ────────────────────────────────
                 Group::make([
                     Select::make('room_id')
-                        ->label('Phòng')
+                        ->label('Sân')
                         ->options(Product::where('is_activated', true)->orderBy('name')->pluck('name', 'id'))
                         ->searchable()
                         ->required(),

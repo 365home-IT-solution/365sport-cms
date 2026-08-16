@@ -115,7 +115,7 @@
                 dayMode: dayModeInit === true,
                 // Tab đang chọn ở hàng tab phía trên thanh tìm kiếm (hour/overnight/day) — "Qua đêm"
                 // dùng chung dayMode=false với "Theo giờ" (cùng UI chọn 1 ngày + badge giờ), chỉ khác
-                // là gửi kèm overnight=1 khi tìm kiếm để lọc phòng hỗ trợ qua đêm (xem submitSearch()).
+                // là gửi kèm overnight=1 khi tìm kiếm để lọc sân hỗ trợ qua đêm (xem submitSearch()).
                 activeTab: dayModeInit === true ? 'day' : 'hour',
                 // Loại hình dịch vụ (homestay/villa/...) — chỉ compact-form có tab chọn, khai báo
                 // ở scope ngoài cùng này (thay vì trong data-bar) vì các tab đó nằm NGOÀI data-bar.
@@ -280,13 +280,13 @@
                 get isCheckInToday() {
                     return !!(this.checkIn && this.isSameDay(this.checkIn, new Date()));
                 },
-                // Badge giờ nhận phòng còn hợp lệ (loại bỏ giờ đã qua nếu chọn ngày hôm nay)
+                // Badge giờ nhận sân còn hợp lệ (loại bỏ giờ đã qua nếu chọn ngày hôm nay)
                 get availableStartHourBadges() {
                     if (!this.isCheckInToday) return this.hourBadges;
                     const nowH = new Date().getHours();
                     return this.hourBadges.filter(h => h >= nowH);
                 },
-                // Badge giờ trả phòng: phải sau giờ nhận phòng
+                // Badge giờ trả sân: phải sau giờ nhận sân
                 get availableEndHourBadges() {
                     return this.hourBadges.filter(h => h > this.checkInHour);
                 },
@@ -335,10 +335,10 @@
                         params.checkin  = this.displayCheckIn;
                         params.checkout = this.displayCheckOut;
 
-                        // Tab "Theo giờ": ngoài checkin/checkout (chỉ dùng để loại phòng đã bị đặt
+                        // Tab "Theo giờ": ngoài checkin/checkout (chỉ dùng để loại sân đã bị đặt
                         // trùng), gửi thêm time_type=slot + date + time_from/time_to để API lọc luôn
-                        // theo khung giờ (chỉ phòng có khung giờ NẰM GỌN trong [time_from, time_to]
-                        // mới hợp lệ — xem RoomSearchService::search()), không chỉ lọc phòng đã đặt.
+                        // theo khung giờ (chỉ sân có khung giờ NẰM GỌN trong [time_from, time_to]
+                        // mới hợp lệ — xem RoomSearchService::search()), không chỉ lọc sân đã đặt.
                         if (!this.dayMode) {
                             const d = this.checkIn;
                             params.time_type = 'slot';
@@ -349,7 +349,7 @@
                     }
                     params.buoi = this.dayMode ? '2' : '1';
                     // Tab "Qua đêm": vẫn tìm kiểu "Theo giờ" (buoi=1) nhưng thêm cờ lọc riêng —
-                    // chỉ hiện phòng hỗ trợ ở qua đêm (xem RoomSearchService::search()).
+                    // chỉ hiện sân hỗ trợ ở qua đêm (xem RoomSearchService::search()).
                     if (this.activeTab === 'overnight') params.overnight = '1';
 
                     const query = new URLSearchParams(params).toString();

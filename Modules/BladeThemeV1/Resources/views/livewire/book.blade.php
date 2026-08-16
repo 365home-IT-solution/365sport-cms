@@ -32,7 +32,7 @@
         );
 
         // Mobile (book/_mobile.blade.php) và desktop (book/_desktop-grid.blade.php) render 2 DOM
-        // riêng biệt cho CÙNG 1 ô khung giờ (cùng phòng/ngày/khung giờ) — bấm chọn ở bên nào thì
+        // riêng biệt cho CÙNG 1 ô khung giờ (cùng sân/ngày/khung giờ) — bấm chọn ở bên nào thì
         // chỉ el bên đó nhận class active, còn ô song sinh bên kia (ẩn qua CSS lg:hidden/hidden
         // lg:block, không phải bị gỡ khỏi DOM) không được đồng bộ, nên khi đổi kích thước trình
         // duyệt qua breakpoint sẽ thấy ô đã chọn không tô đen dù selectedSlots vẫn đúng. Tìm mọi
@@ -251,7 +251,7 @@
 
                 @php
                 // $dates chỉ chứa $visibleDaysCount ngày (mặc định 15/31) — không build sẵn cả
-                // tháng, tránh render (số phòng x số khung giờ x số ngày) ô lịch cùng lúc gây
+                // tháng, tránh render (số sân x số khung giờ x số ngày) ô lịch cùng lúc gây
                 // tràn bộ nhớ PHP. Bấm "Xem thêm ngày" gọi loadMoreDates() (round-trip Livewire
                 // nhỏ) để tăng dần con số này.
                 $dates = $this->getDatesForOneMonth();
@@ -263,7 +263,7 @@
                 @if($totalStyleOneRooms > 0)
                     @include('bladethemev1::livewire.book._legend')
 
-                    {{-- Bảng đặt phòng, và bên dưới là bảng tính giá (Giá cơ bản, tổng tiền tạm
+                    {{-- Bảng đặt sân, và bên dưới là bảng tính giá (Giá cơ bản, tổng tiền tạm
                          tính) — luôn xếp dọc (cả mobile lẫn desktop). Trên mobile, bảng tính giá này
                          bị ẩn và thay bằng bottom sheet (bên dưới) để không chiếm chỗ khi chưa chọn
                          khung giờ. --}}
@@ -280,7 +280,7 @@
                         <svg style="width:40px;height:40px;color:#d1d5db;margin:0 auto 12px;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
                         </svg>
-                        <p style="color:#6b7280;font-size:14px;margin:0;">Không có phòng khả dụng cho danh mục này.</p>
+                        <p style="color:#6b7280;font-size:14px;margin:0;">Không có sân khả dụng cho danh mục này.</p>
                     </div>
                 @endif
 

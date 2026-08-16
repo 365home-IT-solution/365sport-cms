@@ -30,7 +30,7 @@ class RoomAmenityResource extends Resource
 
     public static function getNavigationLabel(): string
     {
-        return 'Tiện ích Phòng';
+        return 'Tiện ích Sân';
     }
 
     public static function getModelLabel(): string
@@ -40,7 +40,7 @@ class RoomAmenityResource extends Resource
 
     public static function getPluralModelLabel(): string
     {
-        return 'Tiện ích Phòng';
+        return 'Tiện ích Sân';
     }
 
     public static function getNavigationBadge(): ?string

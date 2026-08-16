@@ -15,12 +15,12 @@ use Modules\Product\App\Models\RoomTimeSlot;
 /**
  * Gộp XEM + SỬA giá khung giờ (room_time_slots.price/over_night) VÀ điều kiện giảm giá
  * (full_booking_discount/bulk_discount_rules/room_config/deposit_1_night/deposit_multi_night/
- * deposit_min_nights/default_checkin/default_checkout) của 1 phòng trong CÙNG 1 cặp API.
+ * deposit_min_nights/default_checkin/default_checkout) của 1 sân trong CÙNG 1 cặp API.
  *
  * Khác với các API tách rời đã có trước đó (vẫn giữ nguyên, không xoá):
  *  - GET/POST  /api/admin/products/{id}/time-slots      (RoomTimeSlotController — chỉ giá)
  *  - PATCH     /api/admin/rooms/{id}/booking-settings    (ProductController — chỉ giảm giá)
- *  - POST      /api/admin/products/discount-settings     (ProductController — chỉ giảm giá, nhiều phòng)
+ *  - POST      /api/admin/products/discount-settings     (ProductController — chỉ giảm giá, nhiều sân)
  * API dưới đây dùng CHUNG logic ghi (updateOrCreate cho room_time_slots, merge nông cho
  * room_config) — không cài lại từ đầu, chỉ gộp lại cho tiện gọi 1 lần thay vì nhiều API.
  *
@@ -39,14 +39,14 @@ class RoomPricingController extends Controller
 
     /**
      * GET /api/admin/rooms/{id}/pricing
-     * Trả giá khung giờ + điều kiện giảm giá hiện tại của 1 phòng.
+     * Trả giá khung giờ + điều kiện giảm giá hiện tại của 1 sân.
      */
     public function show(Request $request, string $id): JsonResponse
     {
         $room = $this->visibleRoom($request->user(), $id);
 
         if (! $room) {
-            return response()->json(['message' => 'Không tìm thấy phòng.'], 404);
+            return response()->json(['message' => 'Không tìm thấy sân.'], 404);
         }
 
         $room->load(['roomTimeSlots' => fn ($q) => $q->whereNull('date')]);
@@ -60,11 +60,11 @@ class RoomPricingController extends Controller
      *
      * Body:
      *  - time_slots : mảng { timeslot_id (required), price, over_night, checkin, checkout } —
-     *    updateOrCreate theo (room_id, timeslot_id, date=null) — tạo mới nếu phòng chưa có đúng
-     *    timeslot_id này. Chỉ áp dụng phòng styles=1 (khung giờ).
-     *  - price : giá phòng cơ bản (cột products.price) — CHỈ có ý nghĩa với phòng styles=2 (theo
-     *    ngày/đêm, dùng làm giá gốc/đêm ở BuildsRoomBooking); phòng styles=1 định giá theo TỪNG
-     *    khung giờ (time_slots[].price ở trên) nên gửi 'price' không có tác dụng gì với phòng đó.
+     *    updateOrCreate theo (room_id, timeslot_id, date=null) — tạo mới nếu sân chưa có đúng
+     *    timeslot_id này. Chỉ áp dụng sân styles=1 (khung giờ).
+     *  - price : giá sân cơ bản (cột products.price) — CHỈ có ý nghĩa với sân styles=2 (theo
+     *    ngày/đêm, dùng làm giá gốc/đêm ở BuildsRoomBooking); sân styles=1 định giá theo TỪNG
+     *    khung giờ (time_slots[].price ở trên) nên gửi 'price' không có tác dụng gì với sân đó.
      *  - full_booking_discount, bulk_discount_rules, room_config, deposit_1_night,
      *    deposit_multi_night, deposit_min_nights, default_checkin, default_checkout : như
      *    ProductController::updateBookingSettings() — 'room_config' merge NÔNG với giá trị hiện có
@@ -75,7 +75,7 @@ class RoomPricingController extends Controller
         $room = $this->visibleRoom($request->user(), $id);
 
         if (! $room) {
-            return response()->json(['message' => 'Không tìm thấy phòng.'], 404);
+            return response()->json(['message' => 'Không tìm thấy sân.'], 404);
         }
 
         $data = $request->validate([
@@ -169,16 +169,16 @@ class RoomPricingController extends Controller
                 'id'     => $room->id,
                 'name'   => $room->name,
                 'styles' => (int) $room->styles,
-                // products.price — giá gốc/đêm, chỉ có ý nghĩa với phòng theo ngày (styles=2). Phòng
+                // products.price — giá gốc/đêm, chỉ có ý nghĩa với sân theo ngày (styles=2). Sân
                 // styles=1 định giá theo TỪNG khung giờ (xem 'time_slots' bên dưới) nên không trả field
                 // này để tránh nhầm giá.
                 ...($isDaily ? ['price' => (float) $room->price] : []),
             ],
         ];
 
-        // time_slots (room_time_slots) CHỈ có ý nghĩa với phòng theo khung giờ (styles=1) — phòng
+        // time_slots (room_time_slots) CHỈ có ý nghĩa với sân theo khung giờ (styles=1) — sân
         // theo ngày (styles=2) không có khái niệm "khung giờ", nên bỏ hẳn key này thay vì trả mảng
-        // rỗng (tránh FE hiểu nhầm là phòng chưa cấu hình khung giờ nào).
+        // rỗng (tránh FE hiểu nhầm là sân chưa cấu hình khung giờ nào).
         if (! $isDaily) {
             $item['time_slots'] = $room->roomTimeSlots->map(fn (RoomTimeSlot $rts) => [
                 'room_time_slot_id' => $rts->id,

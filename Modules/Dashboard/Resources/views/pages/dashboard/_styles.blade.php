@@ -704,8 +704,8 @@
         box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.08), 0 4px 12px rgba(0, 0, 0, 0.04);
     }
 
-    /* ===== Chế độ xem "Lịch" — carousel chi nhánh + lưới ngày×khung giờ nhiều phòng cạnh nhau,
-       cùng ngôn ngữ thị giác với lịch đặt phòng phía khách (book/_desktop-grid.blade.php) nhưng
+    /* ===== Chế độ xem "Lịch" — carousel chi nhánh + lưới ngày×khung giờ nhiều sân cạnh nhau,
+       cùng ngôn ngữ thị giác với lịch đặt sân phía khách (book/_desktop-grid.blade.php) nhưng
        chỉ xem, không chọn ô. Toàn bộ nội dung do JS dựng — xem rcCalInit()/rcCalRenderGrid()
        trong _scripts.blade.php. ===== */
     .ta-rc-cal-nav-btn {
@@ -737,7 +737,7 @@
 
     /* Trước/Sau chi nhánh — hàng RIÊNG phía TRÊN danh sách chi nhánh (không chung hàng với track),
        2 nút nằm SÁT NHAU, có chữ "Trước"/"Sau" — CÙNG kiểu với .ta-rc-cal-rooms-nav (carousel
-       phòng) để nhất quán trong toàn view "Lịch". */
+       sân) để nhất quán trong toàn view "Lịch". */
     .ta-rc-cal-branches-nav {
         display: flex;
         justify-content: flex-end;
@@ -838,7 +838,7 @@
         gap: 8px;
     }
 
-    /* "N phòng" — hiện giữa 2 nút Trước/Sau của carousel phòng, nowrap để gọn 1 hàng. */
+    /* "N sân" — hiện giữa 2 nút Trước/Sau của carousel sân, nowrap để gọn 1 hàng. */
     .ta-rc-cal-rooms-page-info {
         font-size: 12px;
         font-weight: 600;
@@ -957,76 +957,106 @@
         color: #b45309;
     }
 
-    /* Khung ngoài — cột "Thời gian" (cố định trái) + carousel phòng cuộn NGANG cạnh nhau, cùng cuộn
-       DỌC như 1 khối khi tăng số ngày hiển thị (5/10/15) thay vì đẩy cả trang cao dần — tham khảo
-       .book-dt-dates-card/.book-dt-slots-scroll (book/_desktop-grid.blade.php, cuộn dọc trong
-       khung chiều cao cố định). Nhãn "Thời gian" đứng yên (position:sticky) khi cuộn dọc — xem
-       .ta-rc-cal-dates-spacer. */
-    .ta-rc-cal-grid-wrap {
+    /* Đổi trục theo yêu cầu: KHUNG GIỜ đứng dọc, NGÀY nằm ngang — mỗi sân 1 khối HOÀN TOÀN TỰ ĐỦ
+       (hàng Ngày + nút Trước/Sau RIÊNG, sát ngay trên lưới ô của CHÍNH NÓ, không dùng chung 1
+       header cho cả 3 sân — theo phản hồi, mỗi sân phải cuộn/paging ĐỘC LẬP, đúng kiểu trang
+       khách product-detail.blade.php: pd-dt-header nằm sát trên pd-dt-grid-outer của chính nó).
+       Khối lưới (.ta-rc-cal-grid-scroll) cuộn DỌC như 1 khối khi số HÀNG khung giờ nhiều (thay vì
+       đẩy cả trang cao dần) — tham khảo book-dt-slots-scroll (book/_desktop-grid.blade.php, cuộn
+       dọc trong khung chiều cao cố định). */
+    /* Dính (sticky) ở đỉnh khung cuộn DỌC (.ta-rc-cal-grid-scroll) — trước đây cuộn xuống là header
+       Ngày (T2 10/08, T3 11/08...) trôi mất theo, admin không còn biết đang đặt vào cột ngày nào ở
+       các hàng khung giờ phía dưới, dễ đặt nhầm ngày. Nền ĐẶC (không trong suốt) để che các hàng ô
+       trôi qua bên dưới nó khi cuộn. z-index cao hơn các ô lưới (mặc định z-index:1, xem
+       .ta-rc-cal-cell) để luôn nổi trên. */
+    .ta-rc-cal-room-header {
         display: flex;
-        align-items: flex-start;
-        gap: 10px;
-        max-height: 520px;
-        overflow-y: auto;
-        border: 1px solid var(--ta-line);
-        border-radius: 12px;
-        padding: 10px;
+        align-items: center;
+        gap: 6px;
+        margin: 6px 0 4px;
+        position: sticky;
+        top: 0;
+        z-index: 20;
         background: var(--ta-panel);
-        /* Ẩn thanh cuộn (vẫn cuộn được bằng lăn chuột/kéo/chạm) — ĐÚNG kiểu
-           .book-dt-dates-scroll/.book-dt-slots-scroll bên book.blade.php. */
+        padding-top: 2px;
+    }
+
+    .ta-rc-cal-corner {
+        flex: 0 0 60px;
+        font-size: 10.5px;
+        font-weight: 700;
+        color: var(--ta-ink-mute);
+        text-transform: uppercase;
+    }
+
+    /* Wrapper cùng vai trò với .ta-rc-cal-slots-grid (thân bảng mỗi sân) — nút Trước/Sau nổi ĐÈ
+       LÊN rìa wrapper này (position:absolute, không chiếm chỗ flex layout) nên không làm header
+       rộng hơn lưới ô bên dưới (đúng lỗi lệch cột đã gặp và sửa ở nơi khác — xem ghi chú tại chỗ
+       dùng trong _scripts.blade.php). */
+    .ta-rc-cal-dates-header-wrap {
+        position: relative;
+        flex: 1;
+        min-width: 0;
+    }
+
+    /* gap PHẢI khớp CHÍNH XÁC với .ta-rc-cal-slots-row (thân bảng) — trước đây 2 nơi để gap khác
+       nhau (4px vs 6px), lệch dồn dần theo từng cột, cuộn tới cuối càng rõ (đúng lỗi "bấm tiếp
+       thì bị lệch" đã gặp). padding trái/phải cũng phải khớp .ta-rc-cal-slots-grid bên dưới để 2
+       khối luôn có đúng cùng 1 chiều rộng cuộn tối đa. */
+    .ta-rc-cal-dates-header-row {
+        display: flex;
+        gap: 6px;
+        padding: 2px 0;
+        overflow-x: hidden;
         scrollbar-width: none;
         -ms-overflow-style: none;
     }
 
-    .ta-rc-cal-grid-wrap::-webkit-scrollbar {
+    .ta-rc-cal-dates-header-row::-webkit-scrollbar {
         display: none;
         width: 0;
         height: 0;
     }
 
-    .ta-rc-cal-empty {
-        padding: 40px 16px;
-        text-align: center;
-        color: var(--ta-ink-mute);
-        font-size: 13px;
-    }
-
-    /* Cột "Thời gian" — đứng cố định bên trái, KHÔNG trượt theo carousel phòng bên phải (khác
-       carousel chi nhánh ở trên, không cuộn được). Spacer bù đúng chiều cao 3 khối tiêu đề (tên
-       phòng 30px + lưới 2x2 nút thao tác 54px + hàng khung giờ 46px = 130px) bên phía mỗi phòng
-       để hàng ngày khớp hàng khung giờ — cùng ý tưởng book-dt-room-name ẩn ở
-       book/_desktop-grid.blade.php, nhưng dùng chiều cao cố định bằng CSS thay vì đo động vì số
-       hàng tiêu đề ở đây luôn cố định. */
-    .ta-rc-cal-dates-col {
-        flex: 0 0 62px;
-    }
-
-    .ta-rc-cal-dates-spacer {
-        height: 130px;
-        display: flex;
-        align-items: flex-end;
-        padding-bottom: 6px;
-        font-size: 10.5px;
-        font-weight: 700;
-        color: var(--ta-ink-mute);
-        text-transform: uppercase;
-        /* Đứng yên khi .ta-rc-cal-grid-wrap cuộn dọc — nhãn "Thời gian" luôn thấy được dù đang
-           cuộn xem ngày xa hơn. */
-        position: sticky;
-        top: 0;
-        z-index: 3;
-        background: var(--ta-panel);
-    }
-
-    .ta-rc-cal-date-row {
-        height: 46px;
+    .ta-rc-cal-date-th {
+        flex: 0 0 50px;
         display: flex;
         flex-direction: column;
-        align-items: flex-start;
+        align-items: center;
         justify-content: center;
         gap: 1px;
-        border-top: 1px solid var(--ta-line-soft);
-        padding-right: 6px;
+        text-align: center;
+    }
+
+    .ta-rc-cal-date-nav-btn {
+        position: absolute;
+        top: 50%;
+        transform: translateY(-50%);
+        z-index: 5;
+        width: 20px;
+        height: 20px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: var(--ta-panel);
+        border: 1px solid var(--ta-line);
+        border-radius: 999px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, .15);
+        color: var(--ta-ink-mute);
+        cursor: pointer;
+    }
+
+    .ta-rc-cal-date-nav-btn svg {
+        width: 10px;
+        height: 10px;
+    }
+
+    .ta-rc-cal-date-nav-prev { left: -8px; }
+    .ta-rc-cal-date-nav-next { right: -8px; }
+
+    .ta-rc-cal-date-nav-btn:hover {
+        color: var(--ta-ink-title);
+        border-color: var(--ta-cal-primary);
     }
 
     .ta-rc-cal-dow {
@@ -1041,25 +1071,69 @@
         font-variant-numeric: tabular-nums;
     }
 
-    .ta-rc-cal-date-row.is-today .ta-rc-cal-dow,
-    .ta-rc-cal-date-row.is-today .ta-rc-cal-dnum {
+    .ta-rc-cal-date-th.is-today .ta-rc-cal-dow,
+    .ta-rc-cal-date-th.is-today .ta-rc-cal-dnum {
         color: var(--ta-ink-title);
         font-weight: 800;
     }
 
-    /* Carousel PHÒNG — vài phòng/lần (~3 trên desktop), trượt MƯỢT bằng rcCalScrollRooms()
+    /* Khối lưới (mọi sân) cuộn DỌC như 1 khối khi số hàng khung giờ nhiều (thay vì đẩy cả trang
+       cao dần) — tách riêng khỏi .ta-rc-cal-grid-wrap (nay chỉ là khung ngoài, không tự cuộn nữa)
+       vì header Ngày ở trên phải đứng yên, không cuộn dọc theo. */
+    .ta-rc-cal-grid-wrap {
+        border: 1px solid var(--ta-line);
+        border-radius: 12px;
+        padding: 10px;
+        background: var(--ta-panel);
+    }
+
+    /* Bản thân KHÔNG còn tự cuộn dọc nữa (overflow-y chuyển sang .ta-rc-cal-rooms-track bên trong,
+       xem ghi chú tại đó) — chỉ còn là khung bọc trong suốt để giữ nguyên cấu trúc HTML/id hiện có
+       (JS trong _scripts.blade.php tham chiếu bằng id, không đổi để tránh phải sửa JS). */
+    .ta-rc-cal-grid-scroll {
+        overflow: visible;
+    }
+
+    .ta-rc-cal-empty {
+        padding: 40px 16px;
+        text-align: center;
+        color: var(--ta-ink-mute);
+        font-size: 13px;
+    }
+
+    /* Carousel SÂN — vài sân/lần (~3 trên desktop), trượt MƯỢT bằng rcCalScrollRooms()
        (scrollBy() smooth) trong _scripts.blade.php — trước đây tính toán lại "trang"/"cửa sổ
        trượt" bằng tay rồi vẽ lại TOÀN BỘ lưới mỗi lần chuyển, nặng và giật; giờ dựng lưới 1 LẦN
        DUY NHẤT, chỉ cuộn ngang thuần CSS — trình duyệt tự kẹp vị trí cuộn ở 2 đầu nên kéo tới cuối
-       vẫn luôn thấy đủ phòng cuối cùng (không có "trang" lẻ loi thiếu phòng), CÙNG kỹ thuật với
+       vẫn luôn thấy đủ sân cuối cùng (không có "trang" lẻ loi thiếu sân), CÙNG kỹ thuật với
        carousel chi nhánh ở trên. Tự dựng bằng scroll-snap thuần (KHÔNG dùng Swiper.js như bên
        khách, tránh thêm thư viện ngoài vào Filament admin). */
+    /* Cuộn CẢ NGANG (đổi sân) LẪN DỌC (nhiều hàng khung giờ) trên CÙNG 1 phần tử — trước đây tách
+       riêng "cuộn ngang" ở track này và "cuộn dọc" ở .ta-rc-cal-grid-scroll (cha) bọc ngoài, nhưng
+       theo spec CSS: hễ overflow-x khác 'visible' thì overflow-y RÔI SẼ tự bị trình duyệt quy thành
+       'auto' dù có cố ghi đè 'visible' hay không (không thể tách rời 2 trục nếu 1 trục đã khác
+       visible) — khiến track này ÂM THẦM trở thành 1 ngữ cảnh cuộn dọc thứ 2 dù không hiển thị
+       thanh cuộn (nothing overflows ở CHÍNH nó). position:sticky của .ta-rc-cal-room-header bên
+       trong tính "đỉnh dính" theo ngữ cảnh cuộn GẦN NHẤT — vô tình bám nhầm vào track này thay vì
+       phần tử THẬT SỰ đang cuộn dọc (grid-scroll cha), khiến header trồi lên sai vị trí khi cuộn
+       thay vì dính đúng đỉnh. Gộp lại: track này giờ là ngữ cảnh cuộn DUY NHẤT cho cả 2 trục, khớp
+       ĐÚNG với nơi sticky đang bám vào — hết lệch. */
     .ta-rc-cal-rooms-track {
         flex: 1;
         min-width: 0;
         display: flex;
+        /* align-items mặc định "normal" (~stretch) sẽ ép CHIỀU CAO của mỗi .ta-rc-cal-room-block
+           (flex item) co lại khớp ĐÚNG max-height 480px của track (dù nội dung thật cao hơn nhiều,
+           nội dung chỉ TRÀN ra ngoài khung 480px chứ không đổi kích thước khai báo của khối) — vô
+           tình khiến "container" mà position:sticky của .ta-rc-cal-room-header dùng để tính điểm
+           dừng lại chỉ cao 480px thay vì cao bằng TOÀN BỘ nội dung thật (header+mọi hàng+đệm cuối),
+           khiến header hết "chỗ" để dính đúng lúc cuộn tới các hàng cuối. flex-start giữ mỗi khối
+           đúng CHIỀU CAO NỘI DUNG THẬT của nó — sticky mới có đủ không gian để dính tới hàng cuối
+           cùng (kết hợp với padding-bottom ở .ta-rc-cal-room-block, xem ghi chú tại đó). */
+        align-items: flex-start;
         gap: 16px;
-        overflow-x: auto;
+        max-height: 480px;
+        overflow: auto;
         scroll-snap-type: x mandatory;
         -webkit-overflow-scrolling: touch;
         scrollbar-width: none;
@@ -1070,11 +1144,42 @@
     }
 
     .ta-rc-cal-room-block {
-        /* 3 phòng/lần theo mặc định (track gap 16px, 2 khoảng gap cho 3 khối) — bấm Trước/Sau
-           (rcCalScrollRooms()) trượt sang bộ 3 phòng kế tiếp. */
+        /* 3 sân/lần theo mặc định (track gap 16px, 2 khoảng gap cho 3 khối) — bấm Trước/Sau
+           (rcCalScrollRooms()) trượt sang bộ 3 sân kế tiếp. min-width 360px — đủ chỗ cho cột
+           Khung giờ (60px) + gap (6px) + hàng Ngày/lưới ô (280px) của chính sân đó, tránh bị bóp
+           hẹp hơn nội dung cần có (đủ chỗ cho khối tự đủ, không lệ thuộc sân khác). */
         flex: 0 0 calc((100% - 32px) / 3);
-        min-width: 260px;
+        min-width: 360px;
         scroll-snap-align: start;
+        /* Đệm ảo dưới cùng = đúng chiều cao header (~48px, xem .ta-rc-cal-room-header) — GIỚI HẠN
+           TỰ NHIÊN của position:sticky: header chỉ "dính" được khi CÒN ĐỦ chỗ bên dưới trong CHÍNH
+           khối chứa nó (room-block); vì room-block trước đây kết thúc NGAY SAU hàng cuối, cuộn tới
+           đúng hàng cuối thì room-block cũng vừa hết đúng lúc đó → không còn "chỗ" để header dính,
+           header bị kéo trôi mất NGAY TẠI hàng cuối cùng (bug đã gặp: cuộn hết cỡ thì header biến
+           mất hẳn dù vẫn đang xem dở các hàng). Thêm khoảng đệm rỗng này để room-block "còn dư" đúng
+           bằng 1 header sau hàng cuối — header luôn có chỗ dính tới khi hàng cuối cùng hiện ra, chỉ
+           trôi vào đúng phần đệm rỗng (không ai nhìn thấy) ở cuối cùng. */
+        padding-bottom: 50px;
+    }
+
+    /* Mobile: min-width 360px ở trên vượt quá bề rộng màn hình thật (~390px trừ padding trang),
+       đẩy nút "ngày tiếp theo" (.ta-rc-cal-date-nav-next, right:-8px so với wrap) ra NGOÀI khung
+       nhìn thấy được — không phải ẩn do CSS display/visibility, mà đơn giản nằm ngoài viewport nên
+       không bấm/thấy được (đã xác nhận qua đo tọa độ thực tế). Widget này trước đây chỉ làm cho
+       desktop admin — nay cho hiện ĐÚNG 1 sân/lần (full width), thêm padding ngang riêng cho block
+       để dành chỗ AN TOÀN cho 2 nút nổi ở rìa (cùng kỹ thuật "chừa gutter" đã dùng ở
+       book-date-nav-row/pd-date-nav-btn bên client) — padding áp cho CẢ header lẫn thân bảng
+       (cùng là con trực tiếp của room-block) nên không lệch cột giữa 2 khối.
+    */
+    @media (max-width: 640px) {
+        .ta-rc-cal-room-block {
+            flex: 0 0 100%;
+            min-width: 0;
+            padding: 0 16px;
+        }
+
+        .ta-rc-cal-date-nav-prev { left: -4px; }
+        .ta-rc-cal-date-nav-next { right: -4px; }
     }
 
     .ta-rc-cal-room-name {
@@ -1090,11 +1195,11 @@
         text-overflow: ellipsis;
     }
 
-    /* Hàng thao tác nhanh dưới tên phòng — Xem phòng/Giá phòng/Khoá phòng/Đặt phòng, icon-only
-       (tooltip qua title) để vừa gọn trong 1 khối phòng hẹp (~260px, xem .ta-rc-cal-room-block). */
+    /* Hàng thao tác nhanh dưới tên sân — Xem sân/Giá sân/Khoá sân/Đặt sân, icon-only
+       (tooltip qua title) để vừa gọn trong 1 khối sân hẹp (~260px, xem .ta-rc-cal-room-block). */
     /* 2 hàng (thay vì 1 hàng ngang) — nút dạng CHỮ cần nhiều chỗ hơn icon, ép 1 hàng sẽ vỡ trong
-       khối phòng hẹp (~260px, xem .ta-rc-cal-room-block). Hàng 1: Xem phòng/Giá phòng/Thống kê (3
-       cột). Hàng 2: Khoá phòng/Đặt phòng (2 cột). Chiều cao cố định 2 hàng để
+       khối sân hẹp (~260px, xem .ta-rc-cal-room-block). Hàng 1: Xem sân/Giá sân/Thống kê (3
+       cột). Hàng 2: Khoá sân/Đặt sân (2 cột). Chiều cao cố định 2 hàng để
        .ta-rc-cal-dates-spacer bù đúng (xem ghi chú ở đó) — vẫn 48px vì luôn đúng 2 hàng dù số cột
        mỗi hàng khác nhau. */
     .ta-rc-cal-room-actions {
@@ -1155,9 +1260,9 @@
         opacity: 0.88;
     }
 
-    /* "Mở khoá (N)" — "Khoá phòng" tự đổi thành nút này khi có ≥1 ô đã khoá đang được chọn để mở
-       hàng loạt (xem rcCalConfirmUnblockSlots()) — màu đỏ cảnh báo, khác hẳn "Khoá phòng"/"Đặt
-       phòng" để admin không bấm nhầm. */
+    /* "Mở khoá (N)" — "Khoá sân" tự đổi thành nút này khi có ≥1 ô đã khoá đang được chọn để mở
+       hàng loạt (xem rcCalConfirmUnblockSlots()) — màu đỏ cảnh báo, khác hẳn "Khoá sân"/"Đặt
+       sân" để admin không bấm nhầm. */
     .ta-rc-cal-room-action-btn.is-unlock {
         background: #fef2f2;
         border-color: #fecaca;
@@ -1170,7 +1275,7 @@
         color: #fff;
     }
 
-    /* "Khoá phòng"/"Đặt phòng" mặc định khoá (disabled) — chỉ bật khi đang chọn ít nhất 1 khung
+    /* "Khoá sân"/"Đặt sân" mặc định khoá (disabled) — chỉ bật khi đang chọn ít nhất 1 khung
        giờ trên lưới bên dưới (xem rcCalUpdateRoomActionState() trong _scripts.blade.php). */
     .ta-rc-cal-room-action-btn:disabled {
         opacity: 0.4;
@@ -1185,24 +1290,53 @@
         border-color: var(--ta-line);
     }
 
-    .ta-rc-cal-slot-head-row {
-        height: 46px;
+    /* Hàng chứa cột Khung giờ (dọc, riêng từng sân) + lưới ô (ngang theo Ngày, khớp header dùng
+       chung ở trên). */
+    .ta-rc-cal-room-grid-row {
         display: flex;
         gap: 6px;
     }
 
-    .ta-rc-cal-slot-head {
-        flex: 1;
-        min-width: 0;
+    .ta-rc-cal-slots-label-col {
+        flex: 0 0 60px;
+    }
+
+    .ta-rc-cal-slot-label {
+        height: 46px;
         display: flex;
         flex-direction: column;
         align-items: center;
         justify-content: center;
-        font-size: 10.5px;
+        font-size: 10px;
         font-weight: 700;
         color: var(--ta-ink-mute);
         text-align: center;
         line-height: 1.3;
+        border-top: 1px solid var(--ta-line-soft);
+    }
+
+    /* Lưới ô — cuộn NGANG riêng bên trong, hiện NHIỀU ngày nhất có thể trong bề rộng thật đang có
+       (flex:1, không còn kẹp cứng ở 1 mốc cố định nữa — dư ra bao nhiêu cuộn thêm bấy nhiêu, cân
+       đối với khoảng trống thật của khối sân thay vì bỏ trống 1 mảng lớn). Đồng bộ ngược lại hàng
+       Ngày của CHÍNH SÂN NÀY qua rcCalSyncDatesScroll() (_scripts.blade.php) — gap PHẢI khớp
+       CHÍNH XÁC .ta-rc-cal-dates-header-row (đều 6px, không padding trái/phải) để 2 khối luôn có
+       cùng 1 chiều rộng cuộn tối đa, không lệch dần khi cuộn tới cuối. Thanh cuộn hiện rõ (mảnh)
+       để admin biết còn ngày khác xem được. */
+    .ta-rc-cal-slots-grid {
+        flex: 1;
+        min-width: 0;
+        overflow-x: auto;
+        scrollbar-width: thin;
+    }
+
+    .ta-rc-cal-slots-grid::-webkit-scrollbar {
+        height: 5px;
+        width: 0;
+    }
+
+    .ta-rc-cal-slots-grid::-webkit-scrollbar-thumb {
+        background: var(--ta-line);
+        border-radius: 3px;
     }
 
     .ta-rc-cal-slots-row {
@@ -1214,8 +1348,7 @@
 
     .ta-rc-cal-cell {
         position: relative;
-        flex: 1;
-        min-width: 0;
+        flex: 0 0 50px;
         align-self: center;
         height: 34px;
         border-radius: 9px;
@@ -1316,7 +1449,7 @@
         100% { background-position: 300% 50%; }
     }
 
-    /* Đang được CHÍNH admin này chọn (chưa Khoá/Đặt phòng) — tô ĐẶC màu primary, CÙNG kiểu với ô
+    /* Đang được CHÍNH admin này chọn (chưa Khoá/Đặt sân) — tô ĐẶC màu primary, CÙNG kiểu với ô
        đã đặt (.is-booked) theo đúng yêu cầu, thay vì viền phân biệt như trước. */
     .ta-rc-cal-cell.is-selected {
         background: var(--ta-cal-primary);
@@ -1456,8 +1589,8 @@
         min-width: 0;
     }
 
-    /* Icon nhỏ báo hiệu ngay trên thẻ phòng — đang chờ hoàn tiền — để nhìn lướt qua "Lịch phòng"
-       là biết ngay phòng nào cần xử lý, không phải mở menu ⋮ mới thấy. */
+    /* Icon nhỏ báo hiệu ngay trên thẻ sân — đang chờ hoàn tiền — để nhìn lướt qua "Lịch sân"
+       là biết ngay sân nào cần xử lý, không phải mở menu ⋮ mới thấy. */
     .ta-rc-flag {
         flex-shrink: 0;
         width: 18px;
@@ -1491,7 +1624,7 @@
         border-color: var(--ta-line);
     }
 
-    /* Menu thao tác nhanh (⋮) trên thẻ phòng */
+    /* Menu thao tác nhanh (⋮) trên thẻ sân */
     .ta-rc-menu-btn {
         flex-shrink: 0;
         width: 26px;
@@ -2008,7 +2141,7 @@
 
     /* ===== Tooltip dùng chung (view Danh sách + Dải giờ) =====
        1 phần tử duy nhất, JS định vị bằng getBoundingClientRect() + position:fixed — không bị
-       overflow:hidden của thẻ phòng cắt mất, và không xảy ra tình trạng chỉ hover được 1 đơn khi
+       overflow:hidden của thẻ sân cắt mất, và không xảy ra tình trạng chỉ hover được 1 đơn khi
        thẻ có nhiều đơn (do nhiều tooltip tuyệt đối trước đây chồng lên nhau). */
     .rc-tooltip {
         position: fixed;
@@ -3619,7 +3752,7 @@
         opacity: 0.88;
     }
 
-    /* Popup "Giá phòng" (rcCalOpenPricePopup() trong _scripts.blade.php) — 2 cột: trái = điều
+    /* Popup "Giá sân" (rcCalOpenPricePopup() trong _scripts.blade.php) — 2 cột: trái = điều
        kiện giá (nhãn dài, KHÔNG được xuống dòng), phải = khung giờ/giá/khuyến mãi. */
     .ta-rc-price-columns {
         display: grid;
@@ -3645,7 +3778,7 @@
 
     /* Nhãn LUÔN 1 hàng, không wrap — đây chính là lý do tách riêng khỏi
        .ta-rc-order-popup-field-label (dùng flex:0 0 84px cố định, nhãn dài kiểu "Giảm giá full
-       phòng"/"Giảm theo khung" sẽ vỡ dòng nếu dùng chung class đó). */
+       sân"/"Giảm theo khung" sẽ vỡ dòng nếu dùng chung class đó). */
     .ta-rc-price-field-label {
         display: block;
         font-size: 11px;
@@ -3935,7 +4068,7 @@
         padding: 8px 16px;
     }
 
-    /* ===== Popup "Xem phòng" — 2 thẻ thống kê (doanh thu/đơn thành công) + biểu đồ cột thuần CSS
+    /* ===== Popup "Xem sân" — 2 thẻ thống kê (doanh thu/đơn thành công) + biểu đồ cột thuần CSS
        so sánh doanh thu 6 tháng gần nhất, xem rcCalOpenViewPopup() trong _scripts.blade.php. ===== */
     .ta-rc-view-stats {
         display: grid;

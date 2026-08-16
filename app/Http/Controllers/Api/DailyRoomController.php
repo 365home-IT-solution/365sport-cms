@@ -33,7 +33,7 @@ class DailyRoomController extends Controller
     {
         $room = $this->loadRoom($id);
         if (! $room) {
-            return response()->json(['message' => 'Phòng không tồn tại.'], 404);
+            return response()->json(['message' => 'Sân không tồn tại.'], 404);
         }
 
         $isRangeMode = $request->has('from') || $request->has('to');
@@ -169,7 +169,7 @@ class DailyRoomController extends Controller
 
         $room = $this->loadRoom($id);
         if (! $room) {
-            return response()->json(['message' => 'Phòng không tồn tại.'], 404);
+            return response()->json(['message' => 'Sân không tồn tại.'], 404);
         }
 
         $checkin  = Carbon::parse($request->checkin);

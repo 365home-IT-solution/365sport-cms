@@ -1,18 +1,22 @@
+{{-- CCCD tạm ẩn theo yêu cầu — đặt sân hiện tại KHÔNG cần khai báo lưu trú CCCD (khác hotel gốc).
+     Đổi $cccdRequired = true để bật lại (nhớ đồng bộ với ProductDetail::datPhong() — $requiredFields
+     ở đó cũng đang bỏ qua cccd_front/cccd_back/cccdFrontExtra/cccdBackExtra theo cùng lý do). --}}
+@php $cccdRequired = false; @endphp
 <div
     class="bg-white p-0 rounded-2xl lg:rounded-2xl border border-[#DDDDDD] shadow-[0_2px_16px_rgba(0,0,0,0.08)] overflow-hidden"
     id="pd-book-card">
     {{-- Drag handle (mobile bottom-sheet only) --}}
     <div class="lg:hidden" id="pd-book-sheet-handle"></div>
 
-    {{-- Badge "Nhập thông tin đặt phòng" — CHỈ hiện khi sheet đang ở trạng thái thu gọn mặc định
+    {{-- Badge "Nhập thông tin đặt sân" — CHỈ hiện khi sheet đang ở trạng thái thu gọn mặc định
          (không có class pd-sheet-peek/pd-sheet-full, xem CSS #pd-book-badge phía dưới). Bấm vào
          mở thẳng sheet lên "full" (90% màn hình) để khách nhập thông tin ngay, không dừng ở mức
          "peek" trung gian nữa. --}}
-    <button type="button" class="lg:hidden" id="pd-book-badge" aria-label="Nhập thông tin đặt phòng">
+    <button type="button" class="lg:hidden" id="pd-book-badge" aria-label="Nhập thông tin đặt sân">
         <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
             <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75 2.25 2.25 0 00-.1-.664m-5.8 0A2.251 2.251 0 0113.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25zM6.75 12h.008v.008H6.75V12zm0 3h.008v.008H6.75V15zm0 3h.008v.008H6.75V18z" />
         </svg>
-        <span id="pd-book-badge-text">Nhập thông tin đặt phòng</span>
+        <span id="pd-book-badge-text">Nhập thông tin đặt sân</span>
         {{-- Chevron nảy lên (bounce) — gợi ý trực quan "vuốt/bấm lên để mở", tránh badge trông
              giống chữ thường không rõ là bấm được. --}}
         <svg id="pd-book-badge-chevron" xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
@@ -22,7 +26,7 @@
 
     <div id="pd-book-sheet-scroll">
     <div class="px-6 pt-6 pb-2 flex items-center justify-between gap-3">
-        <p class="text-xl font-semibold text-[#222222]">Thông tin Đặt phòng</p>
+        <p class="text-xl font-semibold text-[#222222]">Thông tin Đặt sân</p>
         {{-- Nút tắt bottom sheet (mobile) — cho phép thu gọn sheet lại mà không cần vuốt tay --}}
         <button type="button" class="lg:hidden shrink-0 flex items-center justify-center w-8 h-8 rounded-full bg-[#F7F7F7] text-[#717171] hover:bg-[#EEEEEE] hover:text-[#222222] transition-colors"
             id="pd-book-sheet-close" aria-label="Đóng">
@@ -121,7 +125,11 @@
                         <span class="text-gray-800 text-xs font-medium flex-1 truncate">{{ $buyerPhone }}</span>
                     </div>
                 @else
-                    <input type="text" id="buyerPhone" wire:model="buyerPhone" placeholder="0912 345 678"
+                    {{-- .blur (KHÔNG phải deferred mặc định) — Gói nhiều buổi cần biết SĐT NGAY khi
+                         khách rời khỏi ô này để hiện box "Dùng gói" kịp thời (xem
+                         ProductDetail::getAvailablePackage()), không đợi tới lúc có 1 action khác
+                         (vd chọn khung giờ) mới tình cờ đồng bộ theo. --}}
+                    <input type="text" id="buyerPhone" wire:model.blur="buyerPhone" placeholder="0912 345 678"
                         class="w-full rounded-lg border h-10 px-2.5 text-sm focus:outline-none focus-visible:ring-1 focus-visible:ring-[#222222] {{ $errors->has('buyerPhone') ? 'border-red-600 border-2' : 'border-[#DDDDDD]' }}" />
                 @endif
             </div>
@@ -178,8 +186,12 @@
                         </button>
                     </div>
                 </div>
+                {{-- Ẩn cùng lúc với CCCD (xem $cccdRequired đầu file) — hint này chỉ có ý nghĩa khi
+                     CCCD người đi cùng đang bắt buộc. --}}
+                @if ($cccdRequired)
                 <p x-show="isOvernight" x-cloak class="text-[11px] text-[#717171] mt-1">* Khung giờ qua đêm cần khai
                     báo lưu trú (CCCD) cho tất cả người đi cùng.</p>
+                @endif
             </div>
         </div>
 
@@ -303,7 +315,7 @@
                     </p>
                 @elseif($bookingStyle == 2)
                     <p class="text-xs text-gray-500 italic">
-                        * Vui lòng chọn ngày nhận và trả phòng trước khi áp dụng mã giảm giá
+                        * Vui lòng chọn ngày nhận và trả sân trước khi áp dụng mã giảm giá
                     </p>
                 @else
                     <p class="text-xs text-gray-500 italic">
@@ -313,12 +325,77 @@
             </div>
         </div>
 
+        {{-- Mua gói nhiều buổi — chào bán CHO MỌI KHÁCH (không phụ thuộc đã nhập SĐT hay chưa),
+             khác khối "Dùng gói" bên dưới (chỉ hiện gói ĐÃ SỞ HỮU). Mua xong chuyển sang PayOS
+             thanh toán riêng (KHÔNG dùng cho đơn đặt sân đang thao tác trên trang này) — xem
+             ProductDetail::buyPackage(). --}}
+        @php $sellablePackagePlans = $this->getAvailablePackagePlans(); @endphp
+        @if ($sellablePackagePlans->isNotEmpty())
+        <div class="space-y-2">
+            <p class="text-xs font-semibold tracking-wider uppercase text-[#717171]">Mua gói nhiều buổi</p>
+            <div class="space-y-2">
+                @foreach ($sellablePackagePlans as $plan)
+                    <div class="flex items-center justify-between gap-3 border border-[#DDDDDD] rounded-xl p-3">
+                        <div class="min-w-0">
+                            <p class="text-sm font-semibold text-[#222222] truncate">{{ $plan->name }}</p>
+                            <p class="text-xs text-[#717171] mt-0.5">
+                                {{ $plan->sessions_count }} buổi — {{ number_format($plan->price, 0, ',', '.') }}đ
+                                @if ($plan->savingsPercent() > 0)
+                                    <span class="text-emerald-600 font-semibold">(tiết kiệm {{ $plan->savingsPercent() }}%)</span>
+                                @endif
+                                @if ($plan->validity_days)
+                                    · Hạn dùng {{ $plan->validity_days }} ngày
+                                @endif
+                            </p>
+                        </div>
+                        <button type="button" wire:click="buyPackage({{ $plan->id }})"
+                            wire:loading.attr="disabled" wire:target="buyPackage({{ $plan->id }})"
+                            class="shrink-0 px-3 py-2 rounded-lg bg-primary text-white text-xs font-semibold hover:opacity-90 transition disabled:opacity-50">
+                            <span wire:loading.remove wire:target="buyPackage({{ $plan->id }})">Mua gói</span>
+                            <span wire:loading wire:target="buyPackage({{ $plan->id }})">Đang xử lý...</span>
+                        </button>
+                    </div>
+                @endforeach
+            </div>
+        </div>
+        @endif
+
+        {{-- Trả bằng gói nhiều buổi đã mua — chỉ hiện khi ĐÃ nhập SĐT và có gói còn hạn cho ĐÚNG
+             sân này (xem ProductDetail::getAvailablePackage()). wire:model.live trên buyerPhone ở
+             trên (nếu có) sẽ tự re-render khối này mỗi khi khách gõ xong SĐT. --}}
+        @php $availablePackage = $this->getAvailablePackage(); @endphp
+        @if ($availablePackage)
+        <div class="bg-emerald-50 border border-emerald-200 rounded-xl p-3.5">
+            <label class="flex items-start gap-2.5 cursor-pointer select-none">
+                <input type="checkbox" wire:model.live="usePackage"
+                    class="mt-0.5 h-4 w-4 rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer shrink-0" />
+                <div class="flex-1 min-w-0">
+                    <p class="text-sm font-semibold text-emerald-800">
+                        Dùng gói "{{ $availablePackage->name }}" — còn {{ $availablePackage->sessions_remaining }} buổi
+                    </p>
+                    <p class="text-xs text-emerald-600 mt-0.5">
+                        Mỗi khung giờ đã chọn trừ đúng 1 buổi trong gói, không cần thanh toán thêm.
+                        @if ($availablePackage->expires_at)
+                            Hết hạn {{ $availablePackage->expires_at->format('d/m/Y') }}.
+                        @endif
+                    </p>
+                    @if ($usePackage && count($selectedSlots) > $availablePackage->sessions_remaining)
+                        <p class="text-xs text-red-600 font-medium mt-1">
+                            ⚠ Bạn đang chọn {{ count($selectedSlots) }} khung giờ nhưng gói chỉ còn {{ $availablePackage->sessions_remaining }} buổi — bỏ bớt khung giờ hoặc bỏ chọn dùng gói.
+                        </p>
+                    @endif
+                </div>
+            </label>
+        </div>
+        @endif
+
         <hr class="border-[#DDDDDD] -mx-6">
 
+        @if ($cccdRequired)
         <!-- CCCD -->
         <div>
             <p class="text-xs font-semibold tracking-wider uppercase text-[#717171]">Xác thực danh tính</p>
-            <p class="text-[11px] text-[#717171] mt-0.5 mb-3">Bắt buộc để hoàn tất nhận phòng</p>
+            <p class="text-[11px] text-[#717171] mt-0.5 mb-3">Bắt buộc để hoàn tất nhận sân</p>
 
             @if ($isAuthUser && !empty($authCccdFront) && !empty($authCccdBack))
                 {{-- Auth user đã có CCCD trong profile → hiển thị ảnh đã lưu --}}
@@ -551,6 +628,7 @@
                 </p>
             </div>
         @endif
+        @endif {{-- /$cccdRequired --}}
 
         <textarea id="note" wire:model="note" placeholder="Ghi chú cho 365Home" rows="3"
             class="w-full px-4 py-3 border border-[#DDDDDD] rounded-lg focus:ring-2 focus:ring-primary focus:border-primary focus:outline-none resize-none text-base"></textarea>
@@ -570,20 +648,20 @@
                 </span>
             </label>
             @if ($errors->has('accept1') || $errors->has('accept2') || $errors->has('acceptRefundPolicy'))
-                <p class="text-red-600 text-[12px] mt-1.5 font-medium">Vui lòng đồng ý với điều khoản trên trước khi đặt phòng.</p>
+                <p class="text-red-600 text-[12px] mt-1.5 font-medium">Vui lòng đồng ý với điều khoản trên trước khi đặt sân.</p>
             @endif
         </div>
 
         <p class="text-[11px] text-[#717171]">
-            * Bạn đang đặt phòng tại 365Home - {{ $categories['c3'] ?? '' }}. Sau khi bấm "Đặt phòng", bạn sẽ được chuyển
-            sang quét mã QR để thanh toán, thời gian giữ phòng là 15 phút chờ thanh toán.
+            * Bạn đang đặt sân tại 365Home - {{ $categories['c3'] ?? '' }}. Sau khi bấm "Đặt sân", bạn sẽ được chuyển
+            sang quét mã QR để thanh toán, thời gian giữ sân là 15 phút chờ thanh toán.
         </p>
 
         <hr class="border-[#DDDDDD] -mx-6">
 
         <button type="submit" wire:loading.attr="disabled" wire:target="datPhong"
             class="w-full h-12 rounded-xl font-semibold text-base shadow-sm transition-all active:scale-[0.98] bg-primary hover:opacity-90 text-white disabled:opacity-50 disabled:cursor-not-allowed">
-            <span wire:loading.remove wire:target="datPhong">Đặt phòng</span>
+            <span wire:loading.remove wire:target="datPhong">Đặt sân</span>
             <span wire:loading wire:target="datPhong">Đang xử lý...</span>
         </button>
     </form>
@@ -594,7 +672,7 @@
 <style>
     @media (max-width: 1023px) {
         {{-- Mặc định (không có class pd-sheet-peek/pd-sheet-full) = THU GỌN — chỉ đủ cao cho
-             handle + badge "Nhập thông tin đặt phòng" (xem #pd-book-badge), không còn hiện sẵn ở
+             handle + badge "Nhập thông tin đặt sân" (xem #pd-book-badge), không còn hiện sẵn ở
              45% màn hình như trước. Bấm badge (hoặc handle) mới mở ra .pd-sheet-peek. --}}
         #pd-booking-form {
             position: fixed;
@@ -718,7 +796,7 @@
 
 @push('scripts')
     <script>
-        // ─── Bottom-sheet kéo lên/xuống cho Thông tin đặt phòng (mobile < lg) ──────────
+        // ─── Bottom-sheet kéo lên/xuống cho Thông tin đặt sân (mobile < lg) ──────────
         (function() {
             var sheet = null,
                 handle = null,
@@ -756,7 +834,7 @@
             // 'peek' (45%, .pd-sheet-peek), 'full' (80%, .pd-sheet-full — chừa khoảng trống phía
             // trên để tránh bị thanh trình duyệt/tai thỏ trên iPhone che mất nút tắt). Trước đây chỉ có
             // peek/full (peek là mặc định) — giờ thêm collapsed làm mặc định mới, badge "Nhập
-            // thông tin đặt phòng" (xem #pd-book-badge) bấm vào mới mở ra peek.
+            // thông tin đặt sân" (xem #pd-book-badge) bấm vào mới mở ra peek.
             function setState(state) {
                 if (!sheet) return;
                 sheet.style.height = '';
@@ -856,9 +934,9 @@
                 }
             }
 
-            // Khi vừa vào trang chi tiết phòng (mobile): nếu đã chọn khung giờ/ngày từ màn hình
+            // Khi vừa vào trang chi tiết sân (mobile): nếu đã chọn khung giờ/ngày từ màn hình
             // khác (data-preselected="1", xem $fromBookingPage) thì mở luôn bottom sheet toàn màn
-            // hình để khách nhập thông tin ngay; ngược lại cuộn xuống khu vực lịch đặt phòng để
+            // hình để khách nhập thông tin ngay; ngược lại cuộn xuống khu vực lịch đặt sân để
             // khách chọn khung giờ trước.
             function autoRevealBookingStep() {
                 if (!isMobile() || !sheet) return;

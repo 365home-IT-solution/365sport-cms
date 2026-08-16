@@ -256,7 +256,7 @@
         </div>
         <h2 class="text-xl font-bold text-gray-800 mb-2">Bạn chưa đăng nhập</h2>
         <p class="text-gray-500 text-sm mb-8 max-w-xs leading-relaxed">
-            Đăng nhập để xem thông tin tài khoản và lịch sử đặt phòng của bạn.
+            Đăng nhập để xem thông tin tài khoản và lịch sử đặt sân của bạn.
         </p>
         <button
             @click="openModal()"
@@ -408,7 +408,7 @@
     </div>
     @endif
 
-    {{-- Đơn đặt phòng & Mã giảm giá --}}
+    {{-- Đơn đặt sân & Mã giảm giá --}}
     <div id="orders-section" x-data="{ accountTab: 'orders' }" class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
         {{-- Tabs --}}
         <div class="flex border-b border-gray-100">
@@ -418,7 +418,7 @@
                 :class="accountTab === 'orders' ? '' : 'border-transparent text-gray-400 hover:text-gray-600'"
                 :style="accountTab === 'orders' ? 'border-color: {{ $primaryHex }}; color: {{ $primaryHex }};' : ''"
             >
-                Lịch sử đặt phòng
+                Lịch sử đặt sân
                 <span class="ml-1 font-normal text-gray-400">({{ $totalCount }})</span>
             </button>
             @if(count($discountCodes) > 0)
@@ -481,7 +481,7 @@
         </div>
         @endif
 
-        {{-- Tab: Lịch sử đặt phòng --}}
+        {{-- Tab: Lịch sử đặt sân --}}
         <div x-show="accountTab === 'orders'">
 
         {{-- Empty state --}}
@@ -492,12 +492,12 @@
                     <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 6.75h12M8.25 12h12m-12 5.25h12M3.75 6.75h.007v.008H3.75V6.75zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zM3.75 12h.007v.008H3.75V12zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm-.375 5.25h.007v.008H3.75v-.008zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z"/>
                 </svg>
             </div>
-            <p class="text-gray-700 font-semibold">Chưa có đơn đặt phòng nào</p>
-            <p class="text-gray-400 text-sm">Hãy khám phá và đặt phòng ngay hôm nay!</p>
+            <p class="text-gray-700 font-semibold">Chưa có đơn đặt sân nào</p>
+            <p class="text-gray-400 text-sm">Hãy khám phá và đặt sân ngay hôm nay!</p>
             <a href="/"
                class="mt-3 inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold shadow-sm transition-opacity hover:opacity-85"
                style="background-color: {{ $primaryHex }}; color: {{ $textOnPrimary }};">
-                Khám phá phòng
+                Khám phá sân
             </a>
         </div>
 
@@ -514,6 +514,11 @@
                     'cancelled_payment'  => ['label' => 'Đã hủy',         'class' => 'bg-gray-100 text-gray-600 border-gray-200'],
                     default              => ['label' => ucfirst($order['status']), 'class' => 'bg-gray-100 text-gray-600 border-gray-200'],
                 };
+                // Khách tự huỷ (cancelled_at) đè lên nhãn trạng thái thanh toán gốc — xem
+                // Order::isCancelled()/AccountPage::fetchPage().
+                if ($order['is_cancelled']) {
+                    $statusConfig = ['label' => '🚫 Đã huỷ', 'class' => 'bg-gray-100 text-gray-600 border-gray-200'];
+                }
             @endphp
             <div class="p-4 sm:p-5 flex gap-3 sm:gap-4 hover:bg-gray-50/60 transition-colors">
 
@@ -561,15 +566,31 @@
                         <span class="text-sm font-bold" style="color: {{ $primaryHex }};">
                             {{ number_format($order['amount'], 0, ',', '.') }}đ
                         </span>
-                        <a
-                            href="/thong-tin-dat-phong/{{ $order['order_code'] }}"
-                            class="inline-flex items-center gap-1 text-xs font-medium text-gray-500 hover:text-gray-800 transition-colors px-2.5 py-1.5 rounded-lg hover:bg-gray-100"
-                        >
-                            Xem chi tiết
-                            <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3"/>
-                            </svg>
-                        </a>
+                        <div class="flex items-center gap-1">
+                            {{-- Khách tự huỷ đơn/xin hoàn tiền — xem AccountPage::cancelOrder() /
+                                 Order::canBeCancelledByCustomer(). wire:confirm dùng dialog xác
+                                 nhận gốc của trình duyệt (Livewire 3), đủ dùng cho thao tác 1 lần,
+                                 không cần dựng modal riêng như trang tra cứu đơn (Blade thuần). --}}
+                            @if($order['can_cancel'])
+                            <button
+                                type="button"
+                                wire:click="cancelOrder({{ $order['id'] }})"
+                                wire:confirm="Huỷ đơn {{ $order['order_code'] }}? Bạn sẽ được hoàn {{ number_format($order['cancel_refund_amount'], 0, ',', '.') }}đ (70% đã trừ phí xử lý). Không thể hoàn tác."
+                                class="inline-flex items-center gap-1 text-xs font-medium text-red-600 hover:text-red-700 transition-colors px-2.5 py-1.5 rounded-lg hover:bg-red-50"
+                            >
+                                Huỷ đơn
+                            </button>
+                            @endif
+                            <a
+                                href="/thong-tin-dat-phong/{{ $order['order_code'] }}"
+                                class="inline-flex items-center gap-1 text-xs font-medium text-gray-500 hover:text-gray-800 transition-colors px-2.5 py-1.5 rounded-lg hover:bg-gray-100"
+                            >
+                                Xem chi tiết
+                                <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3"/>
+                                </svg>
+                            </a>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -640,8 +661,8 @@
                 </svg>
             </div>
             <div>
-                <p class="text-sm font-semibold text-gray-800">Đặt phòng mới</p>
-                <p class="text-xs text-gray-400 mt-0.5">Khám phá các phòng hiện có</p>
+                <p class="text-sm font-semibold text-gray-800">Đặt sân mới</p>
+                <p class="text-xs text-gray-400 mt-0.5">Khám phá các sân hiện có</p>
             </div>
             <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-gray-300 ml-auto shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5"/>

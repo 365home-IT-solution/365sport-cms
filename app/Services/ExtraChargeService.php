@@ -34,7 +34,7 @@ class ExtraChargeService
      * computeOrderTotal() cũng KHÔNG gồm surcharge (cộng RIÊNG ở OrderForm::calculateTotal()), nên
      * cộng surcharge NGAY TẠI ĐÂY (chỉ ảnh hưởng công thức chênh lệch, không đụng
      * calculateRealTotal() dùng chung cho cột "Tổng tiền"/card client) để phụ thu gõ tay trên đơn
-     * đã paid/deposit cũng tự động tính vào khoản phát sinh/hoàn tiền giống hệt đổi phòng/dịch vụ/
+     * đã paid/deposit cũng tự động tính vào khoản phát sinh/hoàn tiền giống hệt đổi sân/dịch vụ/
      * số khách — xem EditOrder::beforeSave() ($oldSurcharge) / afterSave() ($surchargeChanged).
      *
      * @param  Order  $order  Đơn đã refresh với relations (items.product, services)
@@ -51,7 +51,7 @@ class ExtraChargeService
     /**
      * Tính TỔNG THẬT của đơn — dùng chung OrderForm::resolveProductGroupPricing() (port chính xác
      * BuildsRoomBooking::computeBookingPreview(), engine tính giá THẬT dùng cho mọi đơn tạo/sửa
-     * qua API — /api/admin/orders/preview) để ra ĐÚNG giá phòng + khuyến mãi/giảm giá hệ thống +
+     * qua API — /api/admin/orders/preview) để ra ĐÚNG giá sân + khuyến mãi/giảm giá hệ thống +
      * phụ thu khách cho từng nhóm product, cộng thêm tổng dịch vụ thêm.
      */
     public function calculateRealTotal(Order $order): int
@@ -70,7 +70,7 @@ class ExtraChargeService
         foreach ($itemsByProduct as $groupItems) {
             $product = $groupItems->first()->product;
 
-            // Giá phòng (đã áp khuyến mãi/giảm giá hệ thống) + phụ thu khách — dùng chung 1 công
+            // Giá sân (đã áp khuyến mãi/giảm giá hệ thống) + phụ thu khách — dùng chung 1 công
             // thức với OrderForm::computeOrderTotal()/total-amount-card.blade.php (3 nơi PHẢI
             // cùng ra 1 số, xem OrderForm::resolveProductGroupPricing()). OrderItem model hỗ trợ
             // ArrayAccess ($item['price']/['checkin_date']...) nên dùng thẳng được, chỉ cần
@@ -241,7 +241,7 @@ class ExtraChargeService
             'buyerPhone'  => $order->buyer_phone ?? '',
             'expiredAt'   => $expiredAt->timestamp,
             'items'       => [[
-                'name'     => 'Tiền còn lại - ' . ($order->items->first()?->name ?? 'Phòng'),
+                'name'     => 'Tiền còn lại - ' . ($order->items->first()?->name ?? 'Sân'),
                 'quantity' => 1,
                 'price'    => $remaining,
             ]],

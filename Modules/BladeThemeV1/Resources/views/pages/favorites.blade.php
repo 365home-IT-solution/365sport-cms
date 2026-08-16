@@ -11,7 +11,7 @@
             <div class="mb-6 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
                 <div>
                     <h1 class="text-2xl font-bold text-gray-900">Danh sách yêu thích</h1>
-                    <p class="text-sm text-gray-500">Lưu các phòng bạn thích để xem lại sau.</p>
+                    <p class="text-sm text-gray-500">Lưu các sân bạn thích để xem lại sau.</p>
                 </div>
             </div>
 
@@ -20,7 +20,7 @@
     </div>
 
     <style>
-        /* Mỗi chi nhánh 1 dòng riêng, bên dưới là các phòng của chi nhánh đó — giống trang kết
+        /* Mỗi chi nhánh 1 dòng riêng, bên dưới là các sân của chi nhánh đó — giống trang kết
            quả tìm kiếm: mobile vuốt ngang từng thẻ (Airbnb-style), desktop lưới cố định 3 cột. */
         .fav-branch-section { margin-bottom: 8px; }
         .fav-branch-header { padding: 14px 4px 8px; }
@@ -160,7 +160,7 @@
                             </svg>
                         </div>
                         <h2 class="mb-2 text-lg font-semibold text-gray-900">Bạn cần đăng nhập để xem danh sách yêu thích</h2>
-                        <p class="mb-5 text-sm text-gray-500">Đăng nhập để lưu và quản lý các phòng bạn đã thích.</p>
+                        <p class="mb-5 text-sm text-gray-500">Đăng nhập để lưu và quản lý các sân bạn đã thích.</p>
                         <button type="button" id="favorite-login-btn" class="rounded-full bg-[var(--color-primary)] px-5 py-2.5 text-sm font-semibold text-white shadow-sm">Đăng nhập ngay</button>
                     </div>
                 `;
@@ -171,12 +171,12 @@
 
             const emptyStateHtml = `
                 <div class="rounded-2xl border border-dashed border-gray-300 bg-white p-8 text-center shadow-sm">
-                    <h2 class="mb-2 text-lg font-semibold text-gray-900">Chưa có phòng yêu thích nào</h2>
-                    <p class="text-sm text-gray-500">Hãy lưu lại những phòng bạn thích để xem lại sau.</p>
+                    <h2 class="mb-2 text-lg font-semibold text-gray-900">Chưa có sân yêu thích nào</h2>
+                    <p class="text-sm text-gray-500">Hãy lưu lại những sân bạn thích để xem lại sau.</p>
                 </div>
             `;
 
-            // Nhóm phòng theo chi nhánh (room.branch.id) — phòng không xác định được chi nhánh
+            // Nhóm sân theo chi nhánh (room.branch.id) — sân không xác định được chi nhánh
             // gom vào 1 nhóm chung, hiển thị phẳng không có dòng tiêu đề (giống trang tìm kiếm).
             const groupRoomsByBranch = (rooms) => {
                 const branchOrder = [];
@@ -216,10 +216,10 @@
                 const cards = rooms.map((room) => '<div class="branch-card">' + (window.roomCardHtml ? window.roomCardHtml(room) : '') + '</div>').join('');
                 return '<div class="room-slider">'
                     + '<div class="branch-grid">' + cards + '</div>'
-                    + '<button type="button" class="room-slider-nav room-slider-prev" aria-label="Phòng trước" onclick="window.__favSliderNav(this, -1)">'
+                    + '<button type="button" class="room-slider-nav room-slider-prev" aria-label="Sân trước" onclick="window.__favSliderNav(this, -1)">'
                     + '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>'
                     + '</button>'
-                    + '<button type="button" class="room-slider-nav room-slider-next" aria-label="Phòng tiếp theo" onclick="window.__favSliderNav(this, 1)">'
+                    + '<button type="button" class="room-slider-nav room-slider-next" aria-label="Sân tiếp theo" onclick="window.__favSliderNav(this, 1)">'
                     + '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>'
                     + '</button>'
                     + '</div>';
@@ -296,7 +296,7 @@
             };
 
             // Bỏ yêu thích ngay trên danh sách này thì xoá card khỏi lưới luôn (và cả dòng chi
-            // nhánh nếu đó là phòng cuối cùng). Dùng capture phase vì nút tim tự gọi
+            // nhánh nếu đó là sân cuối cùng). Dùng capture phase vì nút tim tự gọi
             // stopPropagation() trong onclick của nó.
             root.addEventListener('click', (e) => {
                 const btn = e.target.closest('.room-wishlist-btn');

@@ -7,7 +7,7 @@ use Illuminate\Support\Facades\Schema;
 return new class extends Migration
 {
     // Dịch vụ bổ sung (additional_services) là danh mục độc lập (không gắn 1 product_id cụ thể —
-    // gán vào nhiều phòng qua bảng pivot room_additional_service_assigns), giống room_amenities —
+    // gán vào nhiều sân qua bảng pivot room_additional_service_assigns), giống room_amenities —
     // nên cần partner_id riêng để mỗi đối tác tự tạo dịch vụ của mình, không dùng chung.
     public function up(): void
     {

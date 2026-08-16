@@ -17,7 +17,7 @@ use Modules\Payment\App\Services\CccdScannerService;
 
 /**
  * Quản lý CCCD "khách đi cùng" đã LƯU SẴN vào hồ sơ 1 khách hàng (customer_companions) — tái sử
- * dụng được cho nhiều lần đặt phòng qua đêm sau này, khác với CCCD khách đi cùng gắn riêng theo
+ * dụng được cho nhiều lần đặt sân qua đêm sau này, khác với CCCD khách đi cùng gắn riêng theo
  * từng đơn (Admin\BookingController::store(), guests[]).
  *
  * Luồng FE dự kiến khi admin tạo đơn và CHỌN khách hàng có sẵn (thay vì tạo khách vãng lai mới):
@@ -256,7 +256,7 @@ class CustomerCompanionController extends Controller
 
     // Quét ĐỘC LẬP từng mặt (khác scanPaths() ở trên coi 2 ảnh là 1 "pool") để phát hiện trường
     // hợp admin/lễ tân lỡ chụp nhầm mặt trước của người này ghép với mặt sau của người khác — cùng
-    // logic đã dùng ở luồng khách hàng tự đặt phòng (ProductDetail::confirmBooking()). Phát hiện
+    // logic đã dùng ở luồng khách hàng tự đặt sân (ProductDetail::confirmBooking()). Phát hiện
     // xung đột thì xoá luôn 2 file vừa lưu, không để rác lại trên storage.
     private function assertSidesMatch(string $frontPath, string $backPath, ?int $index = null): void
     {

@@ -20,9 +20,9 @@ use Modules\Product\App\Models\Product;
 use Spatie\Tags\Tag;
 
 /**
- * Quản lý PHÒNG (bảng `products`, module Product) — CRUD đầy đủ cho màn "Quản lý phòng" của admin.
- * Khác với App\Http\Controllers\Api\Admin\RoomController (chỉ phục vụ tra cứu lịch/giá đặt phòng
- * cho luồng tạo đơn) — controller này quản lý CHÍNH bản ghi phòng: thông tin, chi nhánh áp dụng,
+ * Quản lý SÂN (bảng `products`, module Product) — CRUD đầy đủ cho màn "Quản lý sân" của admin.
+ * Khác với App\Http\Controllers\Api\Admin\RoomController (chỉ phục vụ tra cứu lịch/giá đặt sân
+ * cho luồng tạo đơn) — controller này quản lý CHÍNH bản ghi sân: thông tin, chi nhánh áp dụng,
  * tiện ích, dịch vụ bổ sung, ảnh...
  *
  * Field trong request khớp với Modules\Product\App\Filament\Resources\ProductResource\Forms\ProductForm:
@@ -31,7 +31,7 @@ use Spatie\Tags\Tag;
  *    hotline/styles, short_description/description, setting_video_room{url,ratio,title},
  *    image_main (collection "Ảnh bìa"), gallery[] (collection "Thư viện").
  *
- * Phạm vi hiển thị/sửa: super_admin xem & sửa mọi phòng; user thường chỉ xem/sửa phòng thuộc đúng
+ * Phạm vi hiển thị/sửa: super_admin xem & sửa mọi sân; user thường chỉ xem/sửa sân thuộc đúng
  * đối tác mình (products.partner_id) — global scope BelongsToPartner KHÔNG áp dụng ngoài Filament
  * panel nên phải lọc thủ công (cùng nguyên tắc RoomController/CategoryController/ServiceController).
  */
@@ -47,16 +47,16 @@ class ProductController extends Controller
     // Nhãn hiển thị cho occupancy_status — tính từ order_items/orders chồng lấn ngày tham chiếu
     // (xem resolveOccupancyStatuses()), KHÔNG liên quan tới is_activated (param 'status' ở trên).
     private const OCCUPANCY_STATUS_LABELS = [
-        'empty'    => 'Phòng trống',
+        'empty'    => 'Sân trống',
         'upcoming' => 'Sắp nhận',
         'staying'  => 'Đang ở',
         'overtime' => 'Hết giờ',
         'deposit'  => 'Đã đặt cọc',
     ];
 
-    // Độ ưu tiên khi 1 phòng có nhiều đơn chồng lấn cùng 1 ngày tham chiếu — số càng lớn càng ưu
+    // Độ ưu tiên khi 1 sân có nhiều đơn chồng lấn cùng 1 ngày tham chiếu — số càng lớn càng ưu
     // tiên. 'deposit' luôn thắng các trạng thái theo thời gian khác (yêu cầu nghiệp vụ: admin cần
-    // thấy ngay phòng nào đang chờ thu nốt tiền cọc, bất kể đã tới giờ nhận/đang ở/hết giờ hay chưa).
+    // thấy ngay sân nào đang chờ thu nốt tiền cọc, bất kể đã tới giờ nhận/đang ở/hết giờ hay chưa).
     private const OCCUPANCY_STATUS_PRIORITY = [
         'deposit'  => 4,
         'overtime' => 3,
@@ -66,17 +66,17 @@ class ProductController extends Controller
 
     /**
      * GET /api/admin/products
-     * Danh sách phòng — ảnh chính, tên, chi nhánh (categories), trạng thái.
+     * Danh sách sân — ảnh chính, tên, chi nhánh (categories), trạng thái.
      * Query params:
      *  - category_id      : lọc theo 1 chi nhánh/khu vực (gồm cả khu vực con nếu truyền chi nhánh gốc)
      *  - categories       : slug của 1 chi nhánh CHA (parent_id=null, category_type=product — giống
      *                       GET /api/admin/rooms?categories=) — lọc theo chi nhánh đó (gồm khu vực
      *                       con). Dùng độc lập hoặc CÙNG lúc với category_id (kết hợp AND); slug
      *                       không khớp chi nhánh nào -> trả rỗng thay vì bỏ qua filter.
-     *  - search           : lọc theo tên phòng HOẶC tên chi nhánh
-     *  - room_type_id     : lọc theo Danh mục phòng (products.room_type_id)
-     *  - styles           : 1 = phòng theo khung giờ, 2 = phòng theo ngày
-     *  - occupancy_status : lọc theo trạng thái sử dụng phòng tại ngày tham chiếu — 1 hoặc nhiều giá
+     *  - search           : lọc theo tên sân HOẶC tên chi nhánh
+     *  - room_type_id     : lọc theo Danh mục sân (products.room_type_id)
+     *  - styles           : 1 = sân theo khung giờ, 2 = sân theo ngày
+     *  - occupancy_status : lọc theo trạng thái sử dụng sân tại ngày tham chiếu — 1 hoặc nhiều giá
      *                       trị trong empty|upcoming|staying|overtime|deposit (mảng occupancy_status[]=
      *                       hoặc chuỗi phân tách dấu phẩy). Xem resolveOccupancyStatuses() để biết logic.
      *  - date             : ngày tham chiếu (Y-m-d) cho occupancy_status. Nếu vắng, ghép từ day/month/
@@ -124,7 +124,7 @@ class ProductController extends Controller
             });
         }
 
-        // Phòng đã ẩn (is_activated=false, toggle "Ẩn" ở Filament/PATCH rooms/{id}/status) không bao
+        // Sân đã ẩn (is_activated=false, toggle "Ẩn" ở Filament/PATCH rooms/{id}/status) không bao
         // giờ xuất hiện ở danh sách này — không có param nào bật lại việc hiển thị chúng ở đây.
         $query->where('is_activated', true);
 
@@ -168,8 +168,8 @@ class ProductController extends Controller
                 $statusMap,
                 fn (string $status) => in_array($status, $occupancyFilter, true)
             ));
-            // Phòng không có đơn nào chồng lấn ngày tham chiếu sẽ KHÔNG xuất hiện trong $statusMap
-            // (resolveOccupancyStatuses() chỉ trả về phòng có ít nhất 1 đơn liên quan) — coi là 'empty'.
+            // Sân không có đơn nào chồng lấn ngày tham chiếu sẽ KHÔNG xuất hiện trong $statusMap
+            // (resolveOccupancyStatuses() chỉ trả về sân có ít nhất 1 đơn liên quan) — coi là 'empty'.
             if (in_array('empty', $occupancyFilter, true)) {
                 $matchingIds = array_unique(array_merge(
                     $matchingIds,
@@ -196,7 +196,7 @@ class ProductController extends Controller
 
     /**
      * GET /api/admin/products/{id}
-     * Chi tiết phòng đầy đủ: thông tin cơ bản, video, ảnh chính/phụ, chi nhánh áp dụng, tiện ích,
+     * Chi tiết sân đầy đủ: thông tin cơ bản, video, ảnh chính/phụ, chi nhánh áp dụng, tiện ích,
      * dịch vụ bổ sung.
      */
     public function show(Request $request, string $id): JsonResponse
@@ -206,7 +206,7 @@ class ProductController extends Controller
             ->find($id);
 
         if (! $product) {
-            return response()->json(['message' => 'Không tìm thấy phòng.'], 404);
+            return response()->json(['message' => 'Không tìm thấy sân.'], 404);
         }
 
         return response()->json(['data' => $this->toDetailItem($product)]);
@@ -221,7 +221,7 @@ class ProductController extends Controller
         $user = $request->user();
 
         if (! $user->isSuperAdmin() && empty($user->partner_id)) {
-            return response()->json(['message' => 'Tài khoản không thuộc đối tác nào, không thể tạo phòng.'], 403);
+            return response()->json(['message' => 'Tài khoản không thuộc đối tác nào, không thể tạo sân.'], 403);
         }
 
         $data = $request->validate($this->rules());
@@ -233,7 +233,7 @@ class ProductController extends Controller
 
         $partnerId = $user->isSuperAdmin() ? ($data['partner_id'] ?? null) : $user->partner_id;
         if ($user->isSuperAdmin() && empty($partnerId)) {
-            return response()->json(['message' => 'Bắt buộc chọn đối tác sở hữu (partner_id) khi tạo phòng.'], 422);
+            return response()->json(['message' => 'Bắt buộc chọn đối tác sở hữu (partner_id) khi tạo sân.'], 422);
         }
 
         if (! empty($data['additional_services'])) {
@@ -269,7 +269,7 @@ class ProductController extends Controller
 
         $this->handleImages($request, $product);
 
-        // Lấy lại object hoàn toàn mới trước khi build response — phòng trường hợp Spatie MediaLibrary
+        // Lấy lại object hoàn toàn mới trước khi build response — sân trường hợp Spatie MediaLibrary
         // cache stale relation 'media' trên $product (đã từng xảy ra khi handleImages() lỡ gọi
         // getMedia() giữa chừng, khiến toDetailItem() đọc phải snapshot media CŨ dù DB đã có ảnh mới —
         // xem lịch sử fix). fresh() đảm bảo mọi getMedia()/getFirstMediaUrl() bên dưới luôn đọc thẳng DB.
@@ -289,7 +289,7 @@ class ProductController extends Controller
         $product = $this->visibleProductsQuery($user)->find($id);
 
         if (! $product) {
-            return response()->json(['message' => 'Không tìm thấy phòng.'], 404);
+            return response()->json(['message' => 'Không tìm thấy sân.'], 404);
         }
 
         $data = $request->validate($this->rules(isUpdate: true, productId: $product->id));
@@ -309,7 +309,7 @@ class ProductController extends Controller
         }
 
         // Khác với store() (luôn bắt đầu từ 0 ảnh nên rule 'gallery' => 'max:8' đã đủ chặn), update()
-        // phải cộng dồn ảnh gallery ĐÃ CÓ SẴN của phòng — kiểm tra TRƯỚC khi ghi bất kỳ thay đổi nào
+        // phải cộng dồn ảnh gallery ĐÃ CÓ SẴN của sân — kiểm tra TRƯỚC khi ghi bất kỳ thay đổi nào
         // xuống DB (fail fast), không để handleImages() âm thầm bỏ qua ảnh mới nếu vượt hạn mức.
         if (array_key_exists('gallery', $data)) {
             $existingGalleryCount = $product->getMedia('Thư viện')->count();
@@ -354,7 +354,7 @@ class ProductController extends Controller
 
     /**
      * PATCH /api/admin/rooms/{id}/status
-     * Bật/tắt trạng thái hoạt động của phòng. Body dùng field "status" (khớp field cùng tên trả
+     * Bật/tắt trạng thái hoạt động của sân. Body dùng field "status" (khớp field cùng tên trả
      * về ở toListItem()/toDetailItem()) — map xuống cột is_activated trong DB.
      * Body: status (required|boolean).
      */
@@ -363,7 +363,7 @@ class ProductController extends Controller
         $product = $this->visibleProductsQuery($request->user())->find($id);
 
         if (! $product) {
-            return response()->json(['message' => 'Không tìm thấy phòng.'], 404);
+            return response()->json(['message' => 'Không tìm thấy sân.'], 404);
         }
 
         $data = $request->validate([
@@ -377,18 +377,18 @@ class ProductController extends Controller
 
     /**
      * DELETE /api/admin/products/{id}
-     * Chặn xoá nếu phòng còn đơn đặt phòng gắn vào (order_items) — tránh mất dữ liệu lịch sử.
+     * Chặn xoá nếu sân còn đơn đặt sân gắn vào (order_items) — tránh mất dữ liệu lịch sử.
      */
     public function destroy(Request $request, string $id): JsonResponse
     {
         $product = $this->visibleProductsQuery($request->user())->find($id);
 
         if (! $product) {
-            return response()->json(['message' => 'Không tìm thấy phòng.'], 404);
+            return response()->json(['message' => 'Không tìm thấy sân.'], 404);
         }
 
         if ($product->orderItems()->exists()) {
-            return response()->json(['message' => 'Phòng đang có đơn đặt phòng gắn vào, không thể xoá.'], 422);
+            return response()->json(['message' => 'Sân đang có đơn đặt sân gắn vào, không thể xoá.'], 422);
         }
 
         $product->delete();
@@ -398,20 +398,20 @@ class ProductController extends Controller
 
     /**
      * POST /api/admin/products/discount-settings
-     * Thiết lập điều kiện giảm giá áp dụng cho 1 hoặc nhiều phòng cùng lúc — ghi đè
+     * Thiết lập điều kiện giảm giá áp dụng cho 1 hoặc nhiều sân cùng lúc — ghi đè
      * full_booking_discount / bulk_discount_rules / room_config trên bảng products.
      * Chỉ field nào THỰC SỰ có mặt trong request mới được ghi đè (field vắng mặt giữ nguyên giá trị
-     * cũ của từng phòng — tránh xoá nhầm 1 field chưa muốn đổi khi chỉ định sửa field còn lại).
+     * cũ của từng sân — tránh xoá nhầm 1 field chưa muốn đổi khi chỉ định sửa field còn lại).
      *
      * Body:
-     *  - room_ids (required)             : mảng id phòng cần áp dụng
+     *  - room_ids (required)             : mảng id sân cần áp dụng
      *  - full_booking_discount           : chuỗi mô tả giảm giá khi đặt trọn (vd "10%")
      *  - bulk_discount_rules             : mảng quy tắc giảm giá theo số lượng/khung giờ, vd
      *                                       [{"min_slots":3,"discount_percent":10}, ...] — cấu trúc
      *                                       do FE tự định nghĩa, BE chỉ lưu nguyên mảng JSON.
-     *  - room_config                     : object cấu hình phòng, vd
+     *  - room_config                     : object cấu hình sân, vd
      *                                       {"max_free_guests":2,"extra_guest_fee":50000}
-     * Phòng ngoài phạm vi đối tác (user thường) bị bỏ qua, trả về trong 'skipped' thay vì lỗi cả request.
+     * Sân ngoài phạm vi đối tác (user thường) bị bỏ qua, trả về trong 'skipped' thay vì lỗi cả request.
      */
     public function discountSettings(Request $request): JsonResponse
     {
@@ -457,8 +457,8 @@ class ProductController extends Controller
 
     /**
      * PATCH /api/admin/rooms/{id}/booking-settings
-     * Cấu hình đặt phòng cho 1 phòng — gồm điều kiện giảm giá (full_booking_discount/
-     * bulk_discount_rules/room_config, giống discountSettings() nhưng cho 1 phòng thay vì bulk
+     * Cấu hình đặt sân cho 1 sân — gồm điều kiện giảm giá (full_booking_discount/
+     * bulk_discount_rules/room_config, giống discountSettings() nhưng cho 1 sân thay vì bulk
      * room_ids[]) VÀ cọc/giờ nhận-trả mặc định (deposit_1_night/deposit_multi_night/
      * deposit_min_nights/default_checkin/default_checkout) — các field này tồn tại sẵn trên bảng
      * products nhưng trước nay chỉ sửa được qua Filament (SettingBook), chưa có API REST.
@@ -482,14 +482,14 @@ class ProductController extends Controller
      *
      * Lưu ý: nếu request có 'room_config', field này được MERGE NÔNG với room_config hiện có (không
      * ghi đè toàn bộ) — để không xoá mất key 'blocked_ranges' mà RoomBlockController ghi vào cùng
-     * cột này cho phòng styles=2. Khác với discountSettings() (bulk) vẫn ghi đè toàn bộ room_config.
+     * cột này cho sân styles=2. Khác với discountSettings() (bulk) vẫn ghi đè toàn bộ room_config.
      */
     public function updateBookingSettings(Request $request, string $id): JsonResponse
     {
         $product = $this->visibleProductsQuery($request->user())->find($id);
 
         if (! $product) {
-            return response()->json(['message' => 'Không tìm thấy phòng.'], 404);
+            return response()->json(['message' => 'Không tìm thấy sân.'], 404);
         }
 
         $data = $request->validate([
@@ -521,7 +521,7 @@ class ProductController extends Controller
 
         $product->update(collect($data)->only($allowedFields)->toArray());
 
-        return response()->json(['message' => 'Đã cập nhật cấu hình đặt phòng.']);
+        return response()->json(['message' => 'Đã cập nhật cấu hình đặt sân.']);
     }
 
     // ── Helpers ──────────────────────────────────────────────────────────────
@@ -563,9 +563,9 @@ class ProductController extends Controller
         ];
     }
 
-    // Chi nhánh/khu vực gán cho phòng phải nằm trong phạm vi user được phép chọn (khớp
+    // Chi nhánh/khu vực gán cho sân phải nằm trong phạm vi user được phép chọn (khớp
     // modifyQueryUsing của SelectTree 'categories' trong ProductForm) — không cho user thường gán
-    // phòng vào chi nhánh ngoài quyền hạn của mình dù họ biết đúng category_id.
+    // sân vào chi nhánh ngoài quyền hạn của mình dù họ biết đúng category_id.
     private function validateCategoryIds(User $user, array $categoryIds): ?string
     {
         if ($user->isSuperAdmin()) {
@@ -576,13 +576,13 @@ class ProductController extends Controller
         $invalid = array_diff($categoryIds, $allowed);
 
         if (! empty($invalid)) {
-            return 'Không có quyền gán phòng vào chi nhánh/khu vực: ' . implode(', ', $invalid) . '.';
+            return 'Không có quyền gán sân vào chi nhánh/khu vực: ' . implode(', ', $invalid) . '.';
         }
 
         return null;
     }
 
-    // Dịch vụ bổ sung gán cho phòng phải thuộc đúng đối tác của phòng (khớp modifyQueryUsing của
+    // Dịch vụ bổ sung gán cho sân phải thuộc đúng đối tác của sân (khớp modifyQueryUsing của
     // additionalServices trong ProductForm).
     private function validateServiceIds(?string $partnerId, array $serviceIds): ?string
     {
@@ -591,7 +591,7 @@ class ProductController extends Controller
             ->count();
 
         if ($validCount !== count($serviceIds)) {
-            return 'Một hoặc nhiều dịch vụ bổ sung không thuộc đối tác của phòng này.';
+            return 'Một hoặc nhiều dịch vụ bổ sung không thuộc đối tác của sân này.';
         }
 
         return null;
@@ -690,12 +690,12 @@ class ProductController extends Controller
         return Carbon::now()->startOfDay();
     }
 
-    // Tính occupancy_status cho từng phòng trong $productIds tại ngày $date, dựa trên order_items/
+    // Tính occupancy_status cho từng sân trong $productIds tại ngày $date, dựa trên order_items/
     // orders CHỒNG LẤN ngày đó (span = MIN(checkin_date)..MAX(checkout_date) của CHÍNH các item thuộc
-    // phòng đó trong 1 đơn — 1 đơn có thể đặt nhiều phòng khác nhau, mỗi phòng tính span riêng).
+    // sân đó trong 1 đơn — 1 đơn có thể đặt nhiều sân khác nhau, mỗi sân tính span riêng).
     // Bỏ qua đơn đã 'failed'/'cancelled_payment'/'refunded' (không chiếm chỗ) và đơn order_status đã
-    // 'checked_out' (đã trả phòng, không còn 'đang ở'/'hết giờ'). Trả về [product_id => status_slug];
-    // phòng KHÔNG có mặt trong kết quả nghĩa là không có đơn nào chồng lấn ngày đó (= 'empty').
+    // 'checked_out' (đã trả sân, không còn 'đang ở'/'hết giờ'). Trả về [product_id => status_slug];
+    // sân KHÔNG có mặt trong kết quả nghĩa là không có đơn nào chồng lấn ngày đó (= 'empty').
     private function resolveOccupancyStatuses(array $productIds, Carbon $date): array
     {
         $productIds = array_values(array_unique($productIds));

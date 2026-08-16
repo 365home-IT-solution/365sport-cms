@@ -15,13 +15,13 @@ use Modules\Product\App\Models\Product;
 use Modules\Product\App\Models\RoomTimeSlot;
 
 /**
- * "Đang chọn" tạm thời cho phòng theo khung giờ (style 1) — khi khách bấm chọn 1 ô khung giờ x
- * ngày trên lịch (GET /api/v1/branches/{slug}/time-slots) nhưng CHƯA bấm đặt phòng, hold này báo
- * cho những khách khác đang xem cùng phòng biết ô đó đang có người chọn (is_selectable=false, xem
+ * "Đang chọn" tạm thời cho sân theo khung giờ (style 1) — khi khách bấm chọn 1 ô khung giờ x
+ * ngày trên lịch (GET /api/v1/branches/{slug}/time-slots) nhưng CHƯA bấm đặt sân, hold này báo
+ * cho những khách khác đang xem cùng sân biết ô đó đang có người chọn (is_selectable=false, xem
  * BranchController::buildSlotStatus()), tránh 2 người cùng chọn trùng 1 ô rồi 1 người bị từ chối
- * lúc thanh toán. Cùng pattern TTL/Cache với DailyRoomHoldController (phòng theo ngày) nhưng
- * TOGGLE TỪNG Ô riêng lẻ thay vì thay thế cả danh sách — phòng theo khung giờ cho chọn nhiều ô
- * rời rạc (không liền kề) nên không thể gộp thành 1 khoảng checkin/checkout như phòng theo ngày.
+ * lúc thanh toán. Cùng pattern TTL/Cache với DailyRoomHoldController (sân theo ngày) nhưng
+ * TOGGLE TỪNG Ô riêng lẻ thay vì thay thế cả danh sách — sân theo khung giờ cho chọn nhiều ô
+ * rời rạc (không liền kề) nên không thể gộp thành 1 khoảng checkin/checkout như sân theo ngày.
  */
 class TimeSlotHoldController extends Controller
 {
@@ -38,12 +38,12 @@ class TimeSlotHoldController extends Controller
 
         $room = Product::where('id', $id)->where('is_activated', true)->first();
         if (! $room) {
-            return response()->json(['message' => 'Phòng không tồn tại.'], 404);
+            return response()->json(['message' => 'Sân không tồn tại.'], 404);
         }
 
-        // Chặn timeslot_id giả/không thuộc phòng này — trước đây không kiểm tra, 1 request thủ
-        // công có thể giữ chỗ timeslot_id bất kỳ (không tồn tại hoặc thuộc phòng khác), tạo rác
-        // dữ liệu hold vô nghĩa trong cache của phòng này.
+        // Chặn timeslot_id giả/không thuộc sân này — trước đây không kiểm tra, 1 request thủ
+        // công có thể giữ chỗ timeslot_id bất kỳ (không tồn tại hoặc thuộc sân khác), tạo rác
+        // dữ liệu hold vô nghĩa trong cache của sân này.
         $slotExists = RoomTimeSlot::where('room_id', $room->id)
             ->where('timeslot_id', $data['timeslot_id'])
             ->whereNull('date')
@@ -124,7 +124,7 @@ class TimeSlotHoldController extends Controller
         return response()->json(['ok' => true]);
     }
 
-    /** Holds còn hạn của 1 phòng — dùng chung bởi hold()/release() và BranchController (đọc). */
+    /** Holds còn hạn của 1 sân — dùng chung bởi hold()/release() và BranchController (đọc). */
     public static function getActiveHolds(string $roomId): array
     {
         $raw = Cache::get("time_slot_holds:{$roomId}", []);
@@ -133,12 +133,12 @@ class TimeSlotHoldController extends Controller
     }
 
     /**
-     * Chỉ bắn WS cho ĐÚNG ngày vừa thay đổi (không phải toàn bộ holds của phòng) — kể cả khi rỗng
+     * Chỉ bắn WS cho ĐÚNG ngày vừa thay đổi (không phải toàn bộ holds của sân) — kể cả khi rỗng
      * (vừa release hold cuối của ngày đó), để client subscribe kênh room:{room_id}:{date} (cùng
      * kênh slot.updated) biết chính xác trạng thái ngày đang xem, không suy đoán qua im lặng.
      *
      * KHÔNG phát session_id ra ngoài — trước đây gửi kèm session_id của người đang giữ cho MỌI
-     * client khác đang xem cùng phòng, để lộ session_id cho phép bất kỳ ai cũng gọi được release()
+     * client khác đang xem cùng sân, để lộ session_id cho phép bất kỳ ai cũng gọi được release()
      * giả mạo hộ người khác (chỉ cần biết đúng session_id, không cần xác thực gì thêm). Các client
      * khác chỉ cần biết "ô nào đang bị giữ" để tô xám, không cần biết giữ bởi ai; mỗi client tự nhớ
      * session_id CỦA CHÍNH MÌNH (đã có ngay từ lúc gọi hold()) để tự suy ra held_by_me, không cần

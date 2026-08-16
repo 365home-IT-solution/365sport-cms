@@ -31,7 +31,7 @@ function dateRangePicker(pricePerNight) {
         promoLabels: @json($promoLabels),
         surchargeData: @json($surchargeData),
         couponDiscountAmount: @entangle('couponDiscountAmount'),
-        // Tổng tiền THẬT của cả chuyến (phòng + phụ thu khách + dịch vụ thêm - coupon),
+        // Tổng tiền THẬT của cả chuyến (sân + phụ thu khách + dịch vụ thêm - coupon),
         // do server tính (calculateDateRangeTotal) — luôn đồng bộ dù widget này có wire:ignore.
         serverTotalAmount: @entangle('totalAmount'),
         extraFeeAmount: @entangle('extraFee'),
@@ -462,8 +462,8 @@ function dateRangePicker(pricePerNight) {
                         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
                         Xóa
                     </button>
-                    <span class="text-[12px] text-gray-400 italic" x-show="!startDate">Chọn ngày nhận phòng</span>
-                    <span class="text-[12px] text-gray-400 italic" x-show="startDate && !endDate">Chọn ngày trả phòng</span>
+                    <span class="text-[12px] text-gray-400 italic" x-show="!startDate">Chọn ngày nhận sân</span>
+                    <span class="text-[12px] text-gray-400 italic" x-show="startDate && !endDate">Chọn ngày trả sân</span>
                     <span class="text-[12px] font-bold" style="color:var(--color-primary)"
                           x-show="startDate && endDate"
                           x-text="nightCount + ' đêm · ' + formatDisplay(startDate) + ' → ' + formatDisplay(endDate)"></span>
@@ -485,16 +485,16 @@ function dateRangePicker(pricePerNight) {
                     <svg xmlns="http://www.w3.org/2000/svg" class="w-12 h-12 text-gray-200" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
                         <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
                     </svg>
-                    <p class="text-xs text-gray-400 italic leading-relaxed">Chọn ngày nhận &amp; trả phòng<br>để xem ưu đãi áp dụng</p>
+                    <p class="text-xs text-gray-400 italic leading-relaxed">Chọn ngày nhận &amp; trả sân<br>để xem ưu đãi áp dụng</p>
                 </div>
 
                 {{-- Info khi đã chọn đủ ngày --}}
                 <div x-show="startDate && endDate"
                      class="flex-1 overflow-y-auto px-3 py-3 space-y-2 md:max-h-[580px]">
 
-                    {{-- Giá phòng tạm tính (chưa gồm dịch vụ thêm / phụ thu khách) --}}
+                    {{-- Giá sân tạm tính (chưa gồm dịch vụ thêm / phụ thu khách) --}}
                     <div class="rounded-xl p-3" style="background:rgba(var(--color-primary-rgb),0.08); border:1px solid rgba(var(--color-primary-rgb),0.2)">
-                        <p class="text-[10px] font-bold uppercase tracking-wider mb-1" style="color:var(--color-primary)">Giá phòng tạm tính</p>
+                        <p class="text-[10px] font-bold uppercase tracking-wider mb-1" style="color:var(--color-primary)">Giá sân tạm tính</p>
                         <p class="text-2xl font-extrabold leading-none" style="color:var(--color-primary)"
                            x-text="finalDisplayTotal.toLocaleString('vi-VN') + 'đ'"></p>
                         <div class="mt-2 space-y-1 text-[11px]">
@@ -518,7 +518,7 @@ function dateRangePicker(pricePerNight) {
                     </div>
 
                     {{-- Tổng cộng cho cả chuyến — số THẬT từ server, luôn cập nhật ngay khi đổi dịch vụ/số khách,
-                         không cần bấm "Đặt phòng" mới thấy --}}
+                         không cần bấm "Đặt sân" mới thấy --}}
                     <div class="rounded-xl p-3" style="background:#111827;">
                         <p class="text-[10px] font-bold uppercase tracking-wider mb-1 text-gray-300">Tổng cộng cho cả chuyến</p>
                         <p class="text-2xl font-extrabold leading-none text-white"
@@ -552,7 +552,7 @@ function dateRangePicker(pricePerNight) {
                                 </div>
                                 <div class="px-4 py-3 space-y-3">
                                     <div class="flex items-center justify-between text-sm">
-                                        <span class="text-gray-500">Giá phòng (<span x-text="nightCount"></span> đêm)</span>
+                                        <span class="text-gray-500">Giá sân (<span x-text="nightCount"></span> đêm)</span>
                                         <span class="font-semibold text-gray-800" x-text="finalDisplayTotal.toLocaleString('vi-VN') + 'đ'"></span>
                                     </div>
 

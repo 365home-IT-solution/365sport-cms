@@ -59,7 +59,7 @@
                                     <div class="mb-2 flex items-center justify-between">
                                         <div>
                                             <p class="text-xs font-semibold text-gray-900 leading-tight">
-                                                {{ $data['title'] ?? 'Danh sách phòng' }}
+                                                {{ $data['title'] ?? 'Danh sách sân' }}
                                             </p>
                                             @if (!empty($data['subtitle']))
                                                 <p class="text-[10px] text-gray-400 mt-0.5">{{ $data['subtitle'] }}</p>
@@ -142,7 +142,7 @@
                     {{-- Bottom nav bar --}}
                     <div class="border-t border-gray-100 bg-white px-4 py-2">
                         <div class="flex justify-around">
-                            @foreach (['Trang chủ', 'Tìm kiếm', 'Đặt phòng', 'Hồ sơ'] as $nav)
+                            @foreach (['Trang chủ', 'Tìm kiếm', 'Đặt sân', 'Hồ sơ'] as $nav)
                                 <div class="flex flex-col items-center gap-0.5">
                                     <div class="h-4 w-4 rounded bg-gray-200"></div>
                                     <span class="text-[8px] text-gray-400">{{ $nav }}</span>

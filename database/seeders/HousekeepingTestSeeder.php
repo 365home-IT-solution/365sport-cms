@@ -16,7 +16,7 @@ use Modules\Product\App\Models\Product;
 // Dựng sẵn 3 kịch bản (mỗi chi nhánh 1 kịch bản khác nhau) để không cần chờ scheduler 5 phút:
 // kịch bản 1 test lệnh `housekeeping:mark-cleaning` chạy tay; kịch bản 2 bỏ qua luôn bước chờ,
 // vào thẳng trạng thái "đang dọn" để test action xác nhận; kịch bản 3 kiểm tra command KHÔNG
-// đụng vào phòng chưa hết giờ. Chạy lại seeder này nhiều lần an toàn (tự dọn dữ liệu test cũ).
+// đụng vào sân chưa hết giờ. Chạy lại seeder này nhiều lần an toàn (tự dọn dữ liệu test cũ).
 class HousekeepingTestSeeder extends Seeder
 {
     private const TEST_MARKER = 'TEST_HOUSEKEEPING_SEEDER';
@@ -42,7 +42,7 @@ class HousekeepingTestSeeder extends Seeder
         $employees = Employee::where('partner_id', $partner->id)->whereNotNull('user_id')->orderBy('id')->get();
 
         if ($branches->count() < 3 || $products->count() < 3 || $employees->count() < 3) {
-            $this->command->warn('Đối tác Golden Bee chưa đủ 3 chi nhánh/phòng/nhân viên — bỏ qua seeder này.');
+            $this->command->warn('Đối tác Golden Bee chưa đủ 3 chi nhánh/sân/nhân viên — bỏ qua seeder này.');
 
             return;
         }
@@ -65,7 +65,7 @@ class HousekeepingTestSeeder extends Seeder
         $this->seedOrder($partner, $branch1, $product1, now()->subMinutes(15));
 
         $this->command->info("1) {$product1->name} ({$branch1->name}) — đơn đã hết giờ 15 phút trước, CHƯA chuyển trạng thái.");
-        $this->command->line("   → Chạy: php artisan housekeeping:mark-cleaning để chuyển phòng sang \"Đang dọn vệ sinh\".");
+        $this->command->line("   → Chạy: php artisan housekeeping:mark-cleaning để chuyển sân sang \"Đang dọn vệ sinh\".");
         $this->command->line("   → Rồi đăng nhập {$employee1->user->email} (mật khẩu mặc định của seeder) để xác nhận đã dọn xong.");
 
         // ── Kịch bản 2: đã ở sẵn trạng thái "đang dọn" — test action xác nhận ngay, khỏi chờ ──
@@ -78,7 +78,7 @@ class HousekeepingTestSeeder extends Seeder
         ]);
 
         $this->command->info("2) {$product2->name} ({$branch2->name}) — ĐÃ ở trạng thái \"Đang dọn vệ sinh\" sẵn, không cần chạy command.");
-        $this->command->line("   → Đăng nhập {$employee2->user->email}, vào bảng Phòng, bấm \"Xác nhận đã dọn xong\" ngay.");
+        $this->command->line("   → Đăng nhập {$employee2->user->email}, vào bảng Sân, bấm \"Xác nhận đã dọn xong\" ngay.");
 
         // ── Kịch bản 3: đơn còn 30 phút mới hết giờ — command KHÔNG được đụng vào ────────────
         $product3->update(['housekeeping_status' => 'available']);
@@ -86,7 +86,7 @@ class HousekeepingTestSeeder extends Seeder
         $this->seedOrder($partner, $branch3, $product3, now()->addMinutes(30));
 
         $this->command->info("3) {$product3->name} ({$branch3->name}) — đơn còn 30 phút mới hết giờ.");
-        $this->command->line('   → Chạy command thì phòng này PHẢI vẫn giữ "Sẵn sàng" (kiểm tra không bị chuyển nhầm).');
+        $this->command->line('   → Chạy command thì sân này PHẢI vẫn giữ "Sẵn sàng" (kiểm tra không bị chuyển nhầm).');
 
         $this->command->info('=== Xong. Chạy "php artisan housekeeping:mark-cleaning" bất cứ lúc nào để test ngay, không cần chờ lịch chạy mỗi 5 phút. ===');
     }
@@ -97,7 +97,7 @@ class HousekeepingTestSeeder extends Seeder
             'partner_id'     => $partner->id,
             'category_id'    => $branch->id,
             'status'         => 'paid',
-            'buyer_name'     => 'Khách test dọn phòng',
+            'buyer_name'     => 'Khách test dọn sân',
             'buyer_phone'    => '0900000000',
             'amount'         => 100000,
             'full_amount'    => 100000,

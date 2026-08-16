@@ -61,5 +61,5 @@ enum FieldInputType: string
     case DESTINATION = 'destination'; // điểm đến
     case AREA = 'area'; // khu vực
 
-    case CHOOSE_ROOM = 'choose_room'; // chọn phòng
+    case CHOOSE_ROOM = 'choose_room'; // chọn sân
 }

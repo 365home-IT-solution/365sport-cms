@@ -302,7 +302,7 @@ class OrderController extends Controller
         if ($request->has('services')) {
             $productId = $order->items->first()?->product_id;
             if (! $productId) {
-                return response()->json(['message' => 'Đơn hàng không có phòng.'], 422);
+                return response()->json(['message' => 'Đơn hàng không có sân.'], 422);
             }
 
             $room = \Modules\Product\App\Models\Product::where('id', $productId)
@@ -310,7 +310,7 @@ class OrderController extends Controller
                 ->first();
 
             if (! $room) {
-                return response()->json(['message' => 'Phòng không tồn tại.'], 404);
+                return response()->json(['message' => 'Sân không tồn tại.'], 404);
             }
 
             $availableServices = $room->additionalServices->keyBy('id');
@@ -324,7 +324,7 @@ class OrderController extends Controller
 
                 if (! $service || ! $service->is_active) {
                     throw ValidationException::withMessages([
-                        "services.{$index}.service_id" => ["Dịch vụ #{$serviceId} không tồn tại hoặc không khả dụng cho phòng này."],
+                        "services.{$index}.service_id" => ["Dịch vụ #{$serviceId} không tồn tại hoặc không khả dụng cho sân này."],
                     ]);
                 }
 
@@ -409,7 +409,7 @@ class OrderController extends Controller
             ($priceChanged || ! $order->checkout_url) &&
             (int) $order->full_amount >= 2000
         ) {
-            $itemName = $order->items->first()?->name ?? 'Đặt phòng';
+            $itemName = $order->items->first()?->name ?? 'Đặt sân';
             $this->buildPayOSLink($order, $itemName);
             $order->refresh();
         }
@@ -576,7 +576,7 @@ class OrderController extends Controller
             || now()->gte($order->expired_at);
 
         if ($needsNew) {
-            $itemName = $order->items->first()?->name ?? 'Đặt phòng';
+            $itemName = $order->items->first()?->name ?? 'Đặt sân';
             $this->buildPayOSLink($order, $itemName);
             $order->refresh();
         }
@@ -626,7 +626,7 @@ class OrderController extends Controller
             return response()->json(['message' => 'Số tiền thanh toán không đủ tối thiểu.'], 422);
         }
 
-        $itemName    = $order->items->first()?->name ?? 'Đặt phòng';
+        $itemName    = $order->items->first()?->name ?? 'Đặt sân';
         $checkoutUrl = $this->buildPayOSLink($order, $itemName, $request->input('return_url'), $request->input('cancel_url'));
 
         if (! $checkoutUrl) {
@@ -705,7 +705,7 @@ class OrderController extends Controller
                 'buyerPhone'  => $order->buyer_phone ?? '',
                 'expiredAt'   => $expiredAt->timestamp,
                 'items'       => [[
-                    'name'     => 'Tiền còn lại - ' . ($order->items->first()?->name ?? 'Phòng'),
+                    'name'     => 'Tiền còn lại - ' . ($order->items->first()?->name ?? 'Sân'),
                     'quantity' => 1,
                     'price'    => $remaining,
                 ]],
@@ -1457,7 +1457,7 @@ class OrderController extends Controller
 
                 if (! $applicable) {
                     throw ValidationException::withMessages([
-                        $field => ["Mã \"{$code}\" không áp dụng cho phòng này."],
+                        $field => ["Mã \"{$code}\" không áp dụng cho sân này."],
                     ]);
                 }
             }

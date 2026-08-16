@@ -59,7 +59,7 @@ class DatabaseSeeder extends Seeder
             PartnerSeeder::class,
         ]);
 
-        // Dữ liệu mẫu ban đầu cho website "365Home" (chi nhánh/phòng/khung giờ/thiết lập...).
+        // Dữ liệu mẫu ban đầu cho website "365Home" (chi nhánh/sân/khung giờ/thiết lập...).
         $this->call([
             BusinessSeeder::class,
             CategorySeeder::class,

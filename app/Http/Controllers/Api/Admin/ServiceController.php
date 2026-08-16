@@ -17,14 +17,14 @@ class ServiceController extends Controller
      * GET /api/admin/services
      * Danh sách dịch vụ bổ sung (additional_services) — dùng để admin chọn service_id khi tạo/sửa
      * đơn (POST /api/admin/orders, services[].service_id — xem BuildsRoomBooking::buildServices(),
-     * dùng đúng $room->additionalServices()), và để gán dịch vụ bổ sung cho phòng
+     * dùng đúng $room->additionalServices()), và để gán dịch vụ bổ sung cho sân
      * (POST /api/admin/products, additional_services[] — xem ProductController).
      *
      * Phạm vi hiển thị: super_admin xem tất cả; user thường chỉ xem dịch vụ thuộc đối tác mình
      * (additional_services.partner_id) — cùng nguyên tắc với RoomController::index().
      *
      * Điều kiện hiển thị is_active=true LUÔN áp dụng mặc định (khớp modifyQueryUsing của field
-     * additionalServices trong ProductForm — chỉ dịch vụ đang bật mới được chọn để gán vào phòng);
+     * additionalServices trong ProductForm — chỉ dịch vụ đang bật mới được chọn để gán vào sân);
      * truyền ?is_active= để chủ động xem cả dịch vụ đang tắt khi thật sự cần.
      *
      * Query params:

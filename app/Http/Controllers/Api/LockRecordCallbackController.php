@@ -92,7 +92,7 @@ public function handle(Request $request)
         ->exists();
 
     if (!$isKnownLock) {
-        Log::warning('TTLock callback: lockId không thuộc phòng nào', ['lockId' => $lockId, 'lockMac' => $lockMac]);
+        Log::warning('TTLock callback: lockId không thuộc sân nào', ['lockId' => $lockId, 'lockMac' => $lockMac]);
         return response('success');
     }
 
@@ -154,7 +154,7 @@ public function handle(Request $request)
         $isCheckin   = $result['isCheckin'];
 
         if (!$product) {
-            Log::warning('TTLock callback: không xác định được phòng từ passcode', [
+            Log::warning('TTLock callback: không xác định được sân từ passcode', [
                 'lockId'      => $lockId,
                 'keyboardPwd' => $keyboardPwd,
             ]);
@@ -245,7 +245,7 @@ public function handle(Request $request)
                 $msg .= "Mã mở: <code>{$accessCode->code}</code>\n";
             }
         } else {
-            $msg .= "Ngoài giờ đặt phòng\n";
+            $msg .= "Ngoài giờ đặt sân\n";
         }
 
         $msg .= $battery;
@@ -272,7 +272,7 @@ public function handle(Request $request)
      * Vân tay / thẻ / app → trả về null (vẫn gửi Telegram nhưng không có thông tin đơn).
      *
      * Luồng:
-     *   keyboardPwd → AccessCode.code (category_id của phòng)
+     *   keyboardPwd → AccessCode.code (category_id của sân)
      *                   → Order (pivot, category_id, status=paid)
      *                   → OrderItem (hiển thị slot, checkout)
      *
@@ -330,7 +330,7 @@ public function handle(Request $request)
         $accessCode = $order->accessCodes->first();
 
         if (!$product) {
-            Log::warning('TTLock: đơn hàng không có phòng', [
+            Log::warning('TTLock: đơn hàng không có sân', [
                 'lockId'  => $lockId,
                 'orderId' => $orderId,
             ]);
@@ -398,7 +398,7 @@ public function handle(Request $request)
                 $msg .= "\n";
             }
         } else {
-            $msg .= "Không tìm thấy đặt phòng tương ứng\n";
+            $msg .= "Không tìm thấy đặt sân tương ứng\n";
         }
 
         if ($electricQuantity > 0) {
@@ -434,7 +434,7 @@ public function handle(Request $request)
                 $msg .= "Mã mở: <code>{$accessCode->code}</code>\n";
             }
         } else {
-            $msg .= "Ngoài giờ đặt phòng\n";
+            $msg .= "Ngoài giờ đặt sân\n";
         }
 
         if ($electricQuantity > 0) {

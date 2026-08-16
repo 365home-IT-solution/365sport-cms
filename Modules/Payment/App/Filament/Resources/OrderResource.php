@@ -84,7 +84,7 @@ class OrderResource extends Resource
             return parent::getEloquentQuery();
         }
 
-        // Nhân viên đối tác NỀN TẢNG (vd 365home) đặt phòng hộ mọi đối tác khác — họ cần xem lại
+        // Nhân viên đối tác NỀN TẢNG (vd 365home) đặt sân hộ mọi đối tác khác — họ cần xem lại
         // đúng những đơn CHÍNH HỌ đã tạo (created_by), CỘNG với đơn của đối tác mình, nhưng KHÔNG
         // được thấy đơn của đối tác khác do NHÂN VIÊN CỦA ĐỐI TÁC ĐÓ tự tạo. Phải gỡ hẳn global
         // scope 'partner' của Order để tự viết lại điều kiện lọc (partner_id CỦA MÌNH OR

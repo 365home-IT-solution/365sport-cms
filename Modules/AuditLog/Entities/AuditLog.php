@@ -46,7 +46,7 @@ class AuditLog extends Model
             'User'                 => 'Nhân viên',
             'UserBranchPermission' => 'Phân quyền chi nhánh',
             'Post'                 => 'Bài viết',
-            'Product'              => 'Phòng',
+            'Product'              => 'Sân',
             'Order'                => 'Booking',
             'Branch'               => 'Chi nhánh',
             'Coupon'               => 'Mã giảm giá',

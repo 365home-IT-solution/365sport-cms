@@ -16,11 +16,11 @@ class ProductsRelationManager extends RelationManager
 {
     protected static string $relationship = 'products';
 
-    protected static ?string $title = 'Phòng đã gán';
+    protected static ?string $title = 'Sân đã gán';
 
-    protected static ?string $label = 'phòng';
+    protected static ?string $label = 'sân';
 
-    protected static ?string $pluralLabel = 'Phòng đã gán';
+    protected static ?string $pluralLabel = 'Sân đã gán';
 
     public function form(Form $form): Form
     {
@@ -29,7 +29,7 @@ class ProductsRelationManager extends RelationManager
                 ->label('Kích hoạt'),
 
             Toggle::make('is_in_stock')
-                ->label('Còn phòng'),
+                ->label('Còn sân'),
         ]);
     }
 
@@ -46,7 +46,7 @@ class ProductsRelationManager extends RelationManager
                     ->sortable(),
 
                 TextColumn::make('name')
-                    ->label('Tên phòng')
+                    ->label('Tên sân')
                     ->searchable()
                     ->sortable()
                     ->limit(50),
@@ -62,7 +62,7 @@ class ProductsRelationManager extends RelationManager
                     ->alignCenter(),
 
                 IconColumn::make('is_in_stock')
-                    ->label('Còn phòng')
+                    ->label('Còn sân')
                     ->boolean()
                     ->alignCenter(),
             ])

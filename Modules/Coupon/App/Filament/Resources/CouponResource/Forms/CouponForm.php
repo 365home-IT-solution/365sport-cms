@@ -92,15 +92,15 @@ class CouponForm
                                 ->label('Áp dụng cho')
                                 ->required()
                                 ->options([
-                                    'all_rooms'     => 'Tất cả khung giờ của tất cả phòng',
-                                    'specific_room' => 'Tất cả khung giờ của 1 phòng cụ thể',
+                                    'all_rooms'     => 'Tất cả khung giờ của tất cả sân',
+                                    'specific_room' => 'Tất cả khung giờ của 1 sân cụ thể',
                                     'specific_slot' => 'Các khung giờ cụ thể',
                                 ])
                                 ->default('all_rooms')
                                 ->live(),
 
                             Select::make('room_id')
-                                ->label('Chọn phòng')
+                                ->label('Chọn sân')
                                 ->options(function () {
                                     $user  = auth()->user();
                                     $query = Product::where('is_activated', true)->orderBy('name');

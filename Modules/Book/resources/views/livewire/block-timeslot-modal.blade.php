@@ -32,7 +32,7 @@
                             @if ($isStyle2) Khóa khoảng thời gian @else Tô đen khung giờ @endif
                         </h2>
                         <p class="text-xs text-gray-400">
-                            @if ($isStyle2) Chặn khoảng ngày không cho khách đặt phòng
+                            @if ($isStyle2) Chặn khoảng ngày không cho khách đặt sân
                             @else Chặn khung giờ không cho đặt trong khoảng thời gian chỉ định
                             @endif
                         </p>
@@ -53,13 +53,13 @@
                         @if ($isStyle2) Khóa khoảng ngày mới @else Thiết lập tô đen mới @endif
                     </p>
 
-                    {{-- Chọn chi nhánh — lọc bớt danh sách phòng bên dưới cho dễ tìm. Ẩn khi mở
-                         sẵn cho 1 phòng cụ thể (đã biết phòng, không cần lọc lại). --}}
+                    {{-- Chọn chi nhánh — lọc bớt danh sách sân bên dưới cho dễ tìm. Ẩn khi mở
+                         sẵn cho 1 sân cụ thể (đã biết sân, không cần lọc lại). --}}
                     @if (!$lockedToProduct)
                     <div>
                         <label class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Chi nhánh</label>
                         {{-- Lọc client-side bằng Alpine (không gọi lại server) nên chọn xong danh
-                             sách phòng bên dưới hiện ra ngay, không phải chờ round-trip Livewire. --}}
+                             sách sân bên dưới hiện ra ngay, không phải chờ round-trip Livewire. --}}
                         <select x-model="selectedBranch" @change="$wire.set('product_id', null)"
                             class="w-full rounded-lg border-gray-300 text-sm shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white">
                             <option value="">-- Tất cả chi nhánh --</option>
@@ -70,11 +70,11 @@
                     </div>
                     @endif
 
-                    {{-- Chọn phòng — ẩn khi mở sẵn cho 1 phòng cụ thể (từ menu ⋮ trên thẻ phòng ở
+                    {{-- Chọn sân — ẩn khi mở sẵn cho 1 sân cụ thể (từ menu ⋮ trên thẻ sân ở
                          Dashboard, xem BlockTimeslotModal::openForProduct()), không bắt chọn lại. --}}
                     @if ($lockedToProduct)
                     <div>
-                        <label class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Phòng</label>
+                        <label class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Sân</label>
                         <div class="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm font-medium text-gray-700 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200">
                             {{ $roomOptions[$product_id] ?? '' }}
                         </div>
@@ -82,11 +82,11 @@
                     @else
                     <div>
                         <label class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                            Chọn phòng <span class="text-danger-500">*</span>
+                            Chọn sân <span class="text-danger-500">*</span>
                         </label>
                         <select wire:model.live="product_id"
                             class="w-full rounded-lg border-gray-300 text-sm shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white">
-                            <option value="">-- Chọn phòng --</option>
+                            <option value="">-- Chọn sân --</option>
                             <template x-for="room in allRooms.filter(r => !selectedBranch || String(r.branch_id) === String(selectedBranch))" :key="room.id">
                                 <option :value="room.id" x-text="room.name"></option>
                             </template>
@@ -104,7 +104,7 @@
                             Chọn khung giờ <span class="text-danger-500">*</span>
                         </label>
                         @if (empty($timeslotOptions))
-                            <p class="text-sm italic text-gray-400">Phòng này chưa có khung giờ nào.</p>
+                            <p class="text-sm italic text-gray-400">Sân này chưa có khung giờ nào.</p>
                         @else
                             <div class="grid grid-cols-1 gap-2">
                                 @foreach ($timeslotOptions as $rtsId => $slotLabel)
@@ -207,7 +207,7 @@
                                 <p class="text-sm font-semibold text-danger-700 dark:text-danger-300">Xác nhận xóa</p>
                                 <p class="mt-0.5 text-sm text-danger-600 dark:text-danger-400">
                                     @if ($showConfirmClear)
-                                        Xóa tất cả lịch bị khóa của phòng này? Hành động không thể hoàn tác.
+                                        Xóa tất cả lịch bị khóa của sân này? Hành động không thể hoàn tác.
                                     @elseif ($showConfirmBulkDelete)
                                         Xóa {{ count($selectedBlockedKeys) }} mục đã chọn? Hành động không thể hoàn tác.
                                     @elseif ($pendingRangeIndex !== null && isset($blockedList[$pendingRangeIndex]))
@@ -241,7 +241,7 @@
                     @if (!$product_id)
                         <div class="flex flex-1 flex-col items-center justify-center rounded-xl border border-dashed border-gray-200 py-10 dark:border-gray-700">
                             <x-heroicon-o-home class="h-8 w-8 text-gray-200 dark:text-gray-700" />
-                            <p class="mt-2 text-sm text-gray-400">Chọn phòng để xem danh sách</p>
+                            <p class="mt-2 text-sm text-gray-400">Chọn sân để xem danh sách</p>
                         </div>
                     @elseif (empty($blockedList))
                         <div class="flex flex-1 flex-col items-center justify-center rounded-xl border border-dashed border-gray-200 py-10 dark:border-gray-700">

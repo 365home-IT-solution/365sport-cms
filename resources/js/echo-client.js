@@ -3,14 +3,14 @@ import Pusher from 'pusher-js';
 
 window.Pusher = Pusher;
 
-// Real-time cho trang đặt phòng CỦA KHÁCH HÀNG — nghe kênh PUBLIC "timeslot-holds.{roomId}"
+// Real-time cho trang đặt sân CỦA KHÁCH HÀNG — nghe kênh PUBLIC "timeslot-holds.{roomId}"
 // (không phải kênh private admin-timeslot-holds, khách hàng không đăng nhập được vào đó) để biết
 // ngay khi 1 khung giờ vừa bị admin giữ/trả, không cần khách tự thao tác/F5 mới thấy cập nhật.
 // Xem App\Events\TimeslotHeld/TimeslotReleased::broadcastOn() — cùng phát ra CẢ 2 kênh.
 //
 // QUAN TRỌNG: KHÔNG gọi Livewire.dispatch() để ép re-render component (như phía admin,
 // echo-admin.js) — nếu có hàng nghìn khách đang mở trang cùng lúc, 1 admin giữ/trả CHỈ 1 ô sẽ
-// khiến TẤT CẢ khách phải tính lại toàn bộ bảng (mọi phòng/mọi ngày/mọi khung giờ) — cực kỳ lãng
+// khiến TẤT CẢ khách phải tính lại toàn bộ bảng (mọi sân/mọi ngày/mọi khung giờ) — cực kỳ lãng
 // phí cho 1 thay đổi chỉ ảnh hưởng đúng 1 ô. Thay vào đó, cập nhật TRỰC TIẾP đúng phần tử DOM
 // tương ứng (khớp qua data-room-id + data-timeslot-id + data-iso-date, xem book/_slot-cell.blade.php
 // + book/_desktop-table.blade.php + product-detail.blade.php) — dùng lại NGUYÊN class/icon đã có
@@ -140,7 +140,7 @@ if (import.meta.env.VITE_REVERB_APP_KEY) {
 
             // Đổi chi nhánh/danh mục trong Book.php cập nhật LẠI GIÁ TRỊ của đúng attribute này
             // trên cùng 1 phần tử gốc (Livewire morph attribute, không thay cả DOM node) — theo
-            // dõi riêng phần tử đó để tự đăng ký thêm phòng mới xuất hiện, không cần tải lại trang.
+            // dõi riêng phần tử đó để tự đăng ký thêm sân mới xuất hiện, không cần tải lại trang.
             new MutationObserver(() => subscribeFromElement(el))
                 .observe(el, { attributes: true, attributeFilter: ['data-room-ids', 'data-product-id'] });
         });

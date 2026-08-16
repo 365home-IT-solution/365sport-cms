@@ -1,0 +1,133 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+use Modules\Payment\Entities\Order;
+use Modules\Payment\Entities\OrderItem;
+use Modules\Product\App\Models\Product;
+
+// Gói mà 1 khách CỤ THỂ đã sở hữu (đã mua/được bán) — xem ghi chú đầy đủ tại migration
+// create_customer_packages_table. sessions_remaining là NGUỒN SỰ THẬT duy nhất cho "còn dùng được
+// không", KHÔNG tự suy từ package_redemptions (trừ/hoàn buổi cập nhật trực tiếp cột này để tránh
+// race condition khi 2 request cùng lúc redeem — xem redeem()/refundFor()).
+class CustomerPackage extends Model
+{
+    protected $fillable = [
+        'package_plan_id',
+        'customer_id',
+        'buyer_phone',
+        'buyer_name',
+        'product_id',
+        'name',
+        'sessions_total',
+        'sessions_remaining',
+        'price_paid',
+        'purchased_at',
+        'expires_at',
+        'sale_channel',
+        'order_id',
+        'created_by',
+    ];
+
+    protected $casts = [
+        'purchased_at' => 'datetime',
+        'expires_at'   => 'datetime',
+    ];
+
+    public function packagePlan()
+    {
+        return $this->belongsTo(PackagePlan::class);
+    }
+
+    public function customer()
+    {
+        return $this->belongsTo(Customer::class);
+    }
+
+    public function product()
+    {
+        return $this->belongsTo(Product::class, 'product_id');
+    }
+
+    public function order()
+    {
+        return $this->belongsTo(Order::class);
+    }
+
+    public function redemptions()
+    {
+        return $this->hasMany(PackageRedemption::class);
+    }
+
+    public function isValid(): bool
+    {
+        return $this->sessions_remaining > 0
+            && (is_null($this->expires_at) || $this->expires_at->isFuture());
+    }
+
+    /**
+     * Tra cứu gói CÒN DÙNG ĐƯỢC của khách cho ĐÚNG 1 sân — theo SỐ ĐIỆN THOẠI (dự án này gần như
+     * không có khách đăng ký tài khoản, xem ghi chú migration make_customer_id_nullable...), khớp
+     * ĐÚNG cách AccountPage::phoneQuery() tra cứu đơn hàng. Dùng ở ProductDetail (hiện lựa chọn
+     * "Dùng gói" lúc đặt sân) — 1 khách có thể sở hữu NHIỀU gói cùng sân (mua thêm khi gói cũ gần
+     * hết), trả về gói SẮP HẾT HẠN NHẤT trước để dùng hết trước khi mua gói mới hết hạn theo sau.
+     */
+    public static function findValidForPhoneAndProduct(string $phone, string $productId): ?self
+    {
+        return self::where('product_id', $productId)
+            ->where('buyer_phone', $phone)
+            ->where('sessions_remaining', '>', 0)
+            ->where(fn ($q) => $q->whereNull('expires_at')->orWhere('expires_at', '>', now()))
+            ->orderByRaw('expires_at IS NULL, expires_at ASC')
+            ->first();
+    }
+
+    /**
+     * Trừ 1 buổi cho 1 order_item cụ thể — gọi khi khách chọn "Dùng gói" thay vì trả tiền lúc đặt
+     * sân (xem ProductDetail::confirmBooking()). Dùng lockForUpdate() qua $this->refresh() bên
+     * ngoài đã tự khoá row trong transaction (caller chịu trách nhiệm mở transaction) để tránh 2
+     * request cùng lúc trừ vượt quá sessions_remaining.
+     */
+    public function redeem(OrderItem $orderItem, Order $order): PackageRedemption
+    {
+        if (! $this->isValid()) {
+            throw new \RuntimeException('Gói đã hết buổi hoặc hết hạn.');
+        }
+
+        $this->decrement('sessions_remaining');
+
+        return $this->redemptions()->create([
+            'order_item_id' => $orderItem->id,
+            'order_id'      => $order->id,
+            'redeemed_at'   => now(),
+        ]);
+    }
+
+    /**
+     * Hoàn lại buổi đã trừ khi đơn dùng gói đó bị huỷ (xem OrderCancellationService) — chỉ hoàn
+     * các lượt CHƯA từng hoàn trước đó (refunded_at null), tránh hoàn lặp nếu gọi lại nhiều lần.
+     */
+    public static function refundRedemptionsForOrder(Order $order): int
+    {
+        $redemptions = PackageRedemption::where('order_id', $order->id)
+            ->whereNull('refunded_at')
+            ->get();
+
+        $count = 0;
+        foreach ($redemptions as $redemption) {
+            $package = $redemption->customerPackage;
+            if (! $package) {
+                continue;
+            }
+
+            $package->increment('sessions_remaining');
+            $redemption->update(['refunded_at' => now()]);
+            $count++;
+        }
+
+        return $count;
+    }
+}

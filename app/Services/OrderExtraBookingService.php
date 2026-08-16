@@ -53,7 +53,7 @@ class OrderExtraBookingService
         }
 
         if ($order->order_status === 'checked_out') {
-            return ['error' => 'Đơn hàng đã trả phòng, không thể đặt thêm.'];
+            return ['error' => 'Đơn hàng đã trả sân, không thể đặt thêm.'];
         }
 
         $productId = $order->items->first()?->product_id;
@@ -62,7 +62,7 @@ class OrderExtraBookingService
             : null;
 
         if (! $room) {
-            return ['error' => 'Phòng không tồn tại.'];
+            return ['error' => 'Sân không tồn tại.'];
         }
 
         $roomAdditionRoom = $room;
@@ -73,7 +73,7 @@ class OrderExtraBookingService
                 ->first();
 
             if (! $roomAdditionRoom) {
-                return ['error' => 'Phòng muốn đặt thêm không tồn tại hoặc đã ngừng hoạt động.'];
+                return ['error' => 'Sân muốn đặt thêm không tồn tại hoặc đã ngừng hoạt động.'];
             }
         } elseif ($roomAddition) {
             $roomAdditionRoom->loadMissing('roomTimeSlots.timeSlot');
@@ -82,7 +82,7 @@ class OrderExtraBookingService
         if ($roomAddition) {
             $isSlotType = (int) $roomAdditionRoom->styles === 1;
             if (($roomAddition['type'] === 'slot') !== $isSlotType) {
-                return ['error' => 'Kiểu đặt thêm (slot/daily) không khớp với loại phòng.'];
+                return ['error' => 'Kiểu đặt thêm (slot/daily) không khớp với loại sân.'];
             }
         }
 
@@ -154,7 +154,7 @@ class OrderExtraBookingService
 
                     if (! $service || ! $service->is_active) {
                         throw ValidationException::withMessages([
-                            "services.{$index}.service_id" => ["Dịch vụ #{$serviceId} không tồn tại hoặc không khả dụng cho phòng này."],
+                            "services.{$index}.service_id" => ["Dịch vụ #{$serviceId} không tồn tại hoặc không khả dụng cho sân này."],
                         ]);
                     }
 
@@ -187,7 +187,7 @@ class OrderExtraBookingService
             }
 
             if ($roomAddition) {
-                // Khoá phòng để tránh race condition với 1 request đặt/đặt-thêm khác cùng lúc.
+                // Khoá sân để tránh race condition với 1 request đặt/đặt-thêm khác cùng lúc.
                 Product::where('id', $roomAdditionRoom->id)->lockForUpdate()->first();
 
                 $order->refresh();

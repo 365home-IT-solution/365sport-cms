@@ -62,8 +62,8 @@ class BranchDetailForm
                     Forms\Components\Placeholder::make('status_description')
                         ->label('Trạng thái tài khoản')
                         ->content(fn (Get $get) => $get('status')
-                            ? 'Cơ sở của bạn hiện đang hiển thị trên trang tìm kiếm và có thể nhận đặt phòng.'
-                            : 'Cơ sở của bạn đang tạm ẩn — không hiển thị trên trang tìm kiếm, không nhận đặt phòng mới.'),
+                            ? 'Cơ sở của bạn hiện đang hiển thị trên trang tìm kiếm và có thể nhận đặt sân.'
+                            : 'Cơ sở của bạn đang tạm ẩn — không hiển thị trên trang tìm kiếm, không nhận đặt sân mới.'),
 
                     Forms\Components\Toggle::make('status')
                         ->label('Đang hoạt động')
@@ -83,7 +83,7 @@ class BranchDetailForm
                         ->options(self::LODGING_TYPES),
 
                     Forms\Components\Placeholder::make('room_count')
-                        ->label('Số lượng phòng hiện có')
+                        ->label('Số lượng sân hiện có')
                         ->content($branch->products()->count()),
 
                     Forms\Components\Select::make('timezone')
@@ -104,18 +104,18 @@ class BranchDetailForm
             ->schema([
                 Forms\Components\Grid::make(2)->schema([
                     Forms\Components\TimePicker::make('checkin_time')
-                        ->label('Giờ nhận phòng (Check-in)')
+                        ->label('Giờ nhận sân (Check-in)')
                         ->seconds(false),
 
                     Forms\Components\TimePicker::make('checkout_time')
-                        ->label('Giờ trả phòng (Check-out)')
+                        ->label('Giờ trả sân (Check-out)')
                         ->seconds(false),
                 ]),
 
                 Forms\Components\Textarea::make('default_policy')
                     ->label('Quy định mặc định')
                     ->rows(3)
-                    ->placeholder("Quý khách vui lòng xuất trình CCCD hoặc Hộ chiếu khi nhận phòng.\nNhận phòng sớm trước 10:00 phụ thu 50% tiền phòng.\nTrả phòng muộn sau 14:00 phụ thu 30% tiền phòng.")
+                    ->placeholder("Quý khách vui lòng xuất trình CCCD hoặc Hộ chiếu khi nhận sân.\nNhận sân sớm trước 10:00 phụ thu 50% tiền sân.\nTrả sân muộn sau 14:00 phụ thu 30% tiền sân.")
                     ->columnSpanFull(),
             ]);
     }
@@ -166,7 +166,7 @@ class BranchDetailForm
             ]);
     }
 
-    // Category (chi nhánh) không có cột tọa độ riêng — dùng tọa độ phòng đầu tiên có lat/lng
+    // Category (chi nhánh) không có cột tọa độ riêng — dùng tọa độ sân đầu tiên có lat/lng
     // (Product đã có sẵn cột latitude/longitude) làm vị trí đại diện cho cả cơ sở.
     private static function locationSection(Category $branch): Forms\Components\Section
     {
@@ -190,7 +190,7 @@ class BranchDetailForm
 
                             $map = '<iframe src="' . $mapSrc . '" style="width:100%;height:160px;border:0;border-radius:10px;margin-bottom:8px;" loading="lazy"></iframe>';
                         } else {
-                            $map = '<div style="padding:24px;background:#f3f4f6;border-radius:10px;text-align:center;color:#9ca3af;margin-bottom:8px;font-size:0.78rem;">Chưa có tọa độ — cập nhật ở phòng bất kỳ trong cơ sở này.</div>';
+                            $map = '<div style="padding:24px;background:#f3f4f6;border-radius:10px;text-align:center;color:#9ca3af;margin-bottom:8px;font-size:0.78rem;">Chưa có tọa độ — cập nhật ở sân bất kỳ trong cơ sở này.</div>';
                         }
 
                         return new HtmlString(
@@ -202,14 +202,14 @@ class BranchDetailForm
 
     private static function roomsSection(Category $branch): Forms\Components\Section
     {
-        return Forms\Components\Section::make('Danh sách phòng')
+        return Forms\Components\Section::make('Danh sách sân')
             ->headerActions([
                 Forms\Components\Actions\Action::make('addRoom')
-                    ->label('+ Thêm phòng mới')
+                    ->label('+ Thêm sân mới')
                     ->icon('heroicon-o-plus')
                     ->form([
                         Forms\Components\TextInput::make('name')
-                            ->label('Tên phòng')
+                            ->label('Tên sân')
                             ->required()
                             ->maxLength(255)
                             ->live(onBlur: true)
@@ -222,7 +222,7 @@ class BranchDetailForm
                             ->label('Loại giường')
                             ->options(self::BED_TYPES),
                         Forms\Components\TextInput::make('room_area_sqm')
-                            ->label('Diện tích phòng')
+                            ->label('Diện tích sân')
                             ->numeric()
                             ->suffix('m²'),
                         Forms\Components\TextInput::make('price')
@@ -240,7 +240,7 @@ class BranchDetailForm
 
                         $product->categories()->attach($branch->id);
 
-                        Notification::make()->title('Đã thêm phòng mới')->success()->send();
+                        Notification::make()->title('Đã thêm sân mới')->success()->send();
                     }),
             ])
             ->schema([
@@ -251,7 +251,7 @@ class BranchDetailForm
             ]);
     }
 
-    // Trạng thái phòng THẬT dựa trên dữ liệu vận hành thực tế — không phải dữ liệu giả:
+    // Trạng thái sân THẬT dựa trên dữ liệu vận hành thực tế — không phải dữ liệu giả:
     // Bảo trì (housekeeping_status=maintenance) > Trống (chưa kích hoạt bán) >
     // Đã đặt (đang có khách lưu trú ngay lúc này) > Hoạt động (sẵn sàng, không ai đang ở).
     private static function roomStatusBadge(Product $room): array
@@ -280,7 +280,7 @@ class BranchDetailForm
     private static function renderRoomsGrid($rooms): string
     {
         if ($rooms->isEmpty()) {
-            return '<div style="padding:24px;text-align:center;color:#9ca3af;font-size:0.85rem;">Chưa có phòng nào trong cơ sở này.</div>';
+            return '<div style="padding:24px;text-align:center;color:#9ca3af;font-size:0.85rem;">Chưa có sân nào trong cơ sở này.</div>';
         }
 
         $cards = $rooms->map(function ($room) {

@@ -166,12 +166,12 @@ class OrdersSheetByCategory implements FromCollection, WithHeadings, WithMapping
             'Tên đơn vị',
             'Tên khách đặt / Chuyển khoản',
             'Thông tin người dùng',
-            'Loại phòng khách đặt',
+            'Loại sân khách đặt',
             'SL',
             'ĐVT',
             'Dịch vụ đi kèm (SL x Đơn giá)',
-            'Đơn giá phòng',
-            'Thành tiền (Phòng + Dịch vụ)',
+            'Đơn giá sân',
+            'Thành tiền (Sân + Dịch vụ)',
             'Khách thực trả (Sau giảm giá)',
             'Tình trạng xuất hóa đơn',
         ];
@@ -290,18 +290,18 @@ class OrdersSheetByCategory implements FromCollection, WithHeadings, WithMapping
     /**
      * Tính tiền khách thực trả khi order không lưu sẵn total_amount.
      * Ưu tiên: full_booking_discount > giảm theo số khung giờ (5%/10%).
-     * Chỉ áp dụng discount khi khách đặt ĐỦ toàn bộ khung giờ trong ngày của phòng (full day).
-     * Nếu chọn ít hơn tổng số khung giờ của phòng → không áp dụng discount.
+     * Chỉ áp dụng discount khi khách đặt ĐỦ toàn bộ khung giờ trong ngày của sân (full day).
+     * Nếu chọn ít hơn tổng số khung giờ của sân → không áp dụng discount.
      */
     protected function calculateSumPaid($items, int $slotCount, float $servicesTotal): float
     {
         $roomSubtotal = $items->sum(fn($oi) => $oi->price * $oi->quantity + ($oi->extra_fee ?? 0));
 
-        // Lấy tổng số khung giờ có thể đặt của phòng (từ roomTimeSlots)
+        // Lấy tổng số khung giờ có thể đặt của sân (từ roomTimeSlots)
         $firstProduct = $items->first()?->product;
         $totalSlots   = $firstProduct?->roomTimeSlots?->count() ?? 0;
 
-        // Chỉ áp dụng discount khi đặt full (slotCount = tổng khung giờ của phòng)
+        // Chỉ áp dụng discount khi đặt full (slotCount = tổng khung giờ của sân)
         $isFullDay = $totalSlots > 0 && $slotCount >= $totalSlots;
 
         if (!$isFullDay) {

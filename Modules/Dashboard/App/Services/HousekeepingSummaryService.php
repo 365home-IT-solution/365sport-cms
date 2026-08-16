@@ -8,8 +8,8 @@ use Modules\Product\App\Models\Product;
 
 // Tóm tắt tình trạng dọn vệ sinh để hiển thị ngay trên Dashboard — cùng luật phân quyền với
 // RoomHousekeepingResource (Modules/Product/App/Filament/Resources/RoomHousekeepingResource.php):
-// chủ đối tác/super_admin thấy toàn bộ phòng của đối tác, nhân viên không "làm tất cả chi
-// nhánh" chỉ thấy phòng thuộc đúng chi nhánh mình phụ trách.
+// chủ đối tác/super_admin thấy toàn bộ sân của đối tác, nhân viên không "làm tất cả chi
+// nhánh" chỉ thấy sân thuộc đúng chi nhánh mình phụ trách.
 class HousekeepingSummaryService
 {
     public static function getData($user = null): array

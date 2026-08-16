@@ -34,7 +34,7 @@ class RoomController extends Controller
             ->first();
 
         if (! $room) {
-            return response()->json(['message' => 'Phòng không tồn tại.'], 404);
+            return response()->json(['message' => 'Sân không tồn tại.'], 404);
         }
 
         $authUser       = auth('sanctum')->user();
@@ -64,7 +64,7 @@ class RoomController extends Controller
             ->first();
 
         if (! $room) {
-            return response()->json(['message' => 'Phòng không tồn tại.'], 404);
+            return response()->json(['message' => 'Sân không tồn tại.'], 404);
         }
 
         $dateStr = $request->query('date');
@@ -79,8 +79,11 @@ class RoomController extends Controller
         }
 
         // All template slots for this room (keep $rts reference for promotions/blocked check)
+        // sortBy('start_time') — quan hệ roomTimeSlots không tự sắp xếp, trả về theo thứ tự chèn
+        // DB (lộn xộn); sắp lại theo giờ bắt đầu tăng dần để hiển thị đúng sáng → chiều → tối.
         $templateSlots = $room->roomTimeSlots
             ->whereNull('date')
+            ->sortBy(fn ($rts) => $rts->timeSlot?->start_time)
             ->map(function ($rts) {
                 $ts = $rts->timeSlot;
                 if (! $ts) return null;
@@ -205,8 +208,8 @@ class RoomController extends Controller
     // GET /api/rooms/{id}/guest-surcharge-preview?guest_count=5&dates[]=2026-06-29&dates[]=2026-06-30
     // GET /api/rooms/{id}/guest-surcharge-preview?guest_count=5&checkin=2026-06-29&checkout=2026-07-02
     //
-    // Xem trước phụ thu khi chọn số lượng khách, áp dụng cho cả phòng theo
-    // khung giờ (styles=1, truyền dates[]) và phòng theo ngày (styles=2,
+    // Xem trước phụ thu khi chọn số lượng khách, áp dụng cho cả sân theo
+    // khung giờ (styles=1, truyền dates[]) và sân theo ngày (styles=2,
     // truyền checkin/checkout). Cấu hình phụ thu lấy từ room_config
     // (max_free_guests, extra_guest_fee) — set trong Hệ thống giá.
     public function guestSurchargePreview(Request $request, string $id): JsonResponse
@@ -216,7 +219,7 @@ class RoomController extends Controller
             ->first();
 
         if (! $room) {
-            return response()->json(['message' => 'Phòng không tồn tại.'], 404);
+            return response()->json(['message' => 'Sân không tồn tại.'], 404);
         }
 
         $guestCount = (int) $request->query('guest_count', 0);
@@ -489,7 +492,7 @@ class RoomController extends Controller
     {
         $now = now();
 
-        // Promotions liên kết với phòng này qua bất kỳ room_time_slot nào,
+        // Promotions liên kết với sân này qua bất kỳ room_time_slot nào,
         // đang active và nằm trong khoảng thời gian hiện tại.
         return $room->roomTimeSlots
             ->flatMap(fn ($rts) => $rts->promotions)

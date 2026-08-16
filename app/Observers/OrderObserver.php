@@ -168,17 +168,17 @@ class OrderObserver
             return;
         }
 
-        $this->send($order, 'Đơn đặt phòng mới', 'heroicon-o-shopping-bag', 'info');
+        $this->send($order, 'Đơn đặt sân mới', 'heroicon-o-shopping-bag', 'info');
 
         $this->sendToCustomer(
             $order,
-            'Đặt phòng thành công',
+            'Đặt sân thành công',
             "Đơn #{$order->order_code} đang chờ thanh toán. Vui lòng hoàn tất để xác nhận."
         );
 
         $this->sendToGuest(
             $order,
-            'Đặt phòng thành công',
+            'Đặt sân thành công',
             $this->buildGuestCheckinBody($order, "Đơn #{$order->order_code} đang chờ thanh toán."),
             'order_created'
         );
@@ -217,7 +217,7 @@ class OrderObserver
             return;
         }
 
-        // pending → paid: đã có thông báo "Đơn đặt phòng mới", không gửi thêm
+        // pending → paid: đã có thông báo "Đơn đặt sân mới", không gửi thêm
         if ($newStatus === 'paid' && $oldStatus === 'pending') {
             $this->accumulateMembershipSpending($order);
             $this->sendToCustomer(

@@ -1,27 +1,30 @@
 {{--
-    Mobile/tablet two-panel booking grid (1 phòng/lần, carousel prev-next) — desktop (≥lg) dùng
-    book/_desktop-grid.blade.php hiển thị tất cả phòng cùng lúc thay cho khối này.
+    Mobile/tablet two-panel booking grid (1 sân/lần, carousel prev-next) — desktop (≥lg) dùng
+    book/_desktop-grid.blade.php hiển thị tất cả sân cùng lúc thay cho khối này.
+    Đổi trục theo yêu cầu (giống desktop + product-detail.blade.php): KHUNG GIỜ đứng dọc bên trái
+    (riêng từng sân, vì khung giờ có thể khác nhau giữa các sân), NGÀY nằm ngang ở header trên
+    cùng (dùng CHUNG, ngày giống nhau cho mọi sân), cuộn ngang xem thêm (kéo/trượt HOẶC bấm nút
+    Trước/Sau) — KHÔNG còn hệ thống phân trang "slotPage" cũ (dựng cho bản khung-giờ-ngang trước
+    đây, không cần nữa). Cột khung giờ vẫn hiện ĐẦY ĐỦ không giới hạn chiều cao (như cách cột Ngày
+    cũ đã làm) — người dùng cuộn cả trang theo chiều dọc như trước, chỉ chiều ngang (Ngày) mới có
+    khung cuộn riêng.
     Included from book.blade.php — inherits:
       $dates, $styleOneRooms, $totalStyleOneRooms, $today, $category
 --}}
 @php
-    // Màu viền theo phòng (color_product) cho cột "Ngày" dùng chung — phải đổi theo phòng đang
-    // active (bind qua Alpine :style bên dưới, xem book/_desktop-grid.blade.php cho cùng cách làm).
+    // Màu viền theo sân (color_product) cho cột "Khung giờ"/header dùng chung — phải đổi theo sân
+    // đang active (bind qua Alpine :style bên dưới, xem book/_desktop-grid.blade.php cho cùng cách làm).
     $roomColorList = $styleOneRooms->map(fn ($r) => $productColors[$r->id]['color'] ?? null)->values()->all();
 @endphp
 <div class="lg:hidden" x-data="{
     activeRoomIdx: 0, totalRooms: {{ $totalStyleOneRooms }},
     roomColors: {{ \Illuminate\Support\Js::from($roomColorList) }},
-    slotPage: 0, slotsPerPage: 5,
-    slotCounts: [{{ $styleOneRooms->map(fn($r) => $r->roomTimeSlots->count())->join(', ') }}],
     categorySlug: '{{ \Str::slug($category['name']) }}',
     touchStartX: 0,
-    get totalSlotPages() { return Math.ceil((this.slotCounts[this.activeRoomIdx] ?? 5) / this.slotsPerPage); },
     changeRoom(dir) {
         const newIdx = this.activeRoomIdx + dir;
         if (newIdx >= 0 && newIdx < this.totalRooms) {
             this.activeRoomIdx = newIdx;
-            this.slotPage = 0;
             return;
         }
         // Cross-branch: navigate to neighbouring tab when at the boundary
@@ -35,15 +38,14 @@
             }));
             return;
         }
-        // Vòng lặp: hết phòng cuối/đầu của chi nhánh này và không còn tab kế bên để nhảy sang
-        // (chỉ 1 tab, hoặc đã ở tab đầu/cuối) — quay lại phòng đầu tiên/cuối cùng của chi nhánh.
+        // Vòng lặp: hết sân cuối/đầu của chi nhánh này và không còn tab kế bên để nhảy sang
+        // (chỉ 1 tab, hoặc đã ở tab đầu/cuối) — quay lại sân đầu tiên/cuối cùng của chi nhánh.
         if (this.totalRooms > 1) {
             this.activeRoomIdx = dir > 0 ? 0 : this.totalRooms - 1;
-            this.slotPage = 0;
         }
     },
     onTouchStart(e) { this.touchStartX = e.touches[0].clientX; },
-    // Ngưỡng 25px (giảm từ 40px) — nhạy hơn, chỉ cần vuốt 1 đoạn ngắn là đổi phòng.
+    // Ngưỡng 25px (giảm từ 40px) — nhạy hơn, chỉ cần vuốt 1 đoạn ngắn là đổi sân.
     onTouchEnd(e) {
         const diff = this.touchStartX - e.changedTouches[0].clientX;
         if (Math.abs(diff) > 25) { this.changeRoom(diff > 0 ? 1 : -1); }
@@ -54,22 +56,21 @@
     @book-activate-room.window="
         if ($event.detail.tabId === 'styled-' + categorySlug + '-tab') {
             activeRoomIdx = $event.detail.fromEnd ? totalRooms - 1 : 0;
-            slotPage = 0;
         }
     "
 >
 
     <div class="book-card-outer">
 
-    {{-- ── Room carousel header — trải rộng hết chiều ngang (w-full). Tên phòng bên trái, 2 nút
+    {{-- ── Room carousel header — trải rộng hết chiều ngang (w-full). Tên sân bên trái, 2 nút
          trượt gộp gần nhau bên phải cùng hàng (thay vì mỗi nút 1 đầu, cách xa nhau như trước). ── --}}
     <div class="book-top-row">
         <div class="book-room-nav-wrap w-full">
             <div class="book-room-titles-wrap">
                 @foreach ($styleOneRooms as $ri => $roomTitle)
                 @php
-                    // Phòng đang có khuyến mãi giảm giá (percentage/fixed) hiệu lực ngay bây giờ ở
-                    // bất kỳ khung giờ nào — chỉ để hiện icon flash-sale trang trí cạnh tên phòng,
+                    // Sân đang có khuyến mãi giảm giá (percentage/fixed) hiệu lực ngay bây giờ ở
+                    // bất kỳ khung giờ nào — chỉ để hiện icon flash-sale trang trí cạnh tên sân,
                     // không cần khớp chính xác từng ngày/giờ như calculateSlotPrice() (dùng khi tính
                     // giá thật cho từng ô lịch).
                     $roomHasDiscount = $roomTitle->roomTimeSlots->contains(
@@ -95,7 +96,7 @@
             <div class="book-nav-btn-group">
                 <button class="book-nav-btn book-nav-btn-labeled" type="button"
                     @click="changeRoom(-1)"
-                    aria-label="Phòng trước">
+                    aria-label="Sân trước">
                     <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/>
                     </svg>
@@ -103,7 +104,7 @@
                 </button>
                 <button class="book-nav-btn book-nav-btn-labeled" type="button"
                     @click="changeRoom(1)"
-                    aria-label="Phòng tiếp">
+                    aria-label="Sân tiếp">
                     <span>Sau</span>
                     <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
@@ -113,42 +114,63 @@
         </div>
     </div>
 
-    {{-- ── Slot page navigation strip (only when room has > 5 slots) ── --}}
-    @foreach ($styleOneRooms as $ri => $room)
-    @if($room->roomTimeSlots->count() > 5)
-    <div x-show="activeRoomIdx === {{ $ri }}" x-cloak class="slot-page-strip">
-        <button class="slot-pg-btn slot-pg-prev" @click="slotPage = Math.max(0, slotPage - 1)" :disabled="slotPage === 0">
-            &#8249; <span>Quay lại</span>
-        </button>
-        <span class="slot-pg-info" x-text="'Khung giờ ' + (slotPage * slotsPerPage + 1) + '–' + Math.min((slotPage + 1) * slotsPerPage, slotCounts[activeRoomIdx])"></span>
-        <button class="slot-pg-btn slot-pg-next" @click="slotPage = Math.min(totalSlotPages - 1, slotPage + 1)" :disabled="slotPage >= totalSlotPages - 1">
-            <span>Xem thêm</span> &#8250;
-        </button>
-    </div>
-    @endif
-    @endforeach
-
-    {{-- ── Fixed column headers (ngoài khung cuộn — không còn cần position:sticky vì cuộn
-         giờ nằm bên trong từng card thân) ── --}}
+    {{-- ── Header NGÀY dùng CHUNG cho mọi sân (ngày giống nhau) — nút Trước/Sau nổi ĐÈ LÊN rìa
+         wrapper (position:absolute, không chiếm chỗ flex layout) để không làm header rộng hơn
+         lưới ô bên dưới (đúng lỗi lệch cột đã gặp và sửa ở nơi khác — pd-dt-*/tsgrid-*/ta-rc-cal-*).
+         scrollBy() thẳng lên lưới của sân ĐANG ACTIVE (activeRoomIdx) — sân khác (đang ẩn) tự nhận
+         cùng vị trí cuộn qua @scroll khi tới lượt hiện ra (xem body bên dưới). ── --}}
     <div class="book-grid-header">
         <div class="book-col-header"
-            :style="roomColors[activeRoomIdx] ? `--room-border-color:${roomColors[activeRoomIdx]}` : ''">Ngày</div>
-        <div class="book-slots-headers-wrap">
-            @foreach ($styleOneRooms as $ri => $room)
-            @php
-                $roomConfig = $productColors[$room->id] ?? null;
-                $roomBg     = $roomConfig['color'] ?? null;
-            @endphp
-            <div x-show="activeRoomIdx === {{ $ri }}" x-cloak class="book-slots-header-row"
-                style="{{ $roomBg ? "--room-border-color:{$roomBg};" : '' }}">
+            :style="roomColors[activeRoomIdx] ? `--room-border-color:${roomColors[activeRoomIdx]}` : ''">Khung giờ</div>
+        <div class="book-dates-header-wrap">
+            <div class="book-date-nav-row">
+                <button type="button" class="book-date-nav-btn book-date-nav-prev"
+                    style="width:22px !important;height:22px !important;min-width:22px !important;min-height:22px !important;"
+                    aria-label="Xem ngày trước"
+                    @click="$refs['bookSlotsScroll' + activeRoomIdx].scrollBy({ left: -150, behavior: 'smooth' })">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+                </button>
+                <span class="book-date-nav-hint">Kéo hoặc bấm mũi tên để xem ngày khác</span>
+                <button type="button" class="book-date-nav-btn book-date-nav-next"
+                    style="width:22px !important;height:22px !important;min-width:22px !important;min-height:22px !important;"
+                    aria-label="Xem thêm ngày"
+                    @click="$refs['bookSlotsScroll' + activeRoomIdx].scrollBy({ left: 150, behavior: 'smooth' })">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+                </button>
+            </div>
+            <div class="book-slots-header-row" x-ref="bookDatesHeaderScroll">
+                @foreach ($dates as $date)
+                    @php $mdateShort = \Carbon\Carbon::createFromFormat('d-m-Y', $date['date'])->format('d/m'); @endphp
+                    <div class="book-slot-th{{ $date['is_today'] ? ' is-today' : '' }}" style="flex:0 0 calc((100% - 12px) / 5);">
+                        <span class="book-slot-time-start">{{ $date['day'] }}</span><br class="book-slot-time-br"><span class="book-slot-time-end">{{ $mdateShort }}</span>
+                    </div>
+                @endforeach
+            </div>
+        </div>
+    </div>
+
+    {{-- ── Thân: mỗi sân 1 cặp [cột Khung giờ dọc + lưới ô] HOÀN TOÀN TỰ ĐỦ, chỉ hiện đúng sân
+         đang active (x-show) — khung giờ khác nhau giữa các sân nên KHÔNG dùng chung 1 cột được
+         như cột Ngày ở header trên. ── --}}
+    <div class="book-grid-outer">
+        @foreach ($styleOneRooms as $ri => $room)
+        @php
+            $roomConfig = $productColors[$room->id] ?? null;
+            $roomBg     = $roomConfig['color'] ?? null;
+        @endphp
+        <div x-show="activeRoomIdx === {{ $ri }}" x-cloak class="book-room-grid-row">
+
+            {{-- Cột Khung giờ (dọc) — hiện ĐẦY ĐỦ, không giới hạn chiều cao (giống cách cột Ngày
+                 cũ đã làm — người dùng cuộn cả trang theo chiều dọc). --}}
+            <div class="book-dates-card" style="{{ $roomBg ? "--room-border-color:{$roomBg};" : '' }}">
                 @foreach ($room->roomTimeSlots as $roomTimeSlot)
                 @php
-                $startTime   = \Carbon\Carbon::parse($roomTimeSlot->timeSlot->start_time);
-                $endTime     = \Carbon\Carbon::parse($roomTimeSlot->timeSlot->end_time);
-                $isOvernight = $endTime->isNextDay() || $endTime->lt($startTime);
+                    $startTime   = \Carbon\Carbon::parse($roomTimeSlot->timeSlot->start_time);
+                    $endTime     = \Carbon\Carbon::parse($roomTimeSlot->timeSlot->end_time);
+                    $isOvernight = $endTime->isNextDay() || $endTime->lt($startTime);
                 @endphp
-                <div class="book-slot-th" x-show="Math.floor({{ $loop->index }} / slotsPerPage) === slotPage">
-                    <span class="book-slot-time-start">{{ $startTime->format('H:i') }}</span><span class="book-slot-time-sep">&nbsp;–&nbsp;</span><br class="book-slot-time-br"><span class="book-slot-time-end">{{ $endTime->format('H:i') }}</span>
+                <div class="book-date-row">
+                    <span class="book-date-day">{{ $startTime->format('H:i') }}-{{ $endTime->format('H:i') }}</span>
                     @if($isOvernight)
                         <svg class="book-slot-icon" style="color:#1e3a8a" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
                             <path fill-rule="evenodd" d="M9.528 1.718a.75.75 0 0 1 .162.819A8.97 8.97 0 0 0 9 6a9 9 0 0 0 9 9 8.97 8.97 0 0 0 3.463-.69.75.75 0 0 1 .981.98 10.503 10.503 0 0 1-9.694 6.46c-5.799 0-10.5-4.7-10.5-10.5 0-4.368 2.667-8.112 6.46-9.694a.75.75 0 0 1 .818.162Z" clip-rule="evenodd" />
@@ -161,55 +183,35 @@
                 </div>
                 @endforeach
             </div>
-            @endforeach
-        </div>
-    </div>
 
-    {{-- ── Thân: khung (viền/bo góc) của mỗi card đứng yên cố định, chỉ nội dung bên trong
-         cuộn dọc, đồng bộ 2 chiều qua @scroll để cột Ngày và khung giờ luôn khớp hàng ── --}}
-    <div class="book-grid-outer">
+            {{-- Lưới ô — cuộn NGANG riêng (ngày), đồng bộ ngược lại header dùng chung ở trên qua
+                 @scroll. --}}
+            <div class="book-slots-outer">
+                <div class="book-slots-card">
+                    <div class="book-slots-scroll" x-ref="bookSlotsScroll{{ $ri }}"
+                        @scroll="$refs.bookDatesHeaderScroll.scrollLeft = $event.target.scrollLeft">
 
-        {{-- Left: Dates card --}}
-        <div class="book-dates-card">
-            <div class="book-dates-scroll" x-ref="bookDatesScroll"
-                @scroll="$refs['bookSlotsScroll' + activeRoomIdx].scrollTop = $event.target.scrollTop">
-                @foreach ($dates as $date)
-                @php $dateShort = \Carbon\Carbon::createFromFormat('d-m-Y', $date['date'])->format('d/m'); @endphp
-                <div class="book-date-row{{ $date['is_today'] ? ' is-today' : '' }}">
-                    <span class="book-date-day">{{ $date['day'] }}</span>
-                    <span class="book-date-num">{{ $dateShort }}</span>
-                </div>
-                @endforeach
-            </div>
-        </div>
-
-        {{-- Right: Scrollable slots per room --}}
-        <div class="book-slots-outer">
-            @foreach ($styleOneRooms as $ri => $room)
-            <div x-show="activeRoomIdx === {{ $ri }}" x-cloak class="book-slots-card">
-                <div class="book-slots-scroll" x-ref="bookSlotsScroll{{ $ri }}"
-                    @scroll="$refs.bookDatesScroll.scrollTop = $event.target.scrollTop">
-
-                {{-- Render đầy đủ (giá/khuyến mãi) cho MỌI phòng, kể cả các phòng đang ẩn qua x-show
-                     (chưa active) — đã verify chi phí tối đa an toàn qua Livewire::test() (chi nhánh
-                     nhiều phòng nhất hiện có, 31 ngày, ~100MB, memory_limit hiện tại 512M). Từng thử
-                     giới hạn chỉ render phòng active để tiết kiệm chi phí, nhưng gây lỗi ô trống khi
-                     đổi phòng sau khi đã "Xem thêm ngày" (server không đồng bộ kịp phòng đang active
-                     lúc đổi phòng thuần client-side) — ưu tiên đúng giao diện hơn tối ưu này. --}}
-                @foreach ($dates as $date)
-                <div class="book-slots-row">
+                    {{-- Render đầy đủ (giá/khuyến mãi) cho MỌI sân, kể cả các sân đang ẩn qua x-show
+                         (chưa active) — đã verify chi phí tối đa an toàn qua Livewire::test() (chi nhánh
+                         nhiều sân nhất hiện có, 31 ngày, ~100MB, memory_limit hiện tại 512M). Từng thử
+                         giới hạn chỉ render sân active để tiết kiệm chi phí, nhưng gây lỗi ô trống khi
+                         đổi sân sau khi đã "Xem thêm ngày" (server không đồng bộ kịp sân đang active
+                         lúc đổi sân thuần client-side) — ưu tiên đúng giao diện hơn tối ưu này. --}}
                     @foreach ($room->roomTimeSlots as $roomTimeSlot)
-                    <div class="book-slot-cell" x-show="Math.floor({{ $loop->index }} / slotsPerPage) === slotPage">
-                        @include('bladethemev1::livewire.book._slot-cell', ['room' => $room, 'date' => $date, 'roomTimeSlot' => $roomTimeSlot])
+                    <div class="book-slots-row">
+                        @foreach ($dates as $date)
+                        <div class="book-slot-cell" style="flex:0 0 calc((100% - 12px) / 5);">
+                            @include('bladethemev1::livewire.book._slot-cell', ['room' => $room, 'date' => $date, 'roomTimeSlot' => $roomTimeSlot])
+                        </div>
+                        @endforeach
                     </div>
                     @endforeach
-                </div>
-                @endforeach
 
-                </div>{{-- end .book-slots-scroll --}}
-            </div>
-            @endforeach
-        </div>{{-- end .book-slots-outer --}}
+                    </div>{{-- end .book-slots-scroll --}}
+                </div>
+            </div>{{-- end .book-slots-outer --}}
+        </div>{{-- end .book-room-grid-row --}}
+        @endforeach
     </div>{{-- end .book-grid-outer --}}
 
     {{-- ── Xem thêm ngày (mỗi lần bấm hiện thêm tối đa 10 ngày kế tiếp, tự ẩn khi đã hiện hết). ── --}}

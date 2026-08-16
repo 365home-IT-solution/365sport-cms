@@ -11,7 +11,7 @@ use Modules\Product\App\Models\TimeSlot;
 
 /**
  * Danh sách khung giờ dùng chung (bảng `time_slots`) — dữ liệu nền để admin gán khung giờ cho
- * từng phòng (xem RoomTimeSlotController). Kết quả được chia sẵn thành 4 nhóm để FE hiển thị dạng
+ * từng sân (xem RoomTimeSlotController). Kết quả được chia sẵn thành 4 nhóm để FE hiển thị dạng
  * tab/section: Ngày, Chiều, Đêm, Qua đêm — thay vì FE phải tự phân loại lại theo start_time.
  *
  * Quy tắc phân nhóm:
@@ -33,7 +33,7 @@ class TimeSlotController extends Controller
      * GET /api/admin/time-slots
      * Query params:
      *  - type            : lọc theo type ('time'/'date'...) — mặc định BỎ QUA type='date' (những
-     *                       dòng đó là mốc ngày cho phòng kiểu "theo ngày", không phải khung giờ thật).
+     *                       dòng đó là mốc ngày cho sân kiểu "theo ngày", không phải khung giờ thật).
      *  - include_date_type: truyền 1 để lấy luôn cả loại 'date'.
      */
     public function index(Request $request): JsonResponse
@@ -78,7 +78,7 @@ class TimeSlotController extends Controller
      *  - over_night (nullable|boolean) — không truyền thì tự suy ra: end_time < start_time = qua đêm.
      *  - label (nullable|string|max:255) — không truyền thì tự sinh "H:i - H:i" (+ " (Qua đêm)" nếu
      *    over_night), khớp định dạng dữ liệu hiện có.
-     *  - type (nullable|in:time,date) — mặc định 'time'. 'date' dành riêng cho mốc ngày của phòng
+     *  - type (nullable|in:time,date) — mặc định 'time'. 'date' dành riêng cho mốc ngày của sân
      *    "theo ngày" (styles=2), thường không cần tạo thủ công qua đây.
      */
     public function store(Request $request): JsonResponse
@@ -108,8 +108,8 @@ class TimeSlotController extends Controller
 
     /**
      * PUT/PATCH /api/admin/time-slots/{id}
-     * Sửa khung giờ dùng chung — LƯU Ý: khung giờ này có thể đang được nhiều phòng khác nhau dùng
-     * chung (qua room_time_slots.timeslot_id), sửa ở đây ảnh hưởng giờ/nhãn hiển thị ở TẤT CẢ phòng
+     * Sửa khung giờ dùng chung — LƯU Ý: khung giờ này có thể đang được nhiều sân khác nhau dùng
+     * chung (qua room_time_slots.timeslot_id), sửa ở đây ảnh hưởng giờ/nhãn hiển thị ở TẤT CẢ sân
      * đó. Field nào không có mặt trong request giữ nguyên giá trị cũ.
      */
     public function update(Request $request, int $id): JsonResponse

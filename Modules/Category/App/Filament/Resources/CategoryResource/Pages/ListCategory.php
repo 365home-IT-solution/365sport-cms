@@ -40,7 +40,7 @@ class ListCategory extends ListRecords
         $baseQuery = static::getResource()::getEloquentQuery();
 
         return [
-            'product' => Tab::make('Phòng')
+            'product' => Tab::make('Sân')
                 ->icon('heroicon-o-home')
                 ->badge($baseQuery->clone()->where('category_type', 'product')->count())
                 ->modifyQueryUsing(fn (Builder $query) => $query->where('category_type', 'product')),

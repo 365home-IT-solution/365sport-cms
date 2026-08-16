@@ -21,7 +21,7 @@ class ZnsNotificationForm
                 Section::make('Thông tin cơ bản')
                     ->schema([
                         Select::make('order_id')
-                            ->label('Đơn phòng')
+                            ->label('Đơn sân')
                             ->relationship('order', 'order_code', fn ($query) => $query->orderBy('order_code', 'desc'))
                             ->getOptionLabelFromRecordUsing(fn (Model $record): string => (string) ($record->order_code ?? ''))
                             ->getOptionLabelUsing(fn ($record): string => (string) ($record->order_code ?? ''))
@@ -50,7 +50,7 @@ class ZnsNotificationForm
                         Select::make('notification_type')
                             ->label('Loại thông báo')
                             ->options([
-                                'booking_success' => 'Đặt phòng thành công',
+                                'booking_success' => 'Đặt sân thành công',
                                 'booking_reminder' => 'Nhắc nhở',
                                 'booking_cancelled' => 'Hủy đơn',
                             ])

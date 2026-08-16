@@ -28,7 +28,7 @@ class DailyRoomHoldController extends Controller
 
         $room = Product::where('id', $id)->where('is_activated', true)->where('styles', 2)->first();
         if (! $room) {
-            return response()->json(['message' => 'Phòng không tồn tại.'], 404);
+            return response()->json(['message' => 'Sân không tồn tại.'], 404);
         }
 
         $sessionId = $request->input('session_id');
@@ -82,8 +82,8 @@ class DailyRoomHoldController extends Controller
 
     /**
      * Không phát session_id ra ngoài qua broadcast — cùng lý do/cùng fix đã áp dụng cho
-     * TimeSlotHoldController (phòng khung giờ): để lộ session_id cho mọi client khác đang xem cùng
-     * phòng sẽ cho phép giả mạo release() hộ người khác mà không cần xác thực gì.
+     * TimeSlotHoldController (sân khung giờ): để lộ session_id cho mọi client khác đang xem cùng
+     * sân sẽ cho phép giả mạo release() hộ người khác mà không cần xác thực gì.
      */
     private function stripHolderId(array $holds): array
     {

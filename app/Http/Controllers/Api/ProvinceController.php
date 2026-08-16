@@ -20,7 +20,7 @@ class ProvinceController extends Controller
 
     public function index(Request $request): JsonResponse
     {
-        // ?filter=all → trả về tất cả tỉnh/thành, bỏ qua điều kiện "có phòng".
+        // ?filter=all → trả về tất cả tỉnh/thành, bỏ qua điều kiện "có sân".
         if ($request->query('filter') === 'all') {
             $provinces = Province::orderByRaw('code IS NULL, code ASC')
                 ->orderBy('name')
@@ -39,8 +39,8 @@ class ProvinceController extends Controller
         }
 
         // Chỉ hiển thị tỉnh/thành có ít nhất 1 chi nhánh đang hoạt động (province_branches.status)
-        // và chi nhánh đó có ít nhất 1 phòng đang bán (is_activated + is_in_stock) — cùng logic
-        // lọc "chi nhánh có phòng" đang dùng ở RoomSearchService/RoomTypeController.
+        // và chi nhánh đó có ít nhất 1 sân đang bán (is_activated + is_in_stock) — cùng logic
+        // lọc "chi nhánh có sân" đang dùng ở RoomSearchService/RoomTypeController.
         $activeBranches = ProvinceBranch::where('status', true)->get(['province_id', 'categorie_id']);
 
         $branchCategoryIds = $activeBranches->pluck('categorie_id')->unique()->values();

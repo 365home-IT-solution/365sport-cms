@@ -9,7 +9,7 @@ use Modules\Product\App\Models\Product;
 
 class RoomAdditionalServiceSeeder extends Seeder
 {
-    // Gán tất cả dịch vụ bổ sung vào 8 phòng hiện có.
+    // Gán tất cả dịch vụ bổ sung vào 8 sân hiện có.
     // Chạy idempotent: insertOrIgnore bỏ qua nếu cặp đã tồn tại.
     public function run(): void
     {
@@ -19,7 +19,7 @@ class RoomAdditionalServiceSeeder extends Seeder
         $serviceIds = AdditionService::pluck('id');
 
         if ($roomIds->isEmpty() || $serviceIds->isEmpty()) {
-            $this->command->warn('RoomAdditionalServiceSeeder: không tìm thấy phòng hoặc dịch vụ, bỏ qua.');
+            $this->command->warn('RoomAdditionalServiceSeeder: không tìm thấy sân hoặc dịch vụ, bỏ qua.');
             return;
         }
 
@@ -36,6 +36,6 @@ class RoomAdditionalServiceSeeder extends Seeder
 
         DB::table('room_additional_service_assigns')->insertOrIgnore($rows);
 
-        $this->command->info("RoomAdditionalServiceSeeder: đã gán {$serviceIds->count()} dịch vụ × {$roomIds->count()} phòng.");
+        $this->command->info("RoomAdditionalServiceSeeder: đã gán {$serviceIds->count()} dịch vụ × {$roomIds->count()} sân.");
     }
 }

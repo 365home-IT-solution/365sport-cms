@@ -284,7 +284,7 @@
 
                         @foreach($order->items as $item)
                         <tr style="border-top: 2px solid #e0e0e0;">
-                            <td style="font-weight: 500; color: #7f8c8d;">Phòng/Dịch vụ</td>
+                            <td style="font-weight: 500; color: #7f8c8d;">Sân/Dịch vụ</td>
                             <td><strong style="color: #2c3e50; font-size: 15px;">{{ $item->name }}</strong></td>
                         </tr>
                         @if($item->checkin_date && $item->checkout_date)
@@ -305,7 +305,7 @@
                             <td>
                                 {{ collect([
                                     ($item->guest_count ?? $order->guest_count) ? ($item->guest_count ?? $order->guest_count) . ' người' : null,
-                                    $item->quantity . ' ' . ($item->quantity > 1 ? 'phòng' : 'phòng') . ' × ' . number_format($item->price, 0, ',', '.') . ' ₫',
+                                    $item->quantity . ' ' . ($item->quantity > 1 ? 'sân' : 'sân') . ' × ' . number_format($item->price, 0, ',', '.') . ' ₫',
                                     $item->discount ? '<span style="color: #e74c3c;">(-' . number_format($item->discount, 0, ',', '.') . ' ₫)</span>' : null,
                                     $item->extra_fee ? '<span style="color: #7f8c8d;">(+' . number_format($item->extra_fee, 0, ',', '.') . ' ₫ phụ phí)</span>' : null
                                 ])->filter()->implode(' | ') }}

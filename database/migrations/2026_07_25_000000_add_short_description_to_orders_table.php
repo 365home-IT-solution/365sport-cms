@@ -7,7 +7,7 @@ use Illuminate\Support\Facades\Schema;
 return new class extends Migration
 {
     // Mô tả ngắn hiển thị ở danh sách đơn/thông báo (khác 'description' — mô tả đầy đủ hiện có,
-    // thường tự sinh dạng "Đặt phòng - {tên phòng}") — cho admin tự nhập khi tạo/sửa đơn qua API.
+    // thường tự sinh dạng "Đặt sân - {tên sân}") — cho admin tự nhập khi tạo/sửa đơn qua API.
     public function up(): void
     {
         Schema::table('orders', function (Blueprint $table) {

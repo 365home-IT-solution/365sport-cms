@@ -82,12 +82,12 @@ class BookingController extends Controller
 
         if (empty($customer->cccd_front) || empty($customer->cccd_back) || empty($customer->cccd_data)) {
             return response()->json([
-                'message' => 'Bạn cần cập nhật CCCD/CMND vào tài khoản trước khi đặt phòng.',
+                'message' => 'Bạn cần cập nhật CCCD/CMND vào tài khoản trước khi đặt sân.',
                 'error'   => 'cccd_required',
             ], 422);
         }
 
-        // ── 3. Load phòng ─────────────────────────────────────────────────────
+        // ── 3. Load sân ─────────────────────────────────────────────────────
         $room = Product::where('id', $request->input('room_id'))
             ->where('is_activated', true)
             ->with([
@@ -99,10 +99,10 @@ class BookingController extends Controller
             ->first();
 
         if (! $room) {
-            return response()->json(['message' => 'Phòng không tồn tại hoặc đã ngừng hoạt động.'], 404);
+            return response()->json(['message' => 'Sân không tồn tại hoặc đã ngừng hoạt động.'], 404);
         }
 
-        // ── 4. Xây dựng items đặt phòng ──────────────────────────────────────
+        // ── 4. Xây dựng items đặt sân ──────────────────────────────────────
         $rtsCollection = collect();
         $slotSummary   = [];
 
@@ -116,13 +116,13 @@ class BookingController extends Controller
 
         // ── 4.5 CCCD người đi cùng (bắt buộc khi có khung giờ qua đêm) ─────────
         // Luật Cư trú (hiệu lực 01/07/2026) yêu cầu khai báo lưu trú ĐỦ TỪNG NGƯỜI khi lưu trú
-        // qua đêm — không chỉ người đặt phòng chính (CCCD lấy từ hồ sơ customer ở trên).
+        // qua đêm — không chỉ người đặt sân chính (CCCD lấy từ hồ sơ customer ở trên).
         //
         // Ưu tiên tái sử dụng CCCD người đi cùng đã lưu sẵn trong hồ sơ (customer_companions,
         // theo thứ tự id). Nếu hồ sơ chưa đủ số người cần thiết, cho phép gửi kèm CCCD (mặt
         // trước/sau) trực tiếp trong request tạo đơn này — giống luồng guest — qua key
         // guests[{guest_index}][front]/guests[{guest_index}][back] (guest_index bắt đầu từ 2).
-        // Sau khi quét QR hợp lệ, lưu luôn vào customer_companions để các lần đặt phòng sau
+        // Sau khi quét QR hợp lệ, lưu luôn vào customer_companions để các lần đặt sân sau
         // không cần upload lại.
         //
         // type != 'slot' (đặt theo ngày) LUÔN là qua đêm — xem over_night => true hardcode trong
@@ -201,7 +201,7 @@ class BookingController extends Controller
 
         // Lưu ngay các CCCD người đi cùng vừa upload vào hồ sơ (customer_companions) — độc lập
         // với việc đơn có tạo thành công hay không, để lần đặt sau tái sử dụng được luôn, không
-        // bắt khách quét QR lại nếu đơn này bị conflict slot phải thử lại phòng khác.
+        // bắt khách quét QR lại nếu đơn này bị conflict slot phải thử lại sân khác.
         foreach ($newCompanionUploads as $row) {
             CustomerCompanion::create([
                 'customer_id' => $customer->id,
@@ -322,10 +322,10 @@ class BookingController extends Controller
         }
 
         // Dữ liệu đối tác cũ (vd 365home) tổ chức category 2 CẤP: chi nhánh thật (parent_id NULL)
-        // → danh mục phòng con CÙNG TÊN với phòng (parent_id = chi nhánh) — Product được gán
+        // → danh mục sân con CÙNG TÊN với sân (parent_id = chi nhánh) — Product được gán
         // categorizable vào danh mục CON đó, không phải thẳng vào chi nhánh. Nếu dùng thẳng kết
         // quả categories()->first(), 'category_id' của đơn sẽ lưu NHẦM thành danh mục con (hiện
-        // tên phòng thay vì tên chi nhánh khi admin mở sửa đơn) — leo lên tới đúng cấp chi nhánh
+        // tên sân thay vì tên chi nhánh khi admin mở sửa đơn) — leo lên tới đúng cấp chi nhánh
         // (parent_id NULL) trước khi lưu vào đơn.
         $category = $room->categories()->first();
         for ($i = 0; $i < 5 && $category && $category->parent_id; $i++) {
@@ -381,7 +381,7 @@ class BookingController extends Controller
                 'deposit_percent' => $depositPercentToSave,
                 'coupon_code'     => $firstCode,           // backward compat
                 'coupon_codes'    => $appliedCouponCodes ?: null,
-                'description'     => 'Đặt phòng - ' . $room->name,
+                'description'     => 'Đặt sân - ' . $room->name,
                 'buyer_name'      => $buyerName,
                 'buyer_phone'     => $buyerPhone,
                 'payment_method'  => $paymentMethod,
@@ -390,7 +390,7 @@ class BookingController extends Controller
                 'category_id'     => $category?->id,
                 // Đơn đặt qua API khách hàng đăng nhập (Customer, không phải App\Models\User) nên
                 // BelongsToPartner::creating() không tự gán được partner_id — gán thẳng theo đúng
-                // partner_id của phòng đang đặt (xem giải thích chi tiết ở GuestBookingController).
+                // partner_id của sân đang đặt (xem giải thích chi tiết ở GuestBookingController).
                 'partner_id'      => $room->partner_id,
                 'customer_id'     => $customer?->id,
                 'cccd_front'      => $customer?->cccd_front,
@@ -527,7 +527,7 @@ class BookingController extends Controller
 
             if (! $dateStr) {
                 throw ValidationException::withMessages([
-                    "slots.{$index}.date" => ['Vui lòng cung cấp ngày đặt phòng.'],
+                    "slots.{$index}.date" => ['Vui lòng cung cấp ngày đặt sân.'],
                 ]);
             }
 
@@ -538,7 +538,7 @@ class BookingController extends Controller
 
             if (! $rts || ! $rts->timeSlot) {
                 throw ValidationException::withMessages([
-                    "slots.{$index}.timeslot_id" => ['Khung giờ không tồn tại cho phòng này.'],
+                    "slots.{$index}.timeslot_id" => ['Khung giờ không tồn tại cho sân này.'],
                 ]);
             }
 
@@ -607,7 +607,7 @@ class BookingController extends Controller
         return [$totalPrice, $summaryName, $itemsData, $rtsCollection, $slotSummary];
     }
 
-    // ── Daily (phòng theo ngày) ───────────────────────────────────────────────
+    // ── Daily (sân theo ngày) ───────────────────────────────────────────────
 
     private function buildDailyItems(Request $request, Product $room): array
     {
@@ -631,7 +631,7 @@ class BookingController extends Controller
 
         if ($conflict) {
             throw ValidationException::withMessages([
-                'checkin_date' => ['Phòng đã được đặt trong khoảng thời gian này.'],
+                'checkin_date' => ['Sân đã được đặt trong khoảng thời gian này.'],
             ]);
         }
 
@@ -742,7 +742,7 @@ class BookingController extends Controller
 
         if ($conflict) {
             throw ValidationException::withMessages([
-                'checkin_date' => ['Phòng đã được đặt trong khoảng thời gian này.'],
+                'checkin_date' => ['Sân đã được đặt trong khoảng thời gian này.'],
             ]);
         }
 
@@ -783,7 +783,7 @@ class BookingController extends Controller
 
             if (! $service || ! $service->is_active) {
                 throw ValidationException::withMessages([
-                    "services.{$index}.service_id" => ["Dịch vụ #{$serviceId} không tồn tại hoặc không khả dụng cho phòng này."],
+                    "services.{$index}.service_id" => ["Dịch vụ #{$serviceId} không tồn tại hoặc không khả dụng cho sân này."],
                 ]);
             }
 
@@ -989,7 +989,7 @@ class BookingController extends Controller
     }
 
     /**
-     * Validate một mã coupon: tồn tại, còn hạn, còn lượt, đúng phòng,
+     * Validate một mã coupon: tồn tại, còn hạn, còn lượt, đúng sân,
      * và thuộc về customer nếu là coupon cá nhân.
      */
     private function validateOneCoupon(
@@ -1049,7 +1049,7 @@ class BookingController extends Controller
 
         if (! $applicable) {
             throw ValidationException::withMessages([
-                $field => ["Mã \"{$code}\" không áp dụng cho phòng hoặc khung giờ này."],
+                $field => ["Mã \"{$code}\" không áp dụng cho sân hoặc khung giờ này."],
             ]);
         }
 

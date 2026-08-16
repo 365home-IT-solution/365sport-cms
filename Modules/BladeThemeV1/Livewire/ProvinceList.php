@@ -33,7 +33,7 @@ class ProvinceList extends Component
 
         $allCatIds = array_merge($allBranchCatIds, array_keys($childToBranchMap));
 
-        // Đếm phòng (1 query qua polymorphic)
+        // Đếm sân (1 query qua polymorphic)
         $roomCountByCatId = Category::whereIn('id', $allCatIds)
             ->withCount(['products as room_count' => fn ($q) =>
                 $q->where('is_activated', true)->where('is_in_stock', true)

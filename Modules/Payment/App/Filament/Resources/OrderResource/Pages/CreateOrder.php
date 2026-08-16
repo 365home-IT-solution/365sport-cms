@@ -29,8 +29,8 @@ class CreateOrder extends CreateRecord
 
     protected ?string $payosCheckoutUrl = null;
 
-    // Mở trang tạo đơn từ menu thao tác nhanh trên thẻ phòng (Dashboard) với
-    // ?product_id=... — tự chọn sẵn ĐÚNG chi nhánh + phòng đó thay vì để trống, tránh admin phải
+    // Mở trang tạo đơn từ menu thao tác nhanh trên thẻ sân (Dashboard) với
+    // ?product_id=... — tự chọn sẵn ĐÚNG chi nhánh + sân đó thay vì để trống, tránh admin phải
     // tìm lại từ đầu (chi nhánh PHẢI set trước product_id vì Select 'product_id' trong Repeater
     // chỉ load được options khi đã biết category_id, xem OrderForm.php).
     public function mount(): void
@@ -58,7 +58,7 @@ class CreateOrder extends CreateRecord
 
         $user = auth()->user();
 
-        // Nếu admin vừa "Khóa tạm thời (realtime)" phòng này ở popup lưới trên Dashboard (xem
+        // Nếu admin vừa "Khóa tạm thời (realtime)" sân này ở popup lưới trên Dashboard (xem
         // App\Livewire\RoomLockGrid), các khung giờ đó đã tồn tại THẬT trong bảng timeslot_holds —
         // đọc lại ngay ở đây để điền sẵn vào dòng đầu tiên, admin không phải chọn lại từ đầu.
         $selectedSlots = [];
@@ -75,7 +75,7 @@ class CreateOrder extends CreateRecord
 
         // Trước đây dùng Str::uuid() (khớp key ngẫu nhiên mà Repeater tự sinh) — giờ OrderForm.php
         // đã đổi 'orderItems' từ Repeater sang 2 Group::make()->statePath('orderItems.0') cố định
-        // (chỉ còn đúng 1 phòng/đơn), nên PHẢI dùng cố định '0' để khớp đúng ô dữ liệu đó, không
+        // (chỉ còn đúng 1 sân/đơn), nên PHẢI dùng cố định '0' để khớp đúng ô dữ liệu đó, không
         // còn là UUID ngẫu nhiên nữa.
         $itemKey = '0';
 
@@ -133,10 +133,10 @@ class CreateOrder extends CreateRecord
     #[\Livewire\Attributes\On('timeslotHoldsChanged')]
     public function onTimeslotHoldsChanged(): void {}
 
-    // Nhân viên đối tác NỀN TẢNG (vd 365home) HOẶC super_admin được đặt phòng hộ cho MỌI đối
+    // Nhân viên đối tác NỀN TẢNG (vd 365home) HOẶC super_admin được đặt sân hộ cho MỌI đối
     // tác (xem OrderForm.php — category_id/product_id không còn thu hẹp theo partner_id với các
     // tài khoản này). BelongsToPartner mặc định sẽ tự gán partner_id của NGƯỜI TẠO đơn nếu để
-    // trống — SAI, vì đơn phải thuộc về đúng đối tác SỞ HỮU chi nhánh/phòng được chọn để doanh
+    // trống — SAI, vì đơn phải thuộc về đúng đối tác SỞ HỮU chi nhánh/sân được chọn để doanh
     // thu/hoa hồng tính đúng cho đối tác đó. Với super_admin, auth()->user()->partner_id vốn
     // NULL (super_admin không thuộc đối tác nào) nên trước đây (chỉ check
     // belongsToPlatformPartner(), luôn false với super_admin) đơn tạo bởi super_admin bị lưu
@@ -173,7 +173,7 @@ class CreateOrder extends CreateRecord
     }
 
     // Repeater 'orderItems' KHÔNG còn dùng ->relationship('items') (xem OrderForm.php) — 1 dòng
-    // Repeater (1 phòng) có thể giữ NHIỀU khung giờ đã chọn trong 'selected_slots', nên phải tự
+    // Repeater (1 sân) có thể giữ NHIỀU khung giờ đã chọn trong 'selected_slots', nên phải tự
     // tay tách thành đúng số order_item cần tạo (1 khung giờ = 1 order_item, giống đúng cách
     // client/API tạo dữ liệu) thay vì để Filament tự sync theo số dòng hiển thị.
     protected function handleRecordCreation(array $data): Model

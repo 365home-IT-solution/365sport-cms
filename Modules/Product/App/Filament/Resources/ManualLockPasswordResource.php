@@ -129,8 +129,8 @@ class ManualLockPasswordResource extends Resource
                             ->prefixIcon('heroicon-o-key'),
 
                         TextInput::make('room_password')
-                            ->label('Pass Phòng')
-                            ->placeholder('Mật khẩu phòng (nếu có)')
+                            ->label('Pass Sân')
+                            ->placeholder('Mật khẩu sân (nếu có)')
                             ->maxLength(100)
                             ->nullable()
                             ->prefixIcon('heroicon-o-lock-closed'),
@@ -138,7 +138,7 @@ class ManualLockPasswordResource extends Resource
 
                     Textarea::make('notes')
                         ->label('Ghi chú')
-                        ->placeholder('Thông tin thêm về cách vào phòng, tòa nhà...')
+                        ->placeholder('Thông tin thêm về cách vào sân, tòa nhà...')
                         ->rows(2)
                         ->nullable(),
                 ])
@@ -175,13 +175,13 @@ class ManualLockPasswordResource extends Resource
                 ])
                 ->columns(1),
 
-            Section::make('Phòng áp dụng')
+            Section::make('Sân áp dụng')
                 ->icon('heroicon-o-home')
                 ->iconColor('primary')
-                ->description('Chọn các phòng sử dụng bộ mật khẩu này.')
+                ->description('Chọn các sân sử dụng bộ mật khẩu này.')
                 ->schema([
                     Select::make('products')
-                        ->label('Chọn phòng')
+                        ->label('Chọn sân')
                         ->relationship(
                             name: 'products',
                             titleAttribute: 'name',
@@ -210,7 +210,7 @@ class ManualLockPasswordResource extends Resource
                         ->multiple()
                         ->searchable()
                         ->preload()
-                        ->placeholder('Chọn một hoặc nhiều phòng...')
+                        ->placeholder('Chọn một hoặc nhiều sân...')
                         ->columnSpanFull(),
                 ])
                 ->columns(1),
@@ -243,7 +243,7 @@ class ManualLockPasswordResource extends Resource
                     ->fontFamily('mono'),
 
                 TextColumn::make('room_password')
-                    ->label('Pass Phòng')
+                    ->label('Pass Sân')
                     ->copyable()
                     ->copyMessage('Đã sao chép!')
                     ->placeholder('—')
@@ -278,7 +278,7 @@ class ManualLockPasswordResource extends Resource
                     }),
 
                 TextColumn::make('products_count')
-                    ->label('Số phòng')
+                    ->label('Số sân')
                     ->counts('products')
                     ->badge()
                     ->color('success')
@@ -312,7 +312,7 @@ class ManualLockPasswordResource extends Resource
                     ->color('danger')
                     ->requiresConfirmation()
                     ->modalHeading('Ngừng hoạt động bộ mật khẩu này?')
-                    ->modalDescription('Bộ mật khẩu sẽ không còn được áp dụng cho các phòng liên quan.')
+                    ->modalDescription('Bộ mật khẩu sẽ không còn được áp dụng cho các sân liên quan.')
                     ->visible(fn (ManualLockPassword $r) => $r->is_active)
                     ->action(fn (ManualLockPassword $r) => $r->deactivate()),
 

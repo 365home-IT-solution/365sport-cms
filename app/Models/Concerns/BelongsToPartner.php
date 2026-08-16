@@ -23,7 +23,7 @@ trait BelongsToPartner
             // chạy qua middleware group 'web' nên VẪN giữ session — nếu cùng trình duyệt có một
             // nhân viên/đối tác đang đăng nhập CMS (guard 'web'), auth()->user() ở trang client vẫn
             // trả về User đó dù request không liên quan gì tới panel admin. Trước đây scope chỉ dựa
-            // vào "có User đăng nhập hay không" nên vô tình lọc luôn lịch đặt phòng của khách hàng
+            // vào "có User đăng nhập hay không" nên vô tình lọc luôn lịch đặt sân của khách hàng
             // theo partner_id của nhân viên đang có session, dù khách đang xem đúng chi nhánh theo
             // URL slug. KHÔNG dùng Filament::getCurrentPanel() ở đây: panel 'admin' được đăng ký
             // ->default() nên FilamentManager tự gán currentPanel = panel admin ngay khi service
@@ -52,9 +52,9 @@ trait BelongsToPartner
 
         static::creating(function ($model) {
             // Cùng lý do như global scope ở trên — chỉ tự gán partner_id theo NGƯỜI ĐANG ĐĂNG NHẬP
-            // khi bản ghi đang được tạo TRONG admin panel. Nếu là Customer đặt phòng qua API khách
+            // khi bản ghi đang được tạo TRONG admin panel. Nếu là Customer đặt sân qua API khách
             // hàng (hoặc Livewire Book ở trang client), partner_id của đơn phải xác định theo NƠI
-            // khách đặt (category/chi nhánh), do chỗ khác trong luồng đặt phòng gán — không gán nhầm
+            // khách đặt (category/chi nhánh), do chỗ khác trong luồng đặt sân gán — không gán nhầm
             // theo session admin đang mở cùng trình duyệt.
             if (empty($model->partner_id) && AdminPanelContext::isActive() && auth()->user() instanceof User) {
                 $model->partner_id = auth()->user()->partner_id;

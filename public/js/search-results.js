@@ -1,9 +1,9 @@
-// Trang tìm kiếm phòng (/s/{location}) — tải kết quả qua GraphQL (POST /api/graphql, pilot
+// Trang tìm kiếm sân (/s/{location}) — tải kết quả qua GraphQL (POST /api/graphql, pilot
 // Automatic Persisted Queries — xem crystalline-toasting-sunrise.md) bằng JS thuần thay vì
 // Livewire, giống cách trang chủ đang dùng /api/v1/home + home-sections.js. Card
-// phòng tái dùng thẳng window.roomCardHtml() (đã có sẵn nút yêu thích) để đồng nhất giao diện
-// với trang chủ. Mỗi phòng thuộc về 1 chi nhánh riêng — được API gắn kèm (room.branch) — nên ở
-// đây nhóm lại theo chi nhánh, mỗi chi nhánh 1 dòng riêng, bên dưới là các card phòng của chi
+// sân tái dùng thẳng window.roomCardHtml() (đã có sẵn nút yêu thích) để đồng nhất giao diện
+// với trang chủ. Mỗi sân thuộc về 1 chi nhánh riêng — được API gắn kèm (room.branch) — nên ở
+// đây nhóm lại theo chi nhánh, mỗi chi nhánh 1 dòng riêng, bên dưới là các card sân của chi
 // nhánh đó.
 (function () {
     function escapeHtml(str) {
@@ -34,7 +34,7 @@
             filters[key] = INT_FILTER_KEYS.indexOf(key) !== -1 ? parseInt(v, 10) : v;
         });
         // per_page=100 (tối đa API cho phép) — trang tìm kiếm không phân trang, hiển thị hết
-        // phòng phù hợp trong 1 tỉnh/chi nhánh giống trải nghiệm cũ.
+        // sân phù hợp trong 1 tỉnh/chi nhánh giống trải nghiệm cũ.
         filters.per_page = 100;
         return filters;
     }
@@ -80,7 +80,7 @@
     }
 
     // ?view=branches (từ "Xem tất cả" của block Gợi ý điểm đến loại Chi nhánh) — liệt kê chi
-    // nhánh của khu vực thay vì phòng.
+    // nhánh của khu vực thay vì sân.
     function isBranchesView() {
         return new URLSearchParams(window.location.search).get('view') === 'branches';
     }
@@ -173,11 +173,11 @@
         var total = meta.total || 0;
         var typeParam = params.get('type');
         var title = meta.province_name
-            ? total + ' phòng tại ' + meta.province_name
-            : (total > 0 ? (typeParam === 'homestay' ? total + ' phòng' : total + ' phòng trên toàn quốc') : '');
+            ? total + ' sân tại ' + meta.province_name
+            : (total > 0 ? (typeParam === 'homestay' ? total + ' sân' : total + ' sân trên toàn quốc') : '');
         var titleHtml = title
             ? '<p class="search-count-title">' + escapeHtml(title) + '</p>'
-            : '<p class="search-count-title" style="font-weight:500;color:#6b7280;">Không tìm thấy phòng nào phù hợp.</p>';
+            : '<p class="search-count-title" style="font-weight:500;color:#6b7280;">Không tìm thấy sân nào phù hợp.</p>';
 
         var chips = '';
         var buoi = params.get('buoi');
@@ -194,11 +194,11 @@
         return titleHtml + chipsHtml;
     }
 
-    // Skeleton hiện ngay khi bắt đầu gọi GraphQL search phòng (trước đây #search-results-body để
+    // Skeleton hiện ngay khi bắt đầu gọi GraphQL search sân (trước đây #search-results-body để
     // trống trơn cho tới khi fetch xong) — dùng đúng khung .branch-grid/.branch-card như card
     // thật (CSS shimmer .search-skel* ở search.blade.php) nên không giật layout khi thay bằng
     // renderResults(). 2 "hàng" giả lập kiểu nhóm-theo-chi-nhánh thật (không biết trước sẽ có bao
-    // nhiêu chi nhánh/phòng nên chỉ dựng khung chung chung).
+    // nhiêu chi nhánh/sân nên chỉ dựng khung chung chung).
     function renderSearchSkeleton() {
         var card = '<div class="branch-card"><div class="home-card" style="display:flex; flex-direction:column; gap:8px;">'
             + '<div class="search-skel search-skel-img"></div>'
@@ -230,18 +230,18 @@
 
         return '<div class="room-slider" style="margin-bottom:4px;">'
             + '<div class="branch-grid">' + cards + '</div>'
-            + '<button type="button" class="room-slider-nav room-slider-prev" aria-label="Phòng trước" onclick="window.__roomSliderNav(this, -1)">'
+            + '<button type="button" class="room-slider-nav room-slider-prev" aria-label="Sân trước" onclick="window.__roomSliderNav(this, -1)">'
             + '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>'
             + '</button>'
-            + '<button type="button" class="room-slider-nav room-slider-next" aria-label="Phòng tiếp theo" onclick="window.__roomSliderNav(this, 1)">'
+            + '<button type="button" class="room-slider-nav room-slider-next" aria-label="Sân tiếp theo" onclick="window.__roomSliderNav(this, 1)">'
             + '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>'
             + '</button>'
             + '</div>';
     }
 
-    // Nhóm theo chi nhánh (room.branch.id) — phòng không có chi nhánh (tìm kiếm toàn quốc, không
+    // Nhóm theo chi nhánh (room.branch.id) — sân không có chi nhánh (tìm kiếm toàn quốc, không
     // xác định được tỉnh) gom vào 1 nhóm chung, hiển thị phẳng không có dòng tiêu đề. Trả về danh
-    // sách phòng ĐÃ THEO ĐÚNG THỨ TỰ HIỂN THỊ TRÊN DOM (nhóm theo chi nhánh làm xáo trộn thứ tự
+    // sách sân ĐÃ THEO ĐÚNG THỨ TỰ HIỂN THỊ TRÊN DOM (nhóm theo chi nhánh làm xáo trộn thứ tự
     // gốc) — dùng chung cho cả renderResults() và buildMapData() để 2 bên luôn khớp vị trí nhau
     // (initSearchMap() ghép .branch-card với dữ liệu bản đồ theo index).
     function groupRoomsByBranch(rooms) {
@@ -274,7 +274,7 @@
                 + '<svg style="width:48px;height:48px;color:#d1d5db;margin:0 auto 12px;" fill="none" stroke="currentColor" viewBox="0 0 24 24">'
                 + '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>'
                 + '</svg>'
-                + '<p style="color:#6b7280;font-size:14px;margin:0;">Không tìm thấy phòng nào phù hợp.</p>'
+                + '<p style="color:#6b7280;font-size:14px;margin:0;">Không tìm thấy sân nào phù hợp.</p>'
                 + '</div>';
         }
 
@@ -289,7 +289,7 @@
         return html;
     }
 
-    // Giữ nguyên vị trí kể cả khi phòng không có toạ độ (lat/lng null) — initSearchMap() tự bỏ
+    // Giữ nguyên vị trí kể cả khi sân không có toạ độ (lat/lng null) — initSearchMap() tự bỏ
     // qua pin cho phần tử không có toạ độ nhưng vẫn cần đúng index để khớp với .branch-card.
     function buildMapData(orderedRooms) {
         return orderedRooms.map(function (room) {
@@ -334,7 +334,7 @@
         if (token) headers.Authorization = 'Bearer ' + token;
 
         // ?view=branches — liệt kê chi nhánh của khu vực (từ "Gợi ý điểm đến" loại Chi nhánh),
-        // không cần bản đồ/slider phòng như luồng tìm phòng thông thường bên dưới.
+        // không cần bản đồ/slider sân như luồng tìm sân thông thường bên dưới.
         if (isBranchesView()) {
             if (bodyEl) bodyEl.innerHTML = renderBranchesSkeleton();
             var branches = [];
@@ -351,7 +351,7 @@
             if (bodyEl) bodyEl.innerHTML = renderBranchesResults(branches);
 
             // Panel bên phải luôn là bản đồ ở đây (xem search.blade.php) — ghim mỗi chi nhánh
-            // (kèm latitude/longitude từ API /v1/search/branches) thay vì bản đồ phòng thường.
+            // (kèm latitude/longitude từ API /v1/search/branches) thay vì bản đồ sân thường.
             if (typeof window.initBranchesMap === 'function') {
                 window.initBranchesMap(branches);
             }
@@ -392,7 +392,7 @@
     // kiện nào) nếu DOM đã sẵn sàng — đúng cả 2 trường hợp: script chạy sau khi DOM đã dựng xong
     // (SPA nav, hoặc <script> đặt cuối trang khi load cứng) thì gọi ngay; script chạy TRƯỚC khi
     // DOM dựng xong (readyState vẫn 'loading', hiếm khi xảy ra với script cuối body) thì đợi
-    // DOMContentLoaded như cũ. Vẫn giữ listener 'livewire:navigated' làm lớp phòng hộ thêm — gọi
+    // DOMContentLoaded như cũ. Vẫn giữ listener 'livewire:navigated' làm lớp sân hộ thêm — gọi
     // lại loadSearchResults() không hại gì (idempotent, chỉ fetch + render lại).
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', loadSearchResults);
@@ -401,7 +401,7 @@
     }
     document.addEventListener('livewire:navigated', loadSearchResults);
 
-    // Lớp phòng hộ thứ 2, độc lập hẳn với vòng đời sự kiện Livewire: đã quan sát được
+    // Lớp sân hộ thứ 2, độc lập hẳn với vòng đời sự kiện Livewire: đã quan sát được
     // 'livewire:navigated' KHÔNG bắn lại mỗi lần điều hướng nếu 2 URL cùng route /s/{location?}
     // (chỉ khác query string) — Livewire có thể coi đây là "cùng trang", không tính là 1 lần
     // "navigated" đầy đủ. Thay vì phụ thuộc sự kiện, theo dõi trực tiếp window.location.href mỗi

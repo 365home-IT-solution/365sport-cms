@@ -89,6 +89,11 @@ class Order extends Model implements Eventable
         'extra_refund_method',
         'extra_refund_paid_at',
         'settled_adjustment_total',
+        'cancelled_at',
+        'cancelled_by',
+        'cancel_reason',
+        'order_type',
+        'package_plan_id',
     ];
 
     protected $casts = [
@@ -105,7 +110,54 @@ class Order extends Model implements Eventable
         'unlock_anytime'         => 'boolean',
         'checked_in_at'          => 'datetime',
         'checked_out_at'         => 'datetime',
+        'cancelled_at'           => 'datetime',
     ];
+
+    // % hoàn lại khi khách TỰ huỷ đơn online — áp trên số tiền ĐÃ THANH TOÁN thật (không phải tổng
+    // giá trị đơn), khớp đúng câu chữ đã hiển thị cho khách lúc đặt sân (xem
+    // infomation-book-room.blade.php: "hoàn từ 70% khi hủy, 10% phí xử lý").
+    public const CUSTOMER_CANCEL_REFUND_RATE = 0.70;
+
+    public function isCancelled(): bool
+    {
+        return ! is_null($this->cancelled_at);
+    }
+
+    /**
+     * Khách chỉ được TỰ huỷ khi: đơn đã thanh toán (cọc/đủ) — đơn 'pending' chưa thanh toán thì
+     * chỉ cần bỏ qua QR/không thanh toán là tự hết hạn, không cần "huỷ"; CHƯA từng huỷ; và khung
+     * giờ/ngày ĐẦU TIÊN trong đơn CHƯA bắt đầu (đã bắt đầu/đã qua thì huỷ không còn ý nghĩa, sân
+     * đã/đang được dùng).
+     */
+    public function canBeCancelledByCustomer(): bool
+    {
+        if ($this->isCancelled()) {
+            return false;
+        }
+
+        if (! in_array($this->status, ['paid', 'deposit'], true)) {
+            return false;
+        }
+
+        $earliestCheckin = $this->items->pluck('checkin_date')->filter()->min();
+
+        return $earliestCheckin && $earliestCheckin->isFuture();
+    }
+
+    /**
+     * Số tiền hoàn nếu khách huỷ NGAY BÂY GIỜ — 70% số tiền ĐÃ thanh toán thật (full_amount đã
+     * phản ánh đúng số tiền thật đã thu, kể cả đơn deposit — xem cột full_amount comment trong
+     * migration create_orders_table: "amount = tiền cọc cần thanh toán", full_amount = tổng giá
+     * trị đơn; số ĐÃ THU thật với đơn deposit là amount, với đơn paid là full_amount).
+     */
+    public function computeCustomerCancelRefundAmount(): int
+    {
+        $paidSoFar = $this->status === 'deposit'
+            ? (int) ($this->amount ?? 0)
+            : (int) ($this->full_amount ?? $this->amount ?? 0);
+
+        return (int) round($paidSoFar * self::CUSTOMER_CANCEL_REFUND_RATE);
+    }
     protected $with = ['items'];
     protected $appends = ['payment_status'];
 
@@ -117,12 +169,12 @@ class Order extends Model implements Eventable
         'refunded' => 'Đã hoàn tiền',
     ];
 
-    // order_status: vòng đời đơn (chờ → nhận phòng → đang ở → trả phòng).
+    // order_status: vòng đời đơn (chờ → nhận sân → đang ở → trả sân).
     public const ORDER_STATUS_LABELS = [
-        'pending'     => 'Chờ nhận phòng',
-        'checked_in'  => 'Đã nhận phòng',
+        'pending'     => 'Chờ nhận sân',
+        'checked_in'  => 'Đã nhận sân',
         'staying'     => 'Đang ở',
-        'checked_out' => 'Đã trả phòng',
+        'checked_out' => 'Đã trả sân',
     ];
 
     private const PAYMENT_STATUS_MAP = [
@@ -166,13 +218,13 @@ class Order extends Model implements Eventable
 
         // order_items KHÔNG có FK cascade (chỉ unsignedBigInteger + index, không ràng buộc khoá
         // ngoại) — xoá Order trước đây chỉ xoá đúng 1 dòng orders, để lại order_items MỒ CÔI
-        // trong DB. Vì khung giờ/ngày đã đặt của phòng được TÍNH TỪ order_items còn tồn tại (không
-        // phải từ 1 bảng "slot" riêng), các order_item mồ côi này vẫn khiến phòng hiện "đã đặt",
+        // trong DB. Vì khung giờ/ngày đã đặt của sân được TÍNH TỪ order_items còn tồn tại (không
+        // phải từ 1 bảng "slot" riêng), các order_item mồ côi này vẫn khiến sân hiện "đã đặt",
         // không thể tạo lại đúng khung giờ đó dù đơn đã bị xoá. Phải tự tay dọn khi Order bị xoá.
         static::deleting(function (self $order): void {
             // Chụp lại (ngày, timeslot_id)/khoảng ngày của items TRƯỚC khi xoá — dùng để bắn
             // realtime "giải phóng" NGAY sau khi xoá xong, để khách đang mở book.blade.php/
-            // product-detail.blade.php của đúng phòng này thấy khung giờ trống lại tức thì thay
+            // product-detail.blade.php của đúng sân này thấy khung giờ trống lại tức thì thay
             // vì phải đợi tải lại trang (trước đây xoá đơn không bắn gì cả — ĐÚNG cách
             // App\Http\Controllers\Api\Admin\OrderController::updateOrder() đã làm cho luồng SỬA
             // đơn, áp dụng lại cho luồng XOÁ ở đây).
@@ -181,54 +233,66 @@ class Order extends Model implements Eventable
             $order->items()->delete();
             $order->services()->delete();
 
-            if ($itemsByProduct->isEmpty()) {
-                return;
-            }
-
-            $realtimeService = app(\App\Services\SlotRealtimeService::class);
-
-            foreach ($itemsByProduct as $productId => $items) {
-                $product = \Modules\Product\App\Models\Product::find($productId);
-                if (! $product) {
-                    continue;
-                }
-
-                if ((int) $product->styles === 1) {
-                    // Phòng "khung giờ" — order_items không lưu timeslot_id trực tiếp nên suy
-                    // ngược qua giờ bắt đầu (checkin_date) khớp với RoomTimeSlot lặp lại (date IS
-                    // NULL) của phòng, best-effort cho mục đích hiển thị realtime.
-                    $recurringSlotsByStartTime = $product->roomTimeSlots()
-                        ->whereNull('date')
-                        ->with('timeSlot')
-                        ->get()
-                        ->filter(fn ($rts) => $rts->timeSlot)
-                        ->keyBy(fn ($rts) => $rts->timeSlot->start_time);
-
-                    $items
-                        ->filter(fn ($item) => $item->checkin_date)
-                        ->map(function ($item) use ($recurringSlotsByStartTime) {
-                            $rts = $recurringSlotsByStartTime->get($item->checkin_date->format('H:i:s'));
-
-                            return $rts ? ['date' => $item->checkin_date->toDateString(), 'timeslot_id' => $rts->timeslot_id] : null;
-                        })
-                        ->filter()
-                        ->groupBy('date')
-                        ->each(fn ($slots, $date) => $realtimeService->broadcastSlotsAvailable(
-                            (string) $productId,
-                            $date,
-                            collect($slots)->pluck('timeslot_id')->values()->toArray()
-                        ));
-                } else {
-                    // Phòng "theo ngày" — giải phóng khoảng ngày rộng nhất (min checkin - max
-                    // checkout) trong số các item vừa xoá của phòng này.
-                    $checkin  = $items->pluck('checkin_date')->filter()->min();
-                    $checkout = $items->pluck('checkout_date')->filter()->max();
-                    if ($checkin && $checkout) {
-                        $realtimeService->broadcastDailyReleased((string) $productId, $checkin->toDateString(), $checkout->toDateString());
-                    }
-                }
-            }
+            self::broadcastSlotsReleasedByProduct($itemsByProduct);
         });
+    }
+
+    /**
+     * Bắn realtime "giải phóng" cho 1 tập order_items đã nhóm theo product_id — dùng chung cho
+     * luồng XOÁ đơn (booted() ở trên, items sắp bị xoá) LẪN luồng khách TỰ HUỶ đơn
+     * (OrderCancellationService::cancelByCustomer(), items vẫn còn nguyên trong DB, chỉ không còn
+     * tính là "chiếm chỗ" nữa nhờ cancelled_at — xem applyActiveOrderConstraint() bên
+     * OrderForm.php và các nơi lọc order tương tự khác).
+     */
+    public static function broadcastSlotsReleasedByProduct(\Illuminate\Support\Collection $itemsByProduct): void
+    {
+        if ($itemsByProduct->isEmpty()) {
+            return;
+        }
+
+        $realtimeService = app(\App\Services\SlotRealtimeService::class);
+
+        foreach ($itemsByProduct as $productId => $items) {
+            $product = \Modules\Product\App\Models\Product::find($productId);
+            if (! $product) {
+                continue;
+            }
+
+            if ((int) $product->styles === 1) {
+                // Sân "khung giờ" — order_items không lưu timeslot_id trực tiếp nên suy
+                // ngược qua giờ bắt đầu (checkin_date) khớp với RoomTimeSlot lặp lại (date IS
+                // NULL) của sân, best-effort cho mục đích hiển thị realtime.
+                $recurringSlotsByStartTime = $product->roomTimeSlots()
+                    ->whereNull('date')
+                    ->with('timeSlot')
+                    ->get()
+                    ->filter(fn ($rts) => $rts->timeSlot)
+                    ->keyBy(fn ($rts) => $rts->timeSlot->start_time);
+
+                $items
+                    ->filter(fn ($item) => $item->checkin_date)
+                    ->map(function ($item) use ($recurringSlotsByStartTime) {
+                        $rts = $recurringSlotsByStartTime->get($item->checkin_date->format('H:i:s'));
+
+                        return $rts ? ['date' => $item->checkin_date->toDateString(), 'timeslot_id' => $rts->timeslot_id] : null;
+                    })
+                    ->filter()
+                    ->groupBy('date')
+                    ->each(fn ($slots, $date) => $realtimeService->broadcastSlotsAvailable(
+                        (string) $productId,
+                        $date,
+                        collect($slots)->pluck('timeslot_id')->values()->toArray()
+                    ));
+            } else {
+                // Sân "theo ngày" — giải phóng khoảng ngày rộng nhất (min checkin - max
+                // checkout) trong số các item của sân này.
+                $checkin  = $items->pluck('checkin_date')->filter()->min();
+                $checkout = $items->pluck('checkout_date')->filter()->max();
+                if ($checkin && $checkout) {
+                    $realtimeService->broadcastDailyReleased((string) $productId, $checkin->toDateString(), $checkout->toDateString());
+                }
+            }
+        }
     }
 
     // Số tiền THỰC TẾ cần thu ngay bây giờ (qua PayOS...) — 'full_amount' luôn là TỔNG GIÁ CỐ ĐỊNH

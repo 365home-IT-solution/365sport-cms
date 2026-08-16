@@ -89,9 +89,9 @@ private function buildTelegramMessage(Order $order, string $status): string
         $paidAmt   = number_format($paidAmtNum, 0, ',', '.');
         $remaining = number_format(max(0, $fullAmtNum - $paidAmtNum), 0, ',', '.');
         $pct       = $order->deposit_percent;
-        $message  .= "💵 Tổng tiền phòng: {$fullAmt}đ\n"
+        $message  .= "💵 Tổng tiền sân: {$fullAmt}đ\n"
                   .  "💳 Tiền cọc ({$pct}%): {$paidAmt}đ\n"
-                  .  "⏳ Còn lại khi nhận phòng: {$remaining}đ\n";
+                  .  "⏳ Còn lại khi nhận sân: {$remaining}đ\n";
     } else {
         $message .= "💰 Tổng tiền: {$amount}đ\n";
     }
@@ -101,7 +101,7 @@ private function buildTelegramMessage(Order $order, string $status): string
     $items = $order->items->filter(fn($item) => $item->extra_fee == 0);
 
     if ($items->isNotEmpty()) {
-        $message .= "🏠 <b>Phòng đã đặt:</b>\n";
+        $message .= "🏠 <b>Sân đã đặt:</b>\n";
         foreach ($items->values() as $index => $item) {
             $checkin  = $item->checkin_date  ? $item->checkin_date->format('H:i d/m/Y')  : '';
             $checkout = $item->checkout_date ? $item->checkout_date->format('H:i d/m/Y') : '';
@@ -152,6 +152,22 @@ private function buildTelegramMessage(Order $order, string $status): string
             }
 
             $order->load('items');
+
+            // Đơn mua gói nhiều buổi — KHÔNG đi qua bất kỳ nhánh cọc/remaining/access-code nào bên
+            // dưới (toàn bộ nhánh đó giả định đơn có sân/khung giờ thật), xử lý RIÊNG và return
+            // ngay (xem handlePackagePurchasePaid(), cùng nhánh webhook PAID đang dùng — hàm này
+            // tự kiểm tra idempotent qua status).
+            if ($order->order_type === 'package_purchase') {
+                if ($order->status !== 'paid') {
+                    $payOS    = new PayOS($this->payOSClientId, $this->payOSApiKey, $this->payOSChecksumKey);
+                    $response = $payOS->getPaymentLinkInformation((int) $order->order_code);
+                    if (($response['status'] ?? null) === 'PAID') {
+                        $this->handlePackagePurchasePaid($order);
+                    }
+                    return response()->json(['error' => 0, 'message' => 'Success', 'data' => $response ?? []]);
+                }
+                return response()->json(['error' => 0, 'message' => 'Already paid']);
+            }
 
             // ── Trường hợp 1: đơn đã thanh toán đầy đủ → không làm gì thêm ──
             if ($order->status === 'paid') {
@@ -294,7 +310,7 @@ private function buildTelegramMessage(Order $order, string $status): string
                 $order->id, $categoryId, $checkinDate, $checkoutDate, $product
             );
 
-            // FCM + WS theo loại khóa của phòng
+            // FCM + WS theo loại khóa của sân
             try {
                 $order->loadMissing(['items.product']);
                 $notifTitle  = null;
@@ -302,13 +318,13 @@ private function buildTelegramMessage(Order $order, string $status): string
                 $wsPayload   = ['access_code_assigned' => true];
 
                 if ($product && $product->has_manual_lock) {
-                    // Phòng có mật khẩu thủ công (ManualLockPassword) → gửi mã thực tế
+                    // Sân có mật khẩu thủ công (ManualLockPassword) → gửi mã thực tế
                     $pwdAnchorDate = $order->paid_at ?? $order->deposit_paid_at ?? $order->created_at;
                     $manualPwd = \Modules\Product\App\Models\ManualLockPassword::getForProductAndDate($product, $pwdAnchorDate);
                     if ($manualPwd && ($manualPwd->gate_password || $manualPwd->room_password)) {
                         $parts = [];
                         if ($manualPwd->gate_password) $parts[] = 'Mã cổng: ' . $manualPwd->gate_password;
-                        if ($manualPwd->room_password) $parts[] = 'Mã phòng: ' . $manualPwd->room_password;
+                        if ($manualPwd->room_password) $parts[] = 'Mã sân: ' . $manualPwd->room_password;
                         $notifTitle = "Đơn #{$order->order_code}: Mã cổng đã được cấp";
                         $notifBody  = implode(' | ', $parts);
                         $wsPayload  = [
@@ -319,12 +335,12 @@ private function buildTelegramMessage(Order $order, string $status): string
                         ];
                     }
                 } elseif ($product && $product->lock_id && \App\Services\TTLockService::forCategory($order->category_id)) {
-                    // Phòng TTLock → thông báo có thể mở từ app
+                    // Sân TTLock → thông báo có thể mở từ app
                     $notifTitle = "Đơn #{$order->order_code}: Mã cổng đã sẵn sàng";
                     $notifBody  = 'Bạn có thể mở cửa trực tiếp từ ứng dụng.';
                     $wsPayload  = ['access_code_assigned' => true, 'lock_type' => 'ttlock'];
                 }
-                // Phòng không có pass → không gửi thông báo
+                // Sân không có pass → không gửi thông báo
 
                 if ($notifTitle && $notifBody) {
                     $notifService = app(\App\Services\NotificationFcmService::class);
@@ -680,6 +696,14 @@ private function buildTelegramMessage(Order $order, string $status): string
     private function handlePaidStatus(Order $order, array $data): bool
     {
         try {
+            // Đơn MUA GÓI NHIỀU BUỔI (order_type=package_purchase, xem
+            // ProductDetail::buyPackage()) — KHÔNG có sân/khung giờ thật để gán mã cổng/checkin,
+            // xử lý RIÊNG và return NGAY, không chạy tiếp logic đặt sân bên dưới (deposit/access
+            // code/Telegram booking...).
+            if ($order->order_type === 'package_purchase') {
+                return $this->handlePackagePurchasePaid($order);
+            }
+
             // Nếu là đơn cọc (deposit_percent != null) → chỉ ghi nhận cọc,
             // KHÔNG gán mã cổng. Mã cổng chỉ gán sau khi khách thanh toán phần còn lại.
             if ($order->deposit_percent !== null) {
@@ -730,6 +754,54 @@ private function buildTelegramMessage(Order $order, string $status): string
             ]);
             return false;
         }
+    }
+
+    // =========================================================
+    // HANDLE PACKAGE PURCHASE PAID 🎫
+    // =========================================================
+
+    /**
+     * Khách vừa thanh toán xong 1 gói nhiều buổi (order_type=package_purchase) — kích hoạt
+     * CustomerPackage ngay, KHÔNG đụng gì tới access code/checkin/Telegram booking (đơn này không
+     * có sân/khung giờ thật). Idempotent qua order->status check (webhook PayOS có thể gọi lại).
+     */
+    private function handlePackagePurchasePaid(Order $order): bool
+    {
+        if ($order->status === 'paid') {
+            Log::info('Package purchase already paid, skipping', ['order_id' => $order->id]);
+            return false;
+        }
+
+        $order->update(['status' => 'paid']);
+
+        $plan = \App\Models\PackagePlan::find($order->package_plan_id);
+        if (! $plan) {
+            Log::error('handlePackagePurchasePaid: package plan not found', [
+                'order_id' => $order->id, 'package_plan_id' => $order->package_plan_id,
+            ]);
+            return true; // Đơn vẫn đánh dấu paid (đã thu tiền thật) — admin xử lý thủ công nếu plan bị xoá giữa chừng.
+        }
+
+        \App\Models\CustomerPackage::create([
+            'package_plan_id'    => $plan->id,
+            'buyer_phone'        => $order->buyer_phone,
+            'buyer_name'         => $order->buyer_name,
+            'product_id'         => $plan->product_id,
+            'name'               => $plan->name,
+            'sessions_total'     => $plan->sessions_count,
+            'sessions_remaining' => $plan->sessions_count,
+            'price_paid'         => (int) $order->amount,
+            'purchased_at'       => now(),
+            'expires_at'         => $plan->validity_days ? now()->addDays($plan->validity_days) : null,
+            'sale_channel'       => 'online',
+            'order_id'           => $order->id,
+        ]);
+
+        Log::info('Package purchase activated', [
+            'order_id' => $order->id, 'package_plan_id' => $plan->id, 'buyer_phone' => $order->buyer_phone,
+        ]);
+
+        return true;
     }
 
     // =========================================================
@@ -896,7 +968,7 @@ private function buildTelegramMessage(Order $order, string $status): string
                 'expiredAt'   => $expiredAt,
                 'items'       => [
                     [
-                        'name'     => 'Tiền còn lại - ' . ($order->items->first()->name ?? 'Phòng'),
+                        'name'     => 'Tiền còn lại - ' . ($order->items->first()->name ?? 'Sân'),
                         'quantity' => 1,
                         'price'    => $remaining,
                     ],

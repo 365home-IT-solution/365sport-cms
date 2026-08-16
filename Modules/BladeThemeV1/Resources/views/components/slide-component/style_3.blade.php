@@ -1,5 +1,5 @@
 <div class="max-w-screen-xl md:px-8 px-4 mx-auto">
-    <h2 class="mt-4 mb-4 text-center text-4xl font-bold">Danh sách phòng</h2>
+    <h2 class="mt-4 mb-4 text-center text-4xl font-bold">Danh sách sân</h2>
     <div class="owl-carousel owl-carousel-{{ $uniqueId }} {{ $this->style_3 ? 'style-lv3' : '' }}"
         data-room-count="{{ $rooms->count() }}">
         @if ($rooms->isNotEmpty())
@@ -19,7 +19,7 @@
 
             <!-- Nội dung -->
             <div class="p-5">
-                <!-- Tên phòng & mô tả -->
+                <!-- Tên sân & mô tả -->
                 @if (($room->styles ?? 1) == 2)
                 {{-- styles=2: Compact booking calendar --}}
                 @php
@@ -128,7 +128,7 @@
                 </div>
                 <div class="flex items-end justify-between">
                     <div class="text-start min-w-[60%]">
-                        <p class="font-bold">GIÁ PHÒNG</p>
+                        <p class="font-bold">GIÁ SÂN</p>
                         @if (!empty($room->time_price_pairs))
                         @php
                         $pairs = array_map('trim', explode(',', $room->time_price_pairs));
@@ -147,7 +147,7 @@
                     @endif
                 </div>
                 <a href="{{ route('product.detail', ['slug' => $room->pslug]) }}" class="block w-full">
-                    <button class="w-full text-white text-sm font-semibold py-3 border border-borderGray px-6 rounded-full outline-none focus:ring-4 focus:ring-primary bg-primary text-borderGray hover:bg-borderGray hover:text-primary hover:border-primary">Đặt phòng</button>
+                    <button class="w-full text-white text-sm font-semibold py-3 border border-borderGray px-6 rounded-full outline-none focus:ring-4 focus:ring-primary bg-primary text-borderGray hover:bg-borderGray hover:text-primary hover:border-primary">Đặt sân</button>
                 </a>
             </div>
             @endif

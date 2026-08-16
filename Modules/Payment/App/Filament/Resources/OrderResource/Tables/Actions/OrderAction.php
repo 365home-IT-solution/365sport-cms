@@ -29,7 +29,7 @@ class OrderAction
 
                         // Cùng lý do như EditOrder::mutateFormDataBeforeFill() — 'booking_partner_id'
                         // là field ảo không dehydrate, modal "Xem chi tiết" cũng phải tự điền lại
-                        // để "Chi nhánh"/"Phòng" hiện đúng tên thay vì số ID thô.
+                        // để "Chi nhánh"/"Sân" hiện đúng tên thay vì số ID thô.
                         $data['booking_partner_id'] = $record->partner_id;
 
                         return $data;

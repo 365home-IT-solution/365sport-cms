@@ -52,7 +52,7 @@ class ZnsNotificationTable
                         'danger' => 'booking_cancelled',
                     ])
                     ->formatStateUsing(fn ($state) => match($state) {
-                        'booking_success' => 'Đặt phòng',
+                        'booking_success' => 'Đặt sân',
                         'booking_reminder' => 'Nhắc nhở',
                         'booking_cancelled' => 'Hủy đơn',
                         default => $state,

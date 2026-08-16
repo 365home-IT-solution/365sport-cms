@@ -13,16 +13,16 @@ use Modules\Product\App\Models\Product;
 use Modules\Product\App\Models\RoomTimeSlot;
 
 /**
- * Quản lý khung giờ MẶC ĐỊNH (template) của 1 phòng cụ thể — bảng `room_time_slots`, các dòng
+ * Quản lý khung giờ MẶC ĐỊNH (template) của 1 sân cụ thể — bảng `room_time_slots`, các dòng
  * `date IS NULL` (dòng có `date` là override giá cho 1 ngày cụ thể, KHÔNG thuộc phạm vi controller
- * này). Khác với RoomController::timeSlots() (tra cứu tình trạng còn trống theo ngày để đặt phòng),
- * controller này phục vụ màn CẤU HÌNH: phòng nào áp dụng khung giờ nào, giá bao nhiêu.
+ * này). Khác với RoomController::timeSlots() (tra cứu tình trạng còn trống theo ngày để đặt sân),
+ * controller này phục vụ màn CẤU HÌNH: sân nào áp dụng khung giờ nào, giá bao nhiêu.
  */
 class RoomTimeSlotController extends Controller
 {
     /**
      * GET /api/admin/products/{id}/time-slots
-     * Danh sách khung giờ đã gán cho phòng: room_id, timeslot_id, price, over_night (kèm thông tin
+     * Danh sách khung giờ đã gán cho sân: room_id, timeslot_id, price, over_night (kèm thông tin
      * khung giờ start_time/end_time/label để FE hiển thị luôn không cần gọi thêm GET /api/admin/time-slots).
      */
     public function index(Request $request, string $id): JsonResponse
@@ -30,7 +30,7 @@ class RoomTimeSlotController extends Controller
         $product = $this->visibleProduct($request->user(), $id);
 
         if (! $product) {
-            return response()->json(['message' => 'Không tìm thấy phòng.'], 404);
+            return response()->json(['message' => 'Không tìm thấy sân.'], 404);
         }
 
         $slots = $product->roomTimeSlots()
@@ -43,7 +43,7 @@ class RoomTimeSlotController extends Controller
 
     /**
      * POST /api/admin/products/{id}/time-slots
-     * Thêm/cập nhật khung giờ áp dụng cho phòng — nhận mảng slots[], mỗi phần tử ứng với 1 khung
+     * Thêm/cập nhật khung giờ áp dụng cho sân — nhận mảng slots[], mỗi phần tử ứng với 1 khung
      * giờ trong danh sách chung (GET /api/admin/time-slots). Ghi đè (updateOrCreate) theo cặp
      * (room_id, timeslot_id, date=null) — gọi lại với cùng timeslot_id sẽ CẬP NHẬT giá/over_night
      * thay vì tạo trùng dòng mới.
@@ -56,7 +56,7 @@ class RoomTimeSlotController extends Controller
         $product = $this->visibleProduct($request->user(), $id);
 
         if (! $product) {
-            return response()->json(['message' => 'Không tìm thấy phòng.'], 404);
+            return response()->json(['message' => 'Không tìm thấy sân.'], 404);
         }
 
         $data = $request->validate([

@@ -18,7 +18,7 @@ class CccdDeclarationService
 
     public function upsertFromOrder(Order $order): void
     {
-        // Khách chính (người đặt phòng) — luôn khai báo (guest_index=1).
+        // Khách chính (người đặt sân) — luôn khai báo (guest_index=1).
         $this->upsertGuest($order, 1, is_array($order->cccd_data) ? $order->cccd_data : [], $order->buyer_phone);
 
         // Khách đi cùng (guest_index=2,3,4...) — lưu ở bảng RIÊNG order_guest_cccds (dùng chung
@@ -26,7 +26,7 @@ class CccdDeclarationService
         // xem Order::guestCccds()), KHÔNG còn ở cột cccd_data_2 cố định trên chính bảng orders
         // (chỉ đủ 1 khách thêm, không scale theo guest_count). Chỉ khai báo khách nào ĐÃ có dữ
         // liệu CCCD quét được — Luật Cư trú yêu cầu khai báo ĐỦ TỪNG NGƯỜI lưu trú qua đêm, không
-        // chỉ người đứng tên đặt phòng, nhưng chưa quét được thì chưa có gì để khai.
+        // chỉ người đứng tên đặt sân, nhưng chưa quét được thì chưa có gì để khai.
         $guestCccds = $order->guestCccds;
 
         foreach ($guestCccds as $guest) {
@@ -60,7 +60,7 @@ class CccdDeclarationService
         // "Ngày đến"/"Ngày đi dự kiến" phải lấy khung SỚM NHẤT → MUỘN NHẤT trong TOÀN BỘ đơn, không
         // phải chỉ item ĐẦU TIÊN trong collection (trước đây dùng items->first(), nên thêm khung
         // giờ sau vào đơn đã có sẵn không hề cập nhật lại "Ngày đi dự kiến" — vẫn giữ giờ của khung
-        // đầu tiên, sai lệch với thực tế đã đặt). Cả 2 khách cùng ở CHUNG 1 phòng/lượt lưu trú nên
+        // đầu tiên, sai lệch với thực tế đã đặt). Cả 2 khách cùng ở CHUNG 1 sân/lượt lưu trú nên
         // dùng chung mốc giờ này, không tính riêng cho từng người.
         $toDateTime = fn ($i) => $i->checkin_datetime ?? ($i->checkin_date ? Carbon::parse($i->checkin_date) : null);
         $toEndTime  = fn ($i) => $i->checkout_datetime ?? ($i->checkout_date ? Carbon::parse($i->checkout_date) : null);
@@ -84,7 +84,7 @@ class CccdDeclarationService
         // reason_for_stay là trường CHỈ nhân viên tự điền tay (OCR/hệ thống không biết được) — phải
         // GIỮ NGUYÊN giá trị cũ nếu đã có. province/ward thì ưu tiên giữ giá trị nhân viên đã SỬA
         // TAY (nếu có), chỉ dùng kết quả tách tự động cho lần đầu/khi còn trống — tránh lần cập
-        // nhật tự động sau (vd sửa đơn vì lý do khác — đổi ngày, đổi phòng...) xoá mất dữ liệu nhân
+        // nhật tự động sau (vd sửa đơn vì lý do khác — đổi ngày, đổi sân...) xoá mất dữ liệu nhân
         // viên đã nhập hoặc ghi đè lại 1 kết quả tách tự động đã bị sửa vì tách sai. Lần đầu tạo
         // (chưa có $existing) thì mặc định "Nghỉ ngơi" — trường này bắt buộc theo Luật Cư trú, nếu
         // để trống thì đơn nào tạo ra cũng thiếu thông tin, chặn không đánh dấu "đã khai báo" được.

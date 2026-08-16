@@ -68,13 +68,13 @@ class RouteServiceProvider extends ServiceProvider
         });
 
         // public-api: 40/phút/IP — siết chặt hơn mức mặc định 60/phút cho các endpoint
-        // public "nặng" (home, search) dễ bị scraper dò toàn bộ dữ liệu phòng/giá.
+        // public "nặng" (home, search) dễ bị scraper dò toàn bộ dữ liệu sân/giá.
         RateLimiter::for('public-api', function (Request $request) {
             return Limit::perMinute(40)->by($request->user()?->id ?: $request->ip());
         });
 
         // hold-slot: 30/phút/IP — time-slot-hold không yêu cầu đăng nhập (khách vãng lai cũng gọi
-        // được), chặn script giữ hết khung giờ 1 phòng để làm phòng hiện "hết chỗ" giả.
+        // được), chặn script giữ hết khung giờ 1 sân để làm sân hiện "hết chỗ" giả.
         RateLimiter::for('hold-slot', function (Request $request) {
             return Limit::perMinute(30)->by($request->ip());
         });

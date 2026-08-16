@@ -67,7 +67,7 @@ class AppPageForm
                         ->schema([
                             TextInput::make('text')
                                 ->label('Nội dung tiêu đề')
-                                ->placeholder('VD: Phòng nổi bật tháng 5')
+                                ->placeholder('VD: Sân nổi bật tháng 5')
                                 ->required(),
                         ]),
 
@@ -100,13 +100,13 @@ class AppPageForm
                         ]),
 
                     Builder\Block::make('room_list')
-                        ->label('Danh sách phòng')
+                        ->label('Danh sách sân')
                         ->icon('heroicon-o-home')
                         ->schema([
                             Grid::make(2)->schema([
                                 TextInput::make('title')
                                     ->label('Tiêu đề section')
-                                    ->placeholder('VD: Phòng siu Deal tháng 5')
+                                    ->placeholder('VD: Sân siu Deal tháng 5')
                                     ->required(),
 
                                 TextInput::make('subtitle')
@@ -139,23 +139,23 @@ class AppPageForm
                                 ->label('Chế độ hiển thị')
                                 ->options([
                                     'fixed'     => 'Cố định — luôn hiển thị dù đổi khu vực',
-                                    'by_region' => 'Theo khu vực — ẩn nếu không có khu vực / không có phòng',
+                                    'by_region' => 'Theo khu vực — ẩn nếu không có khu vực / không có sân',
                                 ])
                                 ->default('fixed')
                                 ->required()
                                 ->live()
-                                ->helperText('Cố định: hiển thị tất cả phòng đã chọn. Theo khu vực: ẩn section khi guest/user chưa chọn khu vực hoặc khu vực đó không có phòng.')
+                                ->helperText('Cố định: hiển thị tất cả sân đã chọn. Theo khu vực: ẩn section khi guest/user chưa chọn khu vực hoặc khu vực đó không có sân.')
                                 ->columnSpanFull(),
 
                             Select::make('region_content_type')
                                 ->label('Nội dung hiển thị theo khu vực')
                                 ->options([
-                                    'rooms'    => 'Phòng',
+                                    'rooms'    => 'Sân',
                                     'branches' => 'Chi nhánh',
                                 ])
                                 ->default('rooms')
                                 ->required()
-                                ->helperText('Phòng: danh sách phòng của khu vực (như hiện tại). Chi nhánh: danh sách chi nhánh của khu vực.')
+                                ->helperText('Sân: danh sách sân của khu vực (như hiện tại). Chi nhánh: danh sách chi nhánh của khu vực.')
                                 ->columnSpanFull()
                                 ->visible(fn (Get $get) => ($get('display_mode') ?? 'fixed') === 'by_region'),
 
@@ -174,8 +174,8 @@ class AppPageForm
                                 ->hidden(fn (Get $get) => ($get('display_mode') ?? 'fixed') === 'by_region'),
 
                             Select::make('product_ids')
-                                ->label('Chọn phòng')
-                                ->helperText('Để trống = hiển thị tất cả phòng. Tab lọc vẫn áp dụng theo loại phòng.')
+                                ->label('Chọn sân')
+                                ->helperText('Để trống = hiển thị tất cả sân. Tab lọc vẫn áp dụng theo loại sân.')
                                 ->multiple()
                                 ->searchable()
                                 ->options(function (Get $get) {
@@ -194,7 +194,7 @@ class AppPageForm
 
                                     return $query->orderBy('name')->pluck('name', 'id')->toArray();
                                 })
-                                ->placeholder('Để trống để hiển thị tất cả phòng...')
+                                ->placeholder('Để trống để hiển thị tất cả sân...')
                                 ->hidden(fn (Get $get) => ($get('display_mode') ?? 'fixed') === 'by_region'),
                         ]),
 
@@ -206,7 +206,7 @@ class AppPageForm
                                 ->label('Loại gợi ý')
                                 ->options([
                                     'branch' => 'Chi nhánh',
-                                    'room'   => 'Phòng',
+                                    'room'   => 'Sân',
                                 ])
                                 ->default('room')
                                 ->required()
@@ -214,7 +214,7 @@ class AppPageForm
                         ]),
 
                     Builder\Block::make('promotion_list')
-                        ->label('Phòng khuyến mãi')
+                        ->label('Sân khuyến mãi')
                         ->icon('heroicon-o-tag')
                         ->schema([
                             FileUpload::make('icon')
@@ -232,8 +232,8 @@ class AppPageForm
                                 ->required(),
 
                             Select::make('product_ids')
-                                ->label('Chọn phòng khuyến mãi')
-                                ->helperText('Chỉ hiển thị phòng đang có promotion còn hiệu lực.')
+                                ->label('Chọn sân khuyến mãi')
+                                ->helperText('Chỉ hiển thị sân đang có promotion còn hiệu lực.')
                                 ->multiple()
                                 ->searchable()
                                 ->options(fn () => Product::where('is_activated', true)

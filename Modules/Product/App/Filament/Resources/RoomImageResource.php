@@ -36,17 +36,17 @@ class RoomImageResource extends Resource
 
     public static function getNavigationLabel(): string
     {
-        return 'Ảnh Phòng';
+        return 'Ảnh Sân';
     }
 
     public static function getModelLabel(): string
     {
-        return 'Ảnh phòng';
+        return 'Ảnh sân';
     }
 
     public static function getPluralModelLabel(): string
     {
-        return 'Ảnh Phòng';
+        return 'Ảnh Sân';
     }
 
     public static function getNavigationBadge(): ?string

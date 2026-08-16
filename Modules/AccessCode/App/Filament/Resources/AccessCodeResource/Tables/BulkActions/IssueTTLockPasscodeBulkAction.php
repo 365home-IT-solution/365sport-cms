@@ -20,8 +20,8 @@ class IssueTTLockPasscodeBulkAction
             ->label('Cấp mã TTLock')
             ->icon('heroicon-o-key')
             ->color('success')
-            ->modalHeading('Cấp mã TTLock cho nhiều phòng')
-            ->modalDescription('Hệ thống sẽ tạo mã ngẫu nhiên riêng cho từng phòng, cấp cùng mã đó cho cả khóa check-in và check-out.')
+            ->modalHeading('Cấp mã TTLock cho nhiều sân')
+            ->modalDescription('Hệ thống sẽ tạo mã ngẫu nhiên riêng cho từng sân, cấp cùng mã đó cho cả khóa check-in và check-out.')
             ->modalWidth('md')
             ->form([
                 DateTimePicker::make('valid_from')
@@ -47,7 +47,7 @@ class IssueTTLockPasscodeBulkAction
                 $failed  = [];
 
                 foreach ($records as $accessCode) {
-                    // Tìm phòng từ category_id của mã
+                    // Tìm sân từ category_id của mã
                     $product = Product::whereHas(
                             'categories',
                             fn ($q) => $q->where('categories.id', $accessCode->category_id)
@@ -56,7 +56,7 @@ class IssueTTLockPasscodeBulkAction
                         ->first();
 
                     if (!$product) {
-                        $failed[] = "Mã #{$accessCode->id}: không tìm được phòng thuộc chi nhánh này";
+                        $failed[] = "Mã #{$accessCode->id}: không tìm được sân thuộc chi nhánh này";
                         continue;
                     }
 
@@ -121,14 +121,14 @@ class IssueTTLockPasscodeBulkAction
                 // Thông báo kết quả
                 if ($success > 0) {
                     Notification::make()
-                        ->title("Cấp mã thành công: {$success} phòng")
+                        ->title("Cấp mã thành công: {$success} sân")
                         ->success()
                         ->send();
                 }
 
                 if (!empty($failed)) {
                     Notification::make()
-                        ->title(count($failed) . ' phòng cấp mã lỗi')
+                        ->title(count($failed) . ' sân cấp mã lỗi')
                         ->body(implode("\n", $failed))
                         ->warning()
                         ->persistent()

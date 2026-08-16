@@ -2,9 +2,9 @@
 
 return [
     'resource' => [
-        'navigation_label' => 'Danh mục Phòng',
-        'model_label'      => 'Danh mục Phòng',
-        'plural_model_label' => 'Danh mục Phòng',
+        'navigation_label' => 'Danh mục Sân',
+        'model_label'      => 'Danh mục Sân',
+        'plural_model_label' => 'Danh mục Sân',
         'navigation_group' => 'Quản lý API',
         'navigation_icon'  => 'heroicon-o-tag',
     ],

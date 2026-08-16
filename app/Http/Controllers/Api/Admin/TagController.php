@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\Storage;
 use Spatie\Tags\Tag;
 
 /**
- * Danh sách TIỆN ÍCH phòng — dùng bảng `tags` (Spatie\Tags\Tag, field `tags` trên ProductForm, label
+ * Danh sách TIỆN ÍCH sân — dùng bảng `tags` (Spatie\Tags\Tag, field `tags` trên ProductForm, label
  * hiển thị "Tiện ích" — xem Modules/Product/lang/vi/product.php). KHÔNG phải RoomAmenity (module
  * riêng "room_amenities", dùng cho 1 màn quản lý khác - RoomAmenityAssignResource).
  *
@@ -32,13 +32,13 @@ class TagController extends Controller
      * GET /api/admin/tags
      * Query params:
      *  - search : lọc theo tên
-     *  - type   : 'product' (tiện ích dành cho phòng) hoặc 'post' (thẻ dành cho bài viết) — bảng
+     *  - type   : 'product' (tiện ích dành cho sân) hoặc 'post' (thẻ dành cho bài viết) — bảng
      *             `tags` dùng CHUNG cho cả Post lẫn Product nên cần lọc mới biết tag nào thuộc bên nào.
      *             Xét theo 2 nguồn: (1) cột tags.type nếu có set đúng giá trị 'product'/'post' —
      *             đây là quy ước gốc của package spatie/laravel-tags nhưng TagForm hiện KHÔNG có
      *             field này nên trong dữ liệu thực tế cột này luôn rỗng; (2) tag ĐÃ được gắn thực
      *             tế vào ít nhất 1 bản ghi Post/Product (bảng taggables.taggable_type) — cùng cách
-     *             Modules\Tag\...\TagTable dùng để hiển thị "Bài viết"/"Phòng sử dụng" ở trang
+     *             Modules\Tag\...\TagTable dùng để hiển thị "Bài viết"/"Sân sử dụng" ở trang
      *             admin. Với dữ liệu hiện tại, (2) là tín hiệu DUY NHẤT thực sự hoạt động; giữ thêm
      *             (1) để không vỡ nếu sau này TagForm được bổ sung field type.
      */

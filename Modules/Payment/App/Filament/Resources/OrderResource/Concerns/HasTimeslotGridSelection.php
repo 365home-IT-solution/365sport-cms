@@ -15,9 +15,9 @@ use Modules\Product\App\Models\RoomTimeSlot;
 // Alpine/$wire.entangle: (1) không kích hoạt đúng afterStateUpdated, (2) xung đột tên field
 // trùng nhau giữa các Grid ẩn/hiện.
 //
-// CHỈ 1 bảng cho 1 phòng — chọn nhiều khung giờ nghĩa là TOGGLE nhiều phần tử trong
+// CHỈ 1 bảng cho 1 sân — chọn nhiều khung giờ nghĩa là TOGGLE nhiều phần tử trong
 // 'selected_slots' của CHÍNH dòng ($itemKey) đang thao tác, KHÔNG bao giờ tạo thêm dòng/thẻ
-// phòng mới trong Repeater. Việc "1 khung giờ = 1 order_item" khi lưu được xử lý riêng ở
+// sân mới trong Repeater. Việc "1 khung giờ = 1 order_item" khi lưu được xử lý riêng ở
 // OrderForm::expandOrderItemsForPersistence() lúc Create/Edit submit.
 trait HasTimeslotGridSelection
 {
@@ -170,9 +170,9 @@ trait HasTimeslotGridSelection
         }
     }
 
-    // Chặn lưu đơn nếu có dòng phòng nào rơi vào tình huống thiếu checkin_date/checkout_date sau
+    // Chặn lưu đơn nếu có dòng sân nào rơi vào tình huống thiếu checkin_date/checkout_date sau
     // khi đã expand — CÓ THỂ xảy ra với style 1 CÓ khung giờ khi admin không bấm chọn ô nào trên
-    // lưới VÀ cũng không dùng phần "Nhập tay" dự phòng mới (manual_checkin_date_override/
+    // lưới VÀ cũng không dùng phần "Nhập tay" dự sân mới (manual_checkin_date_override/
     // manual_checkout_date_override, xem OrderForm.php) — 2 field đó CỐ Ý không required() (chỉ
     // là fallback tùy chọn khi lưới không hiển thị được ô cần thiết), nên Filament không tự chặn
     // được trường hợp bỏ trống cả 2 cách. Gọi TRƯỚC khi ghi bất kỳ thay đổi nào xuống DB (xem
@@ -182,8 +182,8 @@ trait HasTimeslotGridSelection
         foreach ($expandedItems as $item) {
             if (empty($item['checkin_date']) || empty($item['checkout_date'])) {
                 \Filament\Notifications\Notification::make()
-                    ->title('Thiếu ngày & giờ nhận/trả phòng')
-                    ->body('Vui lòng chọn khung giờ trên lưới HOẶC nhập tay ngày & giờ nhận/trả phòng (mục "Nhập tay" bên dưới lưới) cho từng phòng theo khung giờ trước khi lưu đơn.')
+                    ->title('Thiếu ngày & giờ nhận/trả sân')
+                    ->body('Vui lòng chọn khung giờ trên lưới HOẶC nhập tay ngày & giờ nhận/trả sân (mục "Nhập tay" bên dưới lưới) cho từng sân theo khung giờ trước khi lưu đơn.')
                     ->danger()
                     ->send();
 

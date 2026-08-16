@@ -29,7 +29,7 @@ class IssueTTLockPasscodeAction
                 'valid_until' => $record->valid_until ?? now()->addHours(24),
             ])
             ->form(function (AccessCode $record): array {
-                // Tìm phòng dựa vào category_id
+                // Tìm sân dựa vào category_id
                 $product = Product::whereHas('categories', fn ($q) => $q->where('categories.id', $record->category_id))
                     ->whereNotNull('lock_id')
                     ->first();
@@ -41,7 +41,7 @@ class IssueTTLockPasscodeAction
                         ->label('')
                         ->content(new HtmlString(
                             '<div class="text-danger-600 bg-danger-50 rounded-lg p-3 text-sm">'
-                            . '⚠️ Không tìm được phòng nào có lock_id thuộc chi nhánh này.'
+                            . '⚠️ Không tìm được sân nào có lock_id thuộc chi nhánh này.'
                             . '</div>'
                         ));
                     return $fields;
@@ -52,13 +52,13 @@ class IssueTTLockPasscodeAction
                 $hasBothLocks = $product->lock_id && $product->lock_id_checkout;
 
                 $fields[] = Placeholder::make('room_info')
-                    ->label('Phòng & Khóa')
+                    ->label('Sân & Khóa')
                     ->content(new HtmlString(
                         '<div class="text-sm space-y-1">'
                         . "<div>🏠 <b>{$product->name}</b></div>"
                         . "<div>🔑 Check-in lock: <code>{$checkinLock}</code></div>"
                         . "<div>🔒 Check-out lock: <code>{$checkoutLock}</code></div>"
-                        . ($hasBothLocks ? '' : '<div class="text-warning-600 mt-1">⚠️ Phòng chưa có khóa check-out — mã chỉ cấp cho khóa check-in.</div>')
+                        . ($hasBothLocks ? '' : '<div class="text-warning-600 mt-1">⚠️ Sân chưa có khóa check-out — mã chỉ cấp cho khóa check-in.</div>')
                         . '</div>'
                     ));
 
@@ -78,15 +78,15 @@ class IssueTTLockPasscodeAction
                 return $fields;
             })
             ->action(function (AccessCode $record, array $data): void {
-                // Tìm phòng
+                // Tìm sân
                 $product = Product::whereHas('categories', fn ($q) => $q->where('categories.id', $record->category_id))
                     ->whereNotNull('lock_id')
                     ->first();
 
                 if (!$product || !$product->lock_id) {
                     Notification::make()
-                        ->title('Không tìm được phòng')
-                        ->body('Không có phòng nào thuộc chi nhánh này có lock_id.')
+                        ->title('Không tìm được sân')
+                        ->body('Không có sân nào thuộc chi nhánh này có lock_id.')
                         ->danger()->send();
                     return;
                 }

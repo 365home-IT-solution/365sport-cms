@@ -15,13 +15,13 @@ return new class extends Migration
 
         Schema::table('order_items', function (Blueprint $table) {
             $table->boolean('housekeeping_triggered')->default(false)->after('checkout_notified')
-                ->comment('Đã chuyển phòng sang trạng thái "đang dọn vệ sinh" khi hết giờ đặt của đơn này chưa');
+                ->comment('Đã chuyển sân sang trạng thái "đang dọn vệ sinh" khi hết giờ đặt của đơn này chưa');
         });
 
         // Backfill BẮT BUỘC: nếu không đánh dấu các đơn ĐÃ hết giờ từ TRƯỚC KHI tính năng này tồn
         // tại là "đã xử lý", lần đầu command housekeeping:mark-cleaning chạy sẽ quét luôn toàn bộ
-        // lịch sử booking cũ (hàng nghìn đơn) và chuyển nhầm mọi phòng có đơn `paid/deposit/shipped`
-        // đã hết giờ — kể cả đơn từ nhiều tháng trước, dù phòng đó đã được dọn/sử dụng lại nhiều
+        // lịch sử booking cũ (hàng nghìn đơn) và chuyển nhầm mọi sân có đơn `paid/deposit/shipped`
+        // đã hết giờ — kể cả đơn từ nhiều tháng trước, dù sân đó đã được dọn/sử dụng lại nhiều
         // lần từ đó tới nay — sang trạng thái "đang dọn vệ sinh" một cách sai lệch. Chỉ những đơn
         // hết giờ SAU thời điểm migrate này mới cần tự động kích hoạt dọn vệ sinh.
         DB::table('order_items')

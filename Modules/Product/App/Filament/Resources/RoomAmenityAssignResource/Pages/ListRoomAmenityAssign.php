@@ -27,7 +27,7 @@ class ListRoomAmenityAssign extends ListRecords
     {
         return [
             Action::make('assign_amenities')
-                ->label('Gán tiện ích cho phòng')
+                ->label('Gán tiện ích cho sân')
                 ->icon('heroicon-o-plus-circle')
                 ->modalWidth('3xl')
                 ->form(function (): array {
@@ -52,7 +52,7 @@ class ListRoomAmenityAssign extends ListRecords
 
                     return array_merge([
                         Select::make('room_id')
-                            ->label('Phòng')
+                            ->label('Sân')
                             ->options(
                                 Product::where('is_activated', true)
                                     ->orderBy('name')
@@ -103,7 +103,7 @@ class ListRoomAmenityAssign extends ListRecords
             )
             ->columns([
                 TextColumn::make('name')
-                    ->label('Tên phòng')
+                    ->label('Tên sân')
                     ->searchable()
                     ->sortable(),
 

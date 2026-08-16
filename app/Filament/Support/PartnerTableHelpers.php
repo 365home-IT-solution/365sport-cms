@@ -11,7 +11,7 @@ use Filament\Tables\Filters\SelectFilter;
 
 // Cột + bộ lọc "Đối tác" dùng chung cho mọi Filament Table có model gắn partner_id (trực tiếp
 // hoặc qua quan hệ) — để super_admin nhìn vào danh sách là biết bản ghi thuộc đối tác nào mà
-// KHÔNG cần đối tác phải tự đặt tên gợi nhớ trong dữ liệu (tên phòng/coupon/... vẫn bình thường
+// KHÔNG cần đối tác phải tự đặt tên gợi nhớ trong dữ liệu (tên sân/coupon/... vẫn bình thường
 // như khách hàng thấy ở trang chủ). Với tài khoản đối tác/nhân viên, dữ liệu vốn đã được
 // getEloquentQuery() lọc sẵn nên bộ lọc chọn đối tác chỉ hiện với super_admin.
 class PartnerTableHelpers

@@ -14,7 +14,7 @@ use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 // DS_KHACH_VIET_NAM_LUU_TRU bắt đầu từ dòng 5 (dòng 1-4 của mẫu là tiêu đề/header/hướng dẫn/dòng
 // ví dụ [EXAMPLE] — giữ nguyên y hệt mẫu gốc, không xoá).
 //
-// KHÔNG xuất khách chưa tới hạn (đặt phòng trước, còn ở tương lai) hay khách đã khai báo rồi —
+// KHÔNG xuất khách chưa tới hạn (đặt sân trước, còn ở tương lai) hay khách đã khai báo rồi —
 // KBTT chỉ chấp nhận "Ngày đến" là hôm nay/hôm qua nên xuất khách chưa tới hạn cũng vô nghĩa, và
 // khách đã khai báo thì không cần nộp lại.
 class CccdDeclarationExcelExporter

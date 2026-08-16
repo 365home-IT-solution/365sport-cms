@@ -72,10 +72,10 @@ class TTLockService
 
     // Kiểm tra NHANH chi nhánh có tài khoản TTLock đang hoạt động hay không, không cần dựng cả
     // instance service (khỏi tạo object thừa khi chỉ dùng để quyết định ẩn/hiện UI theo chi nhánh
-    // — vd cột Khóa ngoài/Khóa trong, action "Gán khóa TTLock", "Tình trạng phòng" ở Thiết lập
-    // Phòng, và "Mã cổng"/"Mở cổng tự do" ở đơn đặt phòng).
+    // — vd cột Khóa ngoài/Khóa trong, action "Gán khóa TTLock", "Tình trạng sân" ở Thiết lập
+    // Sân, và "Mã cổng"/"Mở cổng tự do" ở đơn đặt sân).
     // Cache tĩnh trong 1 request — hàm này được gọi LẶP LẠI nhiều lần cho ĐÚNG 1 chi nhánh (mỗi
-    // cột × mỗi dòng trong bảng "Thiết lập Phòng"/"Kiểm tra dọn phòng"), không cache sẽ query DB
+    // cột × mỗi dòng trong bảng "Thiết lập Sân"/"Kiểm tra dọn sân"), không cache sẽ query DB
     // thừa nhiều lần cho cùng 1 câu trả lời không đổi trong suốt request.
     private static array $accountExistsCache = [];
 
@@ -289,7 +289,7 @@ class TTLockService
         int    $lockId,
         int    $startDate,
         int    $endDate = 0,
-        string $name    = 'Khách đặt phòng',
+        string $name    = 'Khách đặt sân',
         int    $pwdType = 3
     ): ?array {
         $token = $this->getAccessToken();
@@ -358,7 +358,7 @@ class TTLockService
         string $code,
         int    $startDate,
         int    $endDate = 0,
-        string $name    = 'Khách đặt phòng',
+        string $name    = 'Khách đặt sân',
         int    $pwdType = 3,
         int    $addType = 2
     ): ?array {
