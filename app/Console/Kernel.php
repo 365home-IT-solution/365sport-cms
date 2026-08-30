@@ -77,6 +77,22 @@ class Kernel extends ConsoleKernel
             ->timezone('Asia/Ho_Chi_Minh')
             ->withoutOverlapping(1)
             ->appendOutputTo(storage_path('logs/sync-order-lifecycle.log'));
+
+        // Backup tự động (spatie/laravel-backup) — dump DB + file khách hàng upload
+        // (storage/app/public, xem config/backup.php) hằng ngày, dọn backup cũ theo lịch riêng.
+        // Lưu ý: hiện lưu backup trên CÙNG server (disk 'local') — chưa đẩy sang nơi khác (S3...),
+        // nên chỉ chống mất dữ liệu do lỗi ứng dụng/DB, KHÔNG chống được mất cả server.
+        $schedule->command('backup:run')
+            ->dailyAt('03:00')
+            ->timezone('Asia/Ho_Chi_Minh')
+            ->withoutOverlapping()
+            ->appendOutputTo(storage_path('logs/backup-run.log'));
+
+        $schedule->command('backup:clean')
+            ->dailyAt('03:30')
+            ->timezone('Asia/Ho_Chi_Minh')
+            ->withoutOverlapping()
+            ->appendOutputTo(storage_path('logs/backup-clean.log'));
     }
 
     /**

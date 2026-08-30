@@ -16,8 +16,18 @@ class CccdDeclarationService
     private const DEFAULT_PROVINCE = '815 - TP. Cần Thơ';
     private const DEFAULT_WARD     = '815931150 - Phường An Bình';
 
+    // Tạm tắt hẳn theo yêu cầu — "Khai báo lưu trú" (Luật Cư trú) chỉ áp dụng cho homestay/lưu trú
+    // qua đêm, KHÔNG liên quan nghiệp vụ đặt sân thể thao theo giờ của hệ thống này (module được
+    // clone từ 1 dự án homestay). Đổi thành true để bật lại — mọi logic bên dưới vẫn còn nguyên,
+    // chỉ cần đổi đúng 1 dòng này, không cần sửa lại 8 nơi đang gọi upsertFromOrder().
+    private const DECLARATION_ENABLED = false;
+
     public function upsertFromOrder(Order $order): void
     {
+        if (! self::DECLARATION_ENABLED) {
+            return;
+        }
+
         // Khách chính (người đặt sân) — luôn khai báo (guest_index=1).
         $this->upsertGuest($order, 1, is_array($order->cccd_data) ? $order->cccd_data : [], $order->buyer_phone);
 

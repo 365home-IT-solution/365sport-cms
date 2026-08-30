@@ -243,6 +243,16 @@ class EditOrder extends EditRecord
     protected function getHeaderActions(): array
     {
         return [
+            // Xem ảnh biên lai chuyển khoản + Xác nhận/Từ chối — dùng CHUNG định nghĩa với bảng
+            // danh sách (OrderTable::confirmBankTransferAction()) để không viết trùng 2 nơi.
+            // BẮT BUỘC truyền \Filament\Actions\Action::class — header action của TRANG
+            // (EditRecord) phải đúng class này, KHÁC với Filament\Tables\Actions\Action dùng cho
+            // action của 1 dòng trong Table (2 class anh em, không phải cha-con — truyền nhầm ném
+            // lỗi "Header actions must be an instance of Filament\Actions\Action", đã gặp thực tế).
+            // ->record() cũng bắt buộc tự gán — page action không tự có record như table row action.
+            \Modules\Payment\App\Filament\Resources\OrderResource\Tables\OrderTable::confirmBankTransferAction(\Filament\Actions\Action::class)
+                ->record(fn () => $this->record),
+
             // =========================================================
             // Thanh toán lại — đơn PayOS bị "failed"/"cancelled_payment": tạo QR mới gửi khách,
             // đơn tự chuyển về "pending" chờ thanh toán. Khi khách quét & trả tiền, webhook PayOS
@@ -272,16 +282,16 @@ class EditOrder extends EditRecord
                         return;
                     }
 
-                    $clientId    = Config::get('payos.client_id');
-                    $apiKey      = Config::get('payos.api_key');
-                    $checksumKey = Config::get('payos.checksum_key');
+                    // Đúng bộ khoá PayOS của đối tác sở hữu đơn này nếu đã cấu hình riêng, không
+                    // thì PayOS chung nền tảng như cũ — xem App\Services\PayOSCredentialResolver.
+                    $creds = \App\Services\PayOSCredentialResolver::resolve($record->partner);
 
-                    if (! $clientId || ! $apiKey || ! $checksumKey) {
+                    if (! $creds['client_id'] || ! $creds['api_key'] || ! $creds['checksum_key']) {
                         Notification::make()->title('Cổng thanh toán chưa được cấu hình')->danger()->send();
                         return;
                     }
 
-                    $payOS = new PayOS($clientId, $apiKey, $checksumKey);
+                    $payOS = \App\Services\PayOSCredentialResolver::client($record->partner);
 
                     $oldPayosCode = $record->current_payos_code ?? (int) $record->order_code;
                     try {
@@ -353,12 +363,10 @@ class EditOrder extends EditRecord
                 ->label(fn () => $this->record->hasAccessCode() ? 'Cấp lại mã cổng' : 'Gán mã cổng')
                 ->icon(fn () => $this->record->hasAccessCode() ? 'heroicon-m-arrow-path' : 'heroicon-m-key')
                 ->color(fn () => $this->record->hasAccessCode() ? 'warning' : 'success')
-                ->visible(function (): bool {
-                    if (!(auth()->user()?->can('update_order') ?? false)) return false;
-                    if (!in_array($this->record->status, ['paid', 'deposit'])) return false;
-                    $product = $this->record->items->first()?->product;
-                    return $product && ($product->has_manual_lock || $product->lock_id !== null);
-                })
+                // Tạm ẩn hẳn theo yêu cầu — chưa dùng mã cửa/TTLock trong giai đoạn hiện tại (đồng
+                // bộ với OrderTable::gateActions() đã ẩn ở bảng danh sách — action này nằm ở trang
+                // "Chỉnh sửa Booking" nên trước đó bị bỏ sót).
+                ->visible(false)
                 ->requiresConfirmation()
                 ->modalHeading(fn () => $this->record->hasAccessCode() ? 'Cấp lại mã cổng' : 'Gán mã cổng cho đơn hàng')
                 ->modalDescription(fn () => $this->record->hasAccessCode()
@@ -431,7 +439,7 @@ class EditOrder extends EditRecord
                             app(\App\Services\OrderRealtimeService::class)->broadcastOrderUpdate(
                                 (string) $record->order_code,
                                 $wsPayload,
-                                $record->customer_id ? (int) $record->customer_id : null,
+                                $record->customer_id,
                             );
                         }
 
@@ -454,18 +462,8 @@ class EditOrder extends EditRecord
                 ->label('Đổi mã cổng (thủ công)')
                 ->icon('heroicon-m-key')
                 ->color('info')
-                ->visible(function () {
-                    if (! (auth()->user()?->can('update_order') ?? false)) {
-                        return false;
-                    }
-                    if (! in_array($this->record->status, ['paid', 'deposit'])) {
-                        return false;
-                    }
-                    // Chỉ hiện khi đơn có access code nhập tay (không có ttlock_keyboard_pwd_id)
-                    return $this->record->accessCodes()
-                        ->whereNull('ttlock_keyboard_pwd_id')
-                        ->exists();
-                })
+                // Tạm ẩn hẳn theo yêu cầu — xem ghi chú ở action 'assignAccessCode' phía trên.
+                ->visible(false)
                 ->form([
                     \Filament\Forms\Components\Select::make('new_access_code_id')
                         ->label('Chọn mã cổng mới')
@@ -528,18 +526,8 @@ class EditOrder extends EditRecord
                 ->label('Tạo mã mới (TTLock)')
                 ->icon('heroicon-m-arrow-path')
                 ->color('info')
-                ->visible(function () {
-                    if (! (auth()->user()?->can('update_order') ?? false)) {
-                        return false;
-                    }
-                    if (! in_array($this->record->status, ['paid', 'deposit'])) {
-                        return false;
-                    }
-                    // Chỉ hiện khi đơn có access code TTLock
-                    return $this->record->accessCodes()
-                        ->whereNotNull('ttlock_keyboard_pwd_id')
-                        ->exists();
-                })
+                // Tạm ẩn hẳn theo yêu cầu — xem ghi chú ở action 'assignAccessCode' phía trên.
+                ->visible(false)
                 ->requiresConfirmation()
                 ->modalHeading('Tạo mã TTLock mới')
                 ->modalDescription('Mã cũ sẽ bị xóa khỏi khóa, một mã 6 số mới sẽ được tạo và cập nhật lên TTLock. Khách hàng sẽ được thông báo realtime.')
@@ -650,7 +638,7 @@ class EditOrder extends EditRecord
                         app(\App\Services\OrderRealtimeService::class)->broadcastOrderUpdate(
                             (string) $record->order_code,
                             ['extra_charge' => ['is_expired' => false, 'qr_code' => $result['qr_code']]],
-                            $record->customer_id ? (int) $record->customer_id : null,
+                            $record->customer_id,
                         );
 
                         Notification::make()
@@ -724,7 +712,7 @@ class EditOrder extends EditRecord
                         app(\App\Services\OrderRealtimeService::class)->broadcastOrderUpdate(
                             (string) $record->order_code,
                             ['extra_charge' => ['is_paid' => true, 'paid_at' => now()->toISOString(), 'payment_method' => 'cod']],
-                            $record->customer_id ? (int) $record->customer_id : null,
+                            $record->customer_id,
                         );
 
                         Notification::make()
@@ -943,7 +931,7 @@ class EditOrder extends EditRecord
                         ])->values()->toArray(),
                         'changes' => $changes,
                     ],
-                    $record->customer_id ? (int) $record->customer_id : null,
+                    $record->customer_id,
                 );
             } catch (\Throwable $e) {
                 \Illuminate\Support\Facades\Log::warning('afterSave: broadcastOrderUpdate failed', [
@@ -1334,7 +1322,7 @@ class EditOrder extends EditRecord
                                 'grand_total' => $newRealTotal,
                             ],
                         ],
-                        $order->customer_id ? (int) $order->customer_id : null,
+                        $order->customer_id,
                     );
                 } catch (\Throwable $e) {
                     \Illuminate\Support\Facades\Log::warning('handlePriceDiff: deposit broadcastOrderUpdate failed', [
@@ -1383,7 +1371,7 @@ class EditOrder extends EditRecord
                     app(OrderRealtimeService::class)->broadcastOrderUpdate(
                         (string) $order->order_code,
                         ['extra_charge' => ['amount' => $diff, 'qr_code' => $result['qr_code'], 'is_paid' => false]],
-                        $order->customer_id ? (int) $order->customer_id : null,
+                        $order->customer_id,
                     );
                 } catch (\Throwable $e) {
                     \Illuminate\Support\Facades\Log::warning('handlePriceDiff: paid extra charge broadcastOrderUpdate failed', [
@@ -1413,7 +1401,7 @@ class EditOrder extends EditRecord
                     app(OrderRealtimeService::class)->broadcastOrderUpdate(
                         (string) $order->order_code,
                         ['summary' => ['grand_total' => (int) $order->full_amount + (int) ($order->extra_charge_amount ?? 0)]],
-                        $order->customer_id ? (int) $order->customer_id : null,
+                        $order->customer_id,
                     );
                 } catch (\Throwable $e) {
                     \Illuminate\Support\Facades\Log::warning('handlePriceDiff: paid price reduction broadcastOrderUpdate failed', [

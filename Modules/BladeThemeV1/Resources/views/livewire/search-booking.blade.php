@@ -145,7 +145,14 @@
                     ? \Modules\Product\App\Models\ManualLockPassword::getForProductAndDate($firstProduct, $pwdAnchorDate)
                     : null;
                 $branchAddress = $firstProduct ? $firstProduct->address : 'Địa chỉ chi nhánh không xác định';
-                $mapUrl = $firstProduct && $firstProduct->map_url ? $firstProduct->map_url : 'https://www.google.com/maps/search/?q=' . urlencode($branchAddress);
+                // Cột map_url đã bị xoá khỏi bảng products (migration 2026_06_04_000002) — ưu tiên
+                // dùng toạ độ latitude/longitude (nếu có) để ghim đúng vị trí thay vì chỉ tìm theo
+                // địa chỉ text, cùng logic với product-detail.blade.php.
+                $branchHasCoords = $firstProduct && !empty($firstProduct->latitude) && !empty($firstProduct->longitude);
+                $branchMapQuery = $branchHasCoords ? $firstProduct->latitude . ',' . $firstProduct->longitude : $branchAddress;
+                // Dạng "dir" (api=1) thay vì "search" để bấm vào là app Maps vào thẳng chế độ chỉ
+                // đường (tự lấy vị trí hiện tại của người dùng làm điểm xuất phát).
+                $mapUrl = 'https://www.google.com/maps/dir/?api=1&destination=' . urlencode($branchMapQuery);
                 $wifi = $firstProduct ? $firstProduct->wifi : '...';
                 @endphp
 

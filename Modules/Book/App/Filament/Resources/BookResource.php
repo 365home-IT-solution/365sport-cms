@@ -35,7 +35,9 @@ class BookResource extends Resource
 
     public static function canViewAny(): bool
     {
-        return auth()->user()?->can('view_any_book') ?? false;
+        $user = auth()->user();
+
+        return ($user?->can('view_any_book') ?? false) && ($user?->partnerHasFeature('bookings') ?? false);
     }
 
     public static function form(Form $form): Form

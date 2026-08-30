@@ -53,7 +53,9 @@ class OrderResource extends Resource
 
     public static function canViewAny(): bool
     {
-        return auth()->user()?->can('view_any_order') ?? false;
+        $user = auth()->user();
+
+        return ($user?->can('view_any_order') ?? false) && ($user?->partnerHasFeature('orders') ?? false);
     }
 
     public static function canCreate(): bool

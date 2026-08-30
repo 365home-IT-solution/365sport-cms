@@ -28,6 +28,13 @@ class Order extends Model implements Eventable
         'deposit_paid_amount',
         'coupon_code',
         'coupon_codes',
+        // 'coupon_discount' TRƯỚC ĐÂY thiếu trong $fillable — Order::create(['coupon_discount' =>
+        // ...]) ở ProductDetail.php ÂM THẦM bị Laravel bỏ qua field này (mass assignment), số tiền
+        // giảm giá theo mã coupon chưa từng được lưu thật xuống DB dù code gọi đúng. Thêm cả
+        // 'loyalty_discount' (mới, xem migration cùng ngày) — cần lưu riêng số tiền giảm giá khách
+        // quen để admin đối chiếu lại đúng giá đã thấy lúc đặt (total-amount-card.blade.php).
+        'coupon_discount',
+        'loyalty_discount',
         'deposit_paid_at',
         'paid_at',
         'remaining_paid_at',
@@ -45,6 +52,12 @@ class Order extends Model implements Eventable
         'district_name',
         'province_name',
         'payment_method',
+        // Luồng "chuyển khoản ngân hàng thủ công" (payment_method='bank_transfer') — xem
+        // ProductDetail::processBankTransferPayment() + OrderTable's "Xác nhận chuyển khoản".
+        'payment_proof',
+        'bank_transfer_status',
+        'bank_transfer_confirmed_at',
+        'bank_transfer_confirmed_by',
         'shipping_method',
         'is_freeship',
         'expired_at',
@@ -78,6 +91,10 @@ class Order extends Model implements Eventable
         'qr_code',
         'remaining_qr_code',
         'device_token',
+        // IP trình duyệt lúc tạo đơn — dùng để chặn phá hoại (đặt liên tục nhiều lần đè khung giờ),
+        // xem App\Services\BookingRateLimiter. KHÔNG dùng buyer_phone làm khoá chặn vì SĐT ở luồng
+        // đặt sân KHÔNG được xác minh OTP, đổi số vô hạn để né giới hạn.
+        'creator_ip',
         'extra_charge_amount',
         'extra_charge_payos_code',
         'extra_charge_checkout_url',
@@ -111,6 +128,7 @@ class Order extends Model implements Eventable
         'checked_in_at'          => 'datetime',
         'checked_out_at'         => 'datetime',
         'cancelled_at'           => 'datetime',
+        'bank_transfer_confirmed_at' => 'datetime',
     ];
 
     // % hoàn lại khi khách TỰ huỷ đơn online — áp trên số tiền ĐÃ THANH TOÁN thật (không phải tổng
@@ -234,7 +252,65 @@ class Order extends Model implements Eventable
             $order->services()->delete();
 
             self::broadcastSlotsReleasedByProduct($itemsByProduct);
+            self::notifyWaitlistByProduct($itemsByProduct);
         });
+
+        // Thưởng coupon cho NGƯỜI GIỚI THIỆU khi khách được giới thiệu có đơn ĐẦU TIÊN chuyển
+        // sang 'paid' — cố tình đợi tới lúc thanh toán thành công (không phải lúc đăng ký) để
+        // chặn lạm dụng tạo tài khoản ảo lấy thưởng. Xem ZaloOtpController::register() (chỗ gán
+        // referred_by_customer_id và cấp coupon NGAY cho người được giới thiệu).
+        static::updated(function (self $order): void {
+            if ($order->wasChanged('status') && $order->status === 'paid') {
+                self::rewardReferrerIfEligible($order);
+            }
+        });
+    }
+
+    private static function rewardReferrerIfEligible(self $order): void
+    {
+        if (empty($order->customer_id)) {
+            return;
+        }
+
+        $settings = app(\App\Settings\GeneralSettings::class);
+        if (! $settings->referral_enabled) {
+            return;
+        }
+
+        $customer = Customer::find($order->customer_id);
+        if (! $customer || empty($customer->referred_by_customer_id) || $customer->referrer_rewarded_at) {
+            return;
+        }
+
+        $hasEarlierPaidOrder = self::where('customer_id', $customer->id)
+            ->where('status', 'paid')
+            ->where('id', '!=', $order->id)
+            ->exists();
+        if ($hasEarlierPaidOrder) {
+            return;
+        }
+
+        $referrer = Customer::find($customer->referred_by_customer_id);
+        if (! $referrer) {
+            return;
+        }
+
+        \Modules\Promotion\App\Models\Coupon::create([
+            'code'        => 'REF-' . strtoupper(\Illuminate\Support\Str::random(8)),
+            'name'        => 'Thưởng giới thiệu bạn bè',
+            'description' => 'Thưởng dành cho khách đã giới thiệu bạn bè đặt sân thành công.',
+            'type'        => 'percentage',
+            'value'       => $settings->referral_reward_referrer_percent,
+            'apply_type'  => 'all_rooms',
+            'usage_limit' => 1,
+            'used_count'  => 0,
+            'start_at'    => now(),
+            'end_at'      => now()->addDays($settings->referral_reward_expiry_days),
+            'is_active'   => true,
+            'customer_id' => $referrer->id,
+        ]);
+
+        $customer->update(['referrer_rewarded_at' => now()]);
     }
 
     /**
@@ -290,6 +366,112 @@ class Order extends Model implements Eventable
                 $checkout = $items->pluck('checkout_date')->filter()->max();
                 if ($checkin && $checkout) {
                     $realtimeService->broadcastDailyReleased((string) $productId, $checkin->toDateString(), $checkout->toDateString());
+                }
+            }
+        }
+    }
+
+    /**
+     * Báo cho khách đang chờ (App\Models\SlotWaitlist) khi khung/ngày họ chờ vừa trống — gọi
+     * NGAY SAU broadcastSlotsReleasedByProduct() ở mọi nơi hủy/xoá đơn. Tái dùng đúng logic suy
+     * ngược timeslot từ checkin_date ở method trên để 2 nơi luôn xác định "khung nào vừa trống"
+     * giống hệt nhau.
+     */
+    public static function notifyWaitlistByProduct(\Illuminate\Support\Collection $itemsByProduct): void
+    {
+        if ($itemsByProduct->isEmpty()) {
+            return;
+        }
+
+        $notifier = app(\App\Services\NotificationFcmService::class);
+
+        foreach ($itemsByProduct as $productId => $items) {
+            $product = \Modules\Product\App\Models\Product::find($productId);
+            if (! $product) {
+                continue;
+            }
+
+            if ((int) $product->styles === 1) {
+                $recurringSlotsByStartTime = $product->roomTimeSlots()
+                    ->whereNull('date')
+                    ->with('timeSlot')
+                    ->get()
+                    ->filter(fn ($rts) => $rts->timeSlot)
+                    ->keyBy(fn ($rts) => $rts->timeSlot->start_time);
+
+                $releasedSlots = $items
+                    ->filter(fn ($item) => $item->checkin_date)
+                    ->map(function ($item) use ($recurringSlotsByStartTime) {
+                        $rts = $recurringSlotsByStartTime->get($item->checkin_date->format('H:i:s'));
+
+                        return $rts ? ['date' => $item->checkin_date->toDateString(), 'timeslot_id' => $rts->timeslot_id] : null;
+                    })
+                    ->filter()
+                    ->unique(fn ($slot) => $slot['date'] . '-' . $slot['timeslot_id']);
+
+                foreach ($releasedSlots as $slot) {
+                    $waitlists = \App\Models\SlotWaitlist::where('product_id', $productId)
+                        ->where('date', $slot['date'])
+                        ->where('timeslot_id', $slot['timeslot_id'])
+                        ->whereNull('notified_at')
+                        ->with('customer')
+                        ->get();
+
+                    $dateLabel = \Carbon\Carbon::parse($slot['date'])->format('d/m/Y');
+
+                    foreach ($waitlists as $waitlist) {
+                        if (! $waitlist->customer) {
+                            continue;
+                        }
+
+                        // Cột `type` trên notification_fcm là ENUM cố định ('manual'|'booking'|
+                        // 'checkin_reminder'|'checkout_warning') — 'booking' là giá trị phù hợp
+                        // nhất, phân biệt tiếp bằng 'subtype' trong data để app biết deep-link.
+                        $notifier->sendToCustomer(
+                            $waitlist->customer,
+                            'Khung giờ đã trống!',
+                            "{$product->name} - {$dateLabel} đã có khách huỷ, đặt ngay!",
+                            'booking',
+                            [
+                                'subtype'     => 'slot_waitlist_available',
+                                'product_id'  => (string) $productId,
+                                'date'        => $slot['date'],
+                                'timeslot_id' => (string) $slot['timeslot_id'],
+                            ]
+                        );
+
+                        $waitlist->update(['notified_at' => now()]);
+                    }
+                }
+            } else {
+                $checkin  = $items->pluck('checkin_date')->filter()->min();
+                $checkout = $items->pluck('checkout_date')->filter()->max();
+                if (! $checkin || ! $checkout) {
+                    continue;
+                }
+
+                $waitlists = \App\Models\SlotWaitlist::where('product_id', $productId)
+                    ->whereNull('notified_at')
+                    ->whereNotNull('checkin_date')
+                    ->where('checkin_date', '<', $checkout)
+                    ->where('checkout_date', '>', $checkin)
+                    ->with('customer')
+                    ->get();
+
+                foreach ($waitlists as $waitlist) {
+                    if (! $waitlist->customer) {
+                        continue;
+                    }
+
+                    $notifier->sendToCustomer(
+                        $waitlist->customer,
+                        'Đã có chỗ trống!',
+                        "{$product->name} vừa có khách huỷ, đặt ngay!",
+                        'booking',
+                        ['subtype' => 'slot_waitlist_available', 'product_id' => (string) $productId]
+                    );
+
+                    $waitlist->update(['notified_at' => now()]);
                 }
             }
         }
@@ -436,5 +618,20 @@ class Order extends Model implements Eventable
     public function services()
     {
         return $this->hasMany(OrderService::class);
+    }
+
+    public function bankTransferConfirmedBy()
+    {
+        return $this->belongsTo(User::class, 'bank_transfer_confirmed_by');
+    }
+
+    // URL đầy đủ của ảnh biên lai chuyển khoản — payment_proof lưu PATH THUẦN (giống hệt cccd_front/
+    // cccd_back trên bảng này, không dùng Spatie Media Library), disk mặc định 'public'
+    // (FILESYSTEM_DISK trong .env) nên chỉ cần Storage::url(), không cần disk('public') riêng.
+    public function getPaymentProofUrlAttribute(): ?string
+    {
+        return $this->payment_proof
+            ? \Illuminate\Support\Facades\Storage::url($this->payment_proof)
+            : null;
     }
 }

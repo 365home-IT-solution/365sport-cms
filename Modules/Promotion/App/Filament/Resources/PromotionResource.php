@@ -91,9 +91,14 @@ class PromotionResource extends Resource
         });
     }
 
+    // Khuyến mãi chỉ mở khoá từ gói "Chuyên nghiệp" trở lên (Partner::hasFeature('promotions'),
+    // xem PartnerPlansSeeder) — đối tác gói "Cơ bản" không thấy menu này dù có permission
+    // Shield, tránh phải tạo/xoá permission thủ công mỗi lần đổi gói.
     public static function canViewAny(): bool
     {
-        return auth()->user()?->can('view_any_promotion') ?? false;
+        $user = auth()->user();
+
+        return ($user?->can('view_any_promotion') ?? false) && ($user?->partnerHasFeature('promotions') ?? false);
     }
 
     public static function form(Form $form): Form

@@ -9,8 +9,11 @@ use Filament\Contracts\Plugin;
 use Filament\Panel;
 use Modules\Dashboard\App\Filament\Widgets\ATotalWidgets;
 use Modules\Dashboard\App\Filament\Widgets\FormStatsWidget;
+use Modules\Dashboard\App\Filament\Widgets\OccupancyRateWidget;
 use Modules\Dashboard\App\Filament\Widgets\OrderStatsWidget;
+use Modules\Dashboard\App\Filament\Widgets\PeakHourWidget;
 use Modules\Dashboard\App\Filament\Widgets\PostStatsWidget;
+use Modules\Dashboard\App\Filament\Widgets\RevenueByBranchWidget;
 
 class DashboardPlugin implements Plugin
 {
@@ -33,6 +36,9 @@ class DashboardPlugin implements Plugin
             OrderStatsWidget::class,
             FormStatsWidget::class,
             PostStatsWidget::class,
+            OccupancyRateWidget::class,
+            PeakHourWidget::class,
+            RevenueByBranchWidget::class,
         ]);
     }
 

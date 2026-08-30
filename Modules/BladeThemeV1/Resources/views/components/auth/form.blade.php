@@ -23,6 +23,11 @@
     x-data="{
         mode: '{{ $mode }}',
         step: 'phone',
+        // Tab hiển thị ở BƯỚC 1 — 'email' hiện tại chỉ là giao diện (chưa có backend đăng nhập
+        // bằng email), xem emailLogin() bên dưới.
+        activeTab: 'phone',
+        emailAddress: '',
+        emailPassword: '',
         phone: '',
         otp: '',
         fullname: '',
@@ -37,9 +42,62 @@
         loginPassword: '',
         showLoginPassword: false,
 
-        init() {
-            // Đã đăng nhập rồi thì không cần thấy trang này nữa.
-            if (localStorage.getItem('auth_token')) { window.location.href = '/'; return; }
+        async init() {
+            // Đã đăng nhập rồi thì không cần thấy trang này nữa — NHƯNG phải xác thực lại token
+            // qua API trước khi điều hướng đi, vì token cũ/hết hạn/đã bị xoá (vd tài khoản bị
+            // khoá, đổi mật khẩu ở thiết bị khác revoke hết token) trước đây khiến trang này redirect
+            // sang '/' ngay cả khi không thật sự đăng nhập được — nếu trang đích cũng có kiểm tra
+            // tương tự và bật lại y hệt, tạo cảm giác form vừa hiện lên đã tắt ngay mà không có
+            // cách nào vào lại được trang đăng nhập.
+            const token = localStorage.getItem('auth_token');
+            if (token) {
+                try {
+                    const res = await fetch('/api/auth/me', {
+                        headers: { 'Authorization': 'Bearer ' + token, 'Accept': 'application/json' },
+                    });
+                    if (res.ok) {
+                        window.location.href = '/';
+                        return;
+                    }
+                    // Chỉ xoá token khi API xác nhận KHÔNG hợp lệ (401/403) — lỗi khác (500, mạng
+                    // chập chờn...) không chắc token sai, giữ nguyên để không đăng xuất oan.
+                    if ((res.status === 401 || res.status === 403) && localStorage.getItem('auth_token') === token) {
+                        localStorage.removeItem('auth_token');
+                        localStorage.removeItem('auth_user');
+                    }
+                } catch (e) {
+                    // Lỗi mạng — không chắc token hết hạn hay không, để yên token, không xoá,
+                    // nhưng vẫn cho xem trang đăng nhập thay vì kẹt màn hình trắng.
+                }
+            }
+
+            // Quay về từ Google (ZaloOtpController::googleCallback() điều hướng về đây kèm
+            // google_exchange=mã 1 lần HOẶC google_error=thông báo lỗi) — đổi mã lấy token thật
+            // qua googleExchange(), không bao giờ nhận token trực tiếp qua URL.
+            const params = new URLSearchParams(window.location.search);
+            const googleExchangeCode = params.get('google_exchange');
+            const googleError        = params.get('google_error');
+            if (googleExchangeCode) {
+                window.history.replaceState({}, '', window.location.pathname);
+                try {
+                    const res  = await fetch('/api/auth/google/exchange', {
+                        method:  'POST',
+                        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                        body:    JSON.stringify({ code: googleExchangeCode }),
+                    });
+                    const data = await res.json();
+                    if (res.ok) {
+                        this.finishAuth(data.token, data.user);
+                        return;
+                    }
+                    this.error = data.message;
+                } catch (e) {
+                    this.error = 'Lỗi kết nối. Vui lòng thử lại.';
+                }
+            } else if (googleError) {
+                window.history.replaceState({}, '', window.location.pathname);
+                this.error = googleError;
+            }
 
             // Điều hướng từ trang kia sang (số điện thoại phát hiện là tài khoản mới lúc đang ở
             // trang đăng nhập -> chuyển sang trang đăng ký) mang theo phone_token còn hạn dùng
@@ -86,6 +144,27 @@
                     method:  'POST',
                     headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
                     body:    JSON.stringify({ phone: this.phone, password: this.loginPassword }),
+                });
+                const data = await res.json();
+                if (!res.ok) { this.error = data.message; return; }
+                this.finishAuth(data.token, data.user);
+            } catch (e) {
+                this.error = 'Lỗi kết nối. Vui lòng thử lại.';
+            } finally {
+                this.loading = false;
+            }
+        },
+
+        // Đăng nhập bằng Email — chỉ hoạt động với tài khoản ĐÃ gắn + xác thực email qua trang Tài
+        // khoản (mục Liên kết email), xem ZaloOtpController::emailLogin().
+        async emailLogin() {
+            this.loading = true;
+            this.error   = '';
+            try {
+                const res  = await fetch('/api/auth/email-login', {
+                    method:  'POST',
+                    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                    body:    JSON.stringify({ email: this.emailAddress, password: this.emailPassword }),
                 });
                 const data = await res.json();
                 if (!res.ok) { this.error = data.message; return; }
@@ -182,7 +261,7 @@
         },
     }"
 >
-    {{-- BƯỚC 1: Số điện thoại --}}
+    {{-- BƯỚC 1: Số điện thoại / Email --}}
     <div x-show="step === 'phone'">
         <h2 class="text-2xl font-bold text-gray-900 mb-1 pr-8">
             {{ $mode === 'register' ? 'Tạo tài khoản 365 Home' : '365 Home xin chào!' }}
@@ -193,18 +272,35 @@
                 : 'Đăng nhập để đặt sân với những ưu đãi độc quyền dành cho thành viên.' }}
         </p>
 
+        {{-- 2 tab theo giao diện mẫu — tab "Email" hiện chỉ là UI, chưa nối backend (xem
+             emailLogin() phía dưới): bấm đăng nhập báo "sắp ra mắt". --}}
+        <div class="mb-5 flex rounded-xl bg-gray-100 p-1">
+            <button type="button" @click="activeTab = 'phone'"
+                :class="activeTab === 'phone' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500'"
+                class="flex-1 rounded-lg py-2 text-sm font-bold transition-all">Số điện thoại</button>
+            <button type="button" @click="activeTab = 'email'"
+                :class="activeTab === 'email' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500'"
+                class="flex-1 rounded-lg py-2 text-sm font-bold transition-all">Email</button>
+        </div>
+
+        <div x-show="activeTab === 'phone'">
         <div class="mb-4">
             <label class="block text-xs font-medium text-gray-500 mb-1.5 uppercase tracking-wide">Số điện thoại</label>
-            <input
-                x-model="phone"
-                type="tel"
-                name="phone"
-                autocomplete="tel"
-                placeholder="VD: 0912 345 678"
-                @keydown.enter="loginMode === 'otp' ? sendOtp() : loginWithPassword()"
-                class="w-full rounded-xl px-4 py-3.5 text-gray-900 text-sm bg-white border border-gray-200 focus:outline-none focus:ring-2 focus:border-transparent transition-all"
-                style="--tw-ring-color: {{ $primaryHex }}40;"
-            >
+            <div class="flex items-stretch gap-2">
+                <span class="flex shrink-0 items-center gap-1 rounded-xl border border-gray-200 bg-white px-3 text-sm text-gray-700">
+                    🇻🇳 +84
+                </span>
+                <input
+                    x-model="phone"
+                    type="tel"
+                    name="phone"
+                    autocomplete="tel"
+                    placeholder="VD: 0912 345 678"
+                    @keydown.enter="loginMode === 'otp' ? sendOtp() : loginWithPassword()"
+                    class="w-full rounded-xl px-4 py-3.5 text-gray-900 text-sm bg-white border border-gray-200 focus:outline-none focus:ring-2 focus:border-transparent transition-all"
+                    style="--tw-ring-color: {{ $primaryHex }}40;"
+                >
+            </div>
         </div>
 
         {{-- Password field — chỉ hiện khi loginMode === 'password' --}}
@@ -270,16 +366,91 @@
                 class="font-semibold underline" style="color: {{ $primaryHex }};"
             >Đăng nhập bằng OTP qua Zalo</button>
         </p>
+        </div>
 
-        {{-- Trang đăng ký đã bị gỡ bỏ — không còn link "Đăng ký ngay" (mode luôn là 'login' ở
-             mọi nơi component này còn được dùng, nhưng vẫn giữ nhánh 'register' phòng khi có nơi
-             khác truyền mode này vào — chỉ bỏ nhánh else trỏ sang route đã xoá). --}}
+        {{-- Tab Email — đăng nhập THẬT qua emailLogin() (chỉ hoạt động với tài khoản đã gắn + xác
+             thực email ở trang Tài khoản > Liên kết email). --}}
+        <div x-show="activeTab === 'email'" x-cloak>
+            <div class="mb-4">
+                <label class="block text-xs font-medium text-gray-500 mb-1.5 uppercase tracking-wide">Email</label>
+                <input
+                    x-model="emailAddress"
+                    type="email"
+                    autocomplete="email"
+                    placeholder="ban@email.com"
+                    @keydown.enter="emailLogin()"
+                    class="w-full rounded-xl px-4 py-3.5 text-gray-900 text-sm bg-white border border-gray-200 focus:outline-none focus:ring-2 focus:border-transparent transition-all"
+                    style="--tw-ring-color: {{ $primaryHex }}40;"
+                >
+            </div>
+            <div class="mb-4">
+                <label class="block text-xs font-medium text-gray-500 mb-1.5 uppercase tracking-wide">Mật khẩu</label>
+                <input
+                    x-model="emailPassword"
+                    type="password"
+                    autocomplete="current-password"
+                    placeholder="Nhập mật khẩu"
+                    @keydown.enter="emailLogin()"
+                    class="w-full rounded-xl px-4 py-3.5 text-gray-900 text-sm bg-white border border-gray-200 focus:outline-none focus:ring-2 focus:border-transparent transition-all"
+                    style="--tw-ring-color: {{ $primaryHex }}40;"
+                >
+            </div>
+
+            <div x-show="error" x-cloak class="mb-3 text-sm text-red-500 flex items-center gap-1.5">
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z"/>
+                </svg>
+                <span x-text="error"></span>
+            </div>
+
+            <button type="button"
+                @click="emailLogin()"
+                :disabled="loading || !emailAddress || !emailPassword"
+                class="w-full rounded-lg py-3.5 text-sm font-bold flex items-center justify-center gap-2 transition-opacity hover:opacity-85 active:opacity-75 disabled:opacity-50 disabled:cursor-not-allowed"
+                style="background-color: {{ $primaryHex }}; color: {{ $textOnPrimary }};"
+            >
+                <svg x-show="loading" class="animate-spin w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
+                </svg>
+                <span x-text="loading ? 'Đang đăng nhập...' : 'Đăng nhập'"></span>
+            </button>
+        </div>
+
+        {{-- Đăng nhập với Google — CHỈ dùng cho khách hàng (storefront), KHÔNG áp dụng cho đăng
+             nhập admin. Điều hướng cả trang tới /auth/google/redirect (routes/web.php) — client_id/
+             secret + nút bật/tắt nhập ở admin (App\Filament\Pages\GoogleLoginSettings), không qua
+             .env. Ẩn hẳn khỏi giao diện khi tắt (không chỉ chặn ở backend). --}}
+        @if (optional(\App\Models\GoogleOauthConfiguration::query()->first())->enabled)
+        <a href="{{ route('auth.google.redirect') }}"
+            class="mt-3 flex w-full items-center justify-center gap-2 rounded-lg border border-gray-200 bg-white py-3 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
+        >
+            <svg class="h-4 w-4" viewBox="0 0 48 48"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3c-1.6 4.7-6.1 8-11.3 8-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.9 1.2 8 3.1l5.7-5.7C34.5 6.1 29.5 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.7-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.6 16 19 13 24 13c3.1 0 5.9 1.2 8 3.1l5.7-5.7C34.5 6.1 29.5 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.4 0 10.3-2.1 14-5.5l-6.5-5.4C29.4 34.9 26.8 36 24 36c-5.2 0-9.6-3.3-11.3-8l-6.6 5.1C9.6 39.6 16.3 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.2 4.2-4.1 5.6l6.5 5.4C41.4 36 44 30.5 44 24c0-1.3-.1-2.7-.4-3.5z"/></svg>
+            Đăng nhập với Google
+        </a>
+        @endif
+
         @if($mode === 'register')
             <p class="text-center text-sm text-gray-500 mt-3">
                 Đã có tài khoản?
                 <a href="{{ route('login.page') }}" class="font-semibold underline" style="color: {{ $primaryHex }};">Đăng nhập</a>
             </p>
+        @else
+            {{-- Trang /dang-ky riêng (register-form.blade.php) — trước đây bước đăng ký nằm
+                 ngay trên trang login, giờ có trang riêng theo giao diện mẫu. --}}
+            <p class="text-center text-sm text-gray-500 mt-3">
+                Bạn chưa có tài khoản?
+                <a href="{{ route('register.page') }}" class="font-semibold underline" style="color: {{ $primaryHex }};">Đăng ký</a>
+            </p>
         @endif
+
+        {{-- Banner dành cho chủ sân/nhân viên — UI-only, chưa có link tải app đối tác thật. --}}
+        <div class="mt-6 rounded-xl border-2 border-dashed border-amber-400 bg-amber-50 px-4 py-3 text-center">
+            <a href="#" class="text-xs font-semibold leading-relaxed text-amber-700 underline">
+                Nếu bạn là CHỦ SÂN hoặc NHÂN VIÊN, Bấm vào đây để tải ứng dụng<br>
+                {{ config('app.name', '365 Home') }} - Quản lý sân thể thao!
+            </a>
+        </div>
     </div>
 
     {{-- BƯỚC 2: OTP --}}

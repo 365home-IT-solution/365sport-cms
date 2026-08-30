@@ -238,7 +238,18 @@
             $liveDiffLabelNegative = 'Giảm so với hiện tại';
         }
 
-        $liveDiffValue = (int) $computedLiveTotal - $bookingBaselineAmount;
+        // $computedLiveTotal ($totalAfterBulk + ...) tính lại từ GIÁ GỐC + KM hệ thống (bulk/full
+        // booking, xem $effectiveDiscount phía trên) — KHÔNG biết gì về mã giảm giá (coupon_discount)
+        // hay giảm giá khách quen (loyalty_discount) đã áp dụng lúc khách đặt (2 khoản này chỉ tính
+        // ở phía Livewire ProductDetail.php lúc đặt, KHÔNG có mặt trong công thức tính lại ở file
+        // này). Nếu không trừ 2 khoản này trước khi so sánh, MỌI đơn có áp mã giảm giá hoặc thuộc
+        // diện khách quen sẽ hiện "Phát sinh thêm" giả — đúng bằng số tiền đã giảm — dù admin CHƯA
+        // đổi gì cả (bug thật đã gặp: đơn 200.000đ giảm 10% khách quen còn 180.000đ, mở lại tưởng
+        // "phát sinh thêm 20.000đ", bấm xử lý sẽ xoá mất phần giảm giá khách đã được hưởng).
+        $loyaltyDiscountAtBooking = $hasRecord ? (int) ($record->loyalty_discount ?? 0) : 0;
+        $couponDiscountAtBooking  = $hasRecord ? (int) ($record->coupon_discount ?? 0) : 0;
+
+        $liveDiffValue = (int) $computedLiveTotal - $loyaltyDiscountAtBooking - $couponDiscountAtBooking - $bookingBaselineAmount;
         if ($bookingBaselineAmount > 0 && $liveDiffValue !== 0) {
             $liveDiff = $liveDiffValue;
         }

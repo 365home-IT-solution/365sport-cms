@@ -50,7 +50,9 @@ class RoomTypeResource extends Resource
     // view_any_room::type), khiến tick/bỏ tick quyền này ở Roles & Permissions vô tác dụng.
     public static function canViewAny(): bool
     {
-        return auth()->user()?->can('view_any_room::type') ?? false;
+        $user = auth()->user();
+
+        return ($user?->can('view_any_room::type') ?? false) && ($user?->partnerHasFeature('room_types') ?? false);
     }
 
     public static function form(Form $form): Form

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Modules\Category\App\Filament\Resources\CategoryResource\Forms;
 
+use App\Models\Province;
+use App\Models\Ward;
 use CodeWithDennis\FilamentSelectTree\SelectTree;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Grid;
@@ -17,6 +19,7 @@ use Filament\Forms\Get;
 use Illuminate\Support\Str;
 use Filament\Forms\Set;
 use Illuminate\Validation\Rule;
+use Modules\Category\Entities\Category;
 
 class CategoryForm
 {
@@ -29,6 +32,7 @@ class CategoryForm
                         self::basicInfoSection()->columnSpan(3),
                         self::categoryDetailsSection()->columnSpan(1),
                         self::Image()->columnSpan(3),
+                        self::locationSection()->columnSpan(1),
                     ]),
             ]);
     }
@@ -93,9 +97,31 @@ class CategoryForm
                 self::sortOrderInput(),
                 self::categoryTypeInput(),
                 self::partnerInput(),
+                self::openingHoursInputs(),
                 self::statusToggle(),
             ])
             ->columnSpan(1);
+    }
+
+    // Giờ mở/đóng cửa của chi nhánh — trước đây 2 cột checkin_time/checkout_time tồn tại sẵn trên
+    // bảng categories và ĐÃ được đọc/hiển thị ở trang chủ (VenueGrid::formatHours(), thẻ sân) +
+    // trang bản đồ (map-page.blade.php, tab Thông tin), nhưng KHÔNG có field nào trên form admin
+    // để nhập — nên luôn NULL, thẻ sân tự ẩn dòng giờ mở cửa dù giao diện đã sẵn sàng hiển thị
+    // (bug đã gặp: hỏi "thời gian mở đóng cửa??" vì tìm khắp form không thấy). CHỈ hiện với chi
+    // nhánh (category_type=product) — "Bài viết" không cần giờ mở cửa.
+    private static function openingHoursInputs(): Grid
+    {
+        return Grid::make(2)
+            ->schema([
+                \Filament\Forms\Components\TimePicker::make('checkin_time')
+                    ->label('Giờ mở cửa')
+                    ->seconds(false),
+
+                \Filament\Forms\Components\TimePicker::make('checkout_time')
+                    ->label('Giờ đóng cửa')
+                    ->seconds(false),
+            ])
+            ->visible(fn (Get $get) => $get('category_type') === 'product');
     }
 
     // Thứ tự hiển thị giữa các chi nhánh/khu vực CÙNG CẤP (cùng parent_id) — số nhỏ hơn hiển thị
@@ -144,6 +170,66 @@ class CategoryForm
             ->visible(fn () => auth()->user()?->isSuperAdmin() ?? false)
             ->required(fn (Get $get) => $get('category_type') === 'product')
             ->helperText('Bắt buộc chọn với chi nhánh (category_type = product) — nếu không, tài khoản đối tác sẽ không thấy chi nhánh này ở bất kỳ đâu.');
+    }
+
+    // Tỉnh/Thành + Phường/Xã thật của chi nhánh — trước đây KHÔNG có ở form admin, dữ liệu chỉ
+    // được gán qua database/seeders/SportVenueDemoSeeder.php (bịa/sai theo index, không theo địa
+    // chỉ thật, phải backfill thủ công 1 lần). Lưu vào bảng riêng App\Models\ProvinceBranch (không
+    // phải cột trực tiếp trên categories) — xem ListCategory::getHeaderActions() (tạo mới) và
+    // EditCategory (sửa) để biết chỗ đọc/ghi 2 field này, Category::provinceBranch() quan hệ đọc
+    // giá trị hiện tại khi mở lại form sửa.
+    private static function locationSection(): Section
+    {
+        return Section::make('Khu vực')
+            ->schema([
+                self::provinceInput(),
+                self::wardInput(),
+            ])
+            ->columnSpan(1)
+            ->visible(fn (Get $get) => $get('category_type') === 'product')
+            ->description('Dùng để lọc chi nhánh theo khu vực ở trang Bản đồ/Tìm kiếm ngoài site.');
+    }
+
+    private static function provinceInput(): Select
+    {
+        return Select::make('province_id')
+            ->label('Tỉnh/Thành phố')
+            ->options(fn () => Province::orderBy('name')->pluck('name', 'id'))
+            ->searchable()
+            ->live()
+            ->afterStateUpdated(fn (Set $set) => $set('ward_code', null))
+            // Chỉ có ý nghĩa khi tạo/sửa CHI NHÁNH thật (product) — category "khu vực"/"bài viết"
+            // không cần Tỉnh/Thành.
+            ->required(fn (Get $get) => $get('category_type') === 'product')
+            // Category KHÔNG có cột province_id thật (nằm ở ProvinceBranch.province_id riêng) —
+            // nạp giá trị đang có khi MỞ FORM SỬA, vì mặc định Filament chỉ tự nạp được cột thật
+            // trên chính bảng categories.
+            ->afterStateHydrated(function (Select $component, ?Category $record) {
+                if ($record) {
+                    $component->state($record->provinceBranch?->province_id);
+                }
+            });
+    }
+
+    private static function wardInput(): Select
+    {
+        return Select::make('ward_code')
+            ->label('Phường/Xã')
+            ->options(function (Get $get) {
+                $province = Province::find($get('province_id'));
+
+                return $province
+                    ? Ward::where('province_code', $province->code)->orderBy('name')->pluck('name', 'code')
+                    : [];
+            })
+            ->searchable()
+            ->disabled(fn (Get $get) => blank($get('province_id')))
+            ->helperText(fn (Get $get) => blank($get('province_id')) ? 'Chọn Tỉnh/Thành trước.' : null)
+            ->afterStateHydrated(function (Select $component, ?Category $record) {
+                if ($record) {
+                    $component->state($record->provinceBranch?->ward_code);
+                }
+            });
     }
 
     private static function parentCategoryInput(): SelectTree

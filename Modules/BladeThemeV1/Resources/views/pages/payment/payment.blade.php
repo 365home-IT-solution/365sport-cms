@@ -1,7 +1,8 @@
 @extends('bladethemev1::layouts.master')
 
 @section('content')
-    @livewire('bladethemev1::header')
+    <x-bladethemev1::home.top-bar />
+    <x-bladethemev1::home.search-bar />
     @livewire('bladethemev1::drawer-menu')
     @livewire('bladethemev1::payment')
     @livewire('bladethemev1::footer')

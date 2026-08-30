@@ -8,11 +8,13 @@ use App\Filament\Resources\PackagePlanResource\Pages;
 use App\Models\CustomerPackage;
 use App\Models\PackagePlan;
 use Filament\Forms\Components\Grid;
+use Filament\Forms\Components\Radio;
 use Filament\Forms\Components\Section;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Forms\Form;
+use Filament\Forms\Get;
 use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Tables\Actions\Action;
@@ -21,7 +23,6 @@ use Filament\Tables\Actions\EditAction;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
-use Modules\Product\App\Models\Product;
 
 // Gói nhiều buổi / thẻ trả trước — theo yêu cầu rà soát nghiệp vụ đặt sân (khách mua trước N buổi
 // cho 1 sân cụ thể, giá ưu đãi hơn mua lẻ). Đây là nơi ADMIN cấu hình các GÓI (PackagePlan) bán ra
@@ -53,15 +54,52 @@ class PackagePlanResource extends Resource
     {
         return $form->schema([
             Section::make('Thông tin gói')->schema([
+                // Radio thuần UI (dehydrated: false — KHÔNG lưu xuống DB) để chọn ĐÚNG 1 TRONG 2
+                // Select bên dưới hiện ra — xem PackagePlan::isBranchWide()/migration
+                // add_category_scope_to_package_tables. afterStateHydrated tự suy giá trị ban đầu
+                // khi SỬA gói có sẵn (category_id có giá trị → đang là gói cả chi nhánh).
+                Radio::make('scope_type')
+                    ->label('Phạm vi áp dụng')
+                    ->options([
+                        'product'  => '1 sân cụ thể',
+                        'category' => 'Toàn bộ chi nhánh (mọi sân)',
+                    ])
+                    ->default('product')
+                    ->inline()
+                    ->live()
+                    ->dehydrated(false)
+                    ->afterStateHydrated(function ($component, $record) {
+                        $component->state($record?->category_id ? 'category' : 'product');
+                    }),
+
                 Select::make('product_id')
                     ->label('Sân áp dụng')
                     ->placeholder('Tìm theo tên sân')
-                    ->required()
+                    ->visible(fn (Get $get) => $get('scope_type') === 'product')
+                    ->required(fn (Get $get) => $get('scope_type') === 'product')
+                    ->dehydrated(fn (Get $get) => $get('scope_type') === 'product')
+                    // Dùng thẳng ->relationship() (PackagePlan::product(), chuẩn Filament) thay vì
+                    // ->getSearchResultsUsing()/->getOptionLabelUsing() tự viết tay — select trước
+                    // đây kẹt mãi ở "Đang tải..." không load được sân nào (bug đã gặp). Không dựng
+                    // lại được lỗi qua tinker (câu query gốc chạy đúng, trả về kết quả bình
+                    // thường) nên đổi sang cách làm chuẩn, đã chạy ổn ở nhiều select khác trong hệ
+                    // thống, để loại trừ rủi ro lỗi ở tầng Livewire/JS khó dò khi không debug được
+                    // trực tiếp trên trình duyệt.
+                    ->relationship('product', 'name')
                     ->searchable()
-                    ->getSearchResultsUsing(fn (string $search) => Product::where('name', 'like', "%{$search}%")
-                        ->limit(20)->pluck('name', 'id'))
-                    ->getOptionLabelUsing(fn ($value) => Product::find($value)?->name)
+                    ->preload()
                     ->helperText('Gói CHỈ dùng được cho đúng sân này khi đặt sân (không dùng chéo sân khác).'),
+
+                Select::make('category_id')
+                    ->label('Chi nhánh áp dụng')
+                    ->placeholder('Tìm theo tên chi nhánh')
+                    ->visible(fn (Get $get) => $get('scope_type') === 'category')
+                    ->required(fn (Get $get) => $get('scope_type') === 'category')
+                    ->dehydrated(fn (Get $get) => $get('scope_type') === 'category')
+                    ->relationship('category', 'name', fn ($query) => $query->where('category_type', 'product'))
+                    ->searchable()
+                    ->preload()
+                    ->helperText('Gói dùng được cho MỌI sân thuộc chi nhánh này, không riêng 1 sân.'),
 
                 TextInput::make('name')
                     ->label('Tên gói')
@@ -106,8 +144,11 @@ class PackagePlanResource extends Resource
         return $table
             ->columns([
                 TextColumn::make('product.name')
-                    ->label('Sân')
-                    ->searchable()
+                    ->label('Phạm vi')
+                    ->formatStateUsing(fn ($record) => $record->category_id
+                        ? 'Cả chi nhánh: ' . ($record->category?->name ?? '—')
+                        : ($record->product?->name ?? '—'))
+                    ->searchable(['product.name'])
                     ->sortable(),
 
                 TextColumn::make('name')
@@ -170,9 +211,11 @@ class PackagePlanResource extends Resource
                     ->action(function (PackagePlan $record, array $data): void {
                         CustomerPackage::create([
                             'package_plan_id'    => $record->id,
+                            'partner_id'         => $record->partner_id,
                             'buyer_phone'        => $data['buyer_phone'],
                             'buyer_name'         => $data['buyer_name'],
                             'product_id'         => $record->product_id,
+                            'category_id'        => $record->category_id,
                             'name'               => $record->name,
                             'sessions_total'     => $record->sessions_count,
                             'sessions_remaining' => $record->sessions_count,

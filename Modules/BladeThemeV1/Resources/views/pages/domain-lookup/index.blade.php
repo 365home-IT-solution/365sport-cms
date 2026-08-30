@@ -1,6 +1,7 @@
 @extends('bladethemev1::layouts.master')
 @section('content')
-    @livewire('bladethemev1::header')
+    <x-bladethemev1::home.top-bar />
+    <x-bladethemev1::home.search-bar />
     @livewire('bladethemev1::drawer-menu')
     @livewire('bladethemev1::breadcrumb', ['slug' => 'kiem-tra-ten-mien', 'name' => 'Kiểm tra tên miền'])
     @livewire('bladethemev1::domain-lookup-detail')

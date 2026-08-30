@@ -16,12 +16,8 @@ class FormSubmissionResource extends Resource
 {
     protected static ?string $model = FormSubmission::class;
 
-    // Nhóm "Biểu mẫu" đang ẩn tạm khỏi menu — bật lại bằng cách xoá method này.
-    public static function shouldRegisterNavigation(): bool
-    {
-        return false;
-    }
-
+    // Bật lại hiển thị menu — cần thiết để xem lượt gửi form "Đăng ký làm đối tác"
+    // (/lam-doi-tac) và các form khác trong hệ thống.
     public static function getNavigationIcon(): string
     {
         return __('form::form-submission.resource.navigation_icon');

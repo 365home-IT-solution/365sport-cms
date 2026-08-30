@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Jobs\SendFcmPushJob;
 use App\Models\Customer;
 use App\Models\NotificationFcm;
 use App\Models\NotificationFcmRecipient;
@@ -37,36 +38,34 @@ class NotificationFcmService
             'sent_at'  => now(),
         ]);
 
-        $status      = 'sent';
         $unreadCount = $this->getUnreadCount($customer->id) + 1;
 
-        // FCM push (chỉ gửi nếu có token)
-        if ($customer->token_device) {
-            try {
-                $this->fcm->sendToCustomer($customer, $title, $body, array_merge($extra, [
-                    'notification_id' => (string) $notification->id,
-                    'type'            => $type,
-                    'unread_count'    => (string) $unreadCount,
-                ]));
-            } catch (\Throwable $e) {
-                $status = 'failed';
-                Log::warning("NotificationFcmService: FCM failed [{$type}]", [
-                    'customer_id' => $customer->id,
-                    'error'       => $e->getMessage(),
-                ]);
-            }
-        }
-
+        // 'status' ở đây quyết định LUÔN việc thông báo có hiện trong GET /api/notifications hay
+        // không (NotificationController lọc where('status','sent')) — không chỉ là trạng thái push
+        // FCM. Vì vậy mặc định LUÔN ghi 'sent' ngay (giữ đúng hành vi cũ: thông báo hiện trong app
+        // ngay lập tức, kể cả khi khách chưa có token_device hoặc job push chưa kịp chạy). Việc gửi
+        // push FCM thật sự chạy qua hàng đợi (SendFcmPushJob) để KHÔNG chặn request hiện tại (trước
+        // đây gọi HTTP tới FCM đồng bộ ngay đây, có thể chậm/timeout làm chậm luôn API gọi hàm này,
+        // vd đặt sân/thanh toán) — job chỉ SỬA lại thành 'failed' nếu push thật sự thất bại, không
+        // bao giờ tự đặt 'pending' làm khách không thấy thông báo trong lúc chờ job chạy.
         NotificationFcmRecipient::create([
             'notification_fcm_id' => $notification->id,
             'customer_id'         => $customer->id,
             'fcm_token'           => $customer->token_device,
-            'status'              => $status,
+            'status'              => 'sent',
         ]);
 
+        if ($customer->token_device) {
+            SendFcmPushJob::dispatch($customer, $title, $body, array_merge($extra, [
+                'notification_id' => (string) $notification->id,
+                'type'            => $type,
+                'unread_count'    => (string) $unreadCount,
+            ]), $notification->id);
+        }
+
         $notification->update([
-            'sent_count' => $status === 'sent' ? 1 : 0,
-            'fail_count' => $status === 'failed' ? 1 : 0,
+            'sent_count' => 1,
+            'fail_count' => 0,
         ]);
 
         // WebSocket realtime (app đang mở nhận ngay)

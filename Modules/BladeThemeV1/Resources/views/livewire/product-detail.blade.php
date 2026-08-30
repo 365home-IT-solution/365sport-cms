@@ -632,7 +632,11 @@
                                     <div>
                                         <h2 class="text-[22px] font-semibold text-[#222222] leading-snug">
                                             {{ $product->name ?? '' }}</h2>
-                                        <p class="text-base text-[#222222] mt-1">{{ $pdCapacityLine }}</p>
+                                        {{-- Số khách chỉ có ý nghĩa với phòng nghỉ qua đêm (style=2) — sân
+                                             đặt theo giờ (style=1) không tính sức chứa theo khách. --}}
+                                        @if ($bookingStyle == 2)
+                                            <p class="text-base text-[#222222] mt-1">{{ $pdCapacityLine }}</p>
+                                        @endif
                                     </div>
                                     <div
                                         class="flex items-center gap-1.5 shrink-0 text-sm font-semibold text-[#222222] whitespace-nowrap">
@@ -2462,8 +2466,11 @@
     $pdHasCoords = !empty($pdLat) && !empty($pdLng);
     // Dùng toạ độ (nếu có) để đảm bảo ghim đúng vị trí thay vì chỉ tìm theo địa chỉ text
     $pdMapQuery = $pdHasCoords ? $pdLat . ',' . $pdLng : $pdAddress;
-    $pdMapUrl =
-        $product->map_url ?: ($pdMapQuery ? 'https://www.google.com/maps/search/?q=' . urlencode($pdMapQuery) : null);
+    // Cột map_url đã bị xoá khỏi bảng products (migration 2026_06_04_000002, thay bằng
+    // latitude/longitude) — luôn tự dựng link từ toạ độ/địa chỉ, không còn đọc map_url nữa. Dùng
+    // dạng "dir" (api=1) thay vì "search" để bấm vào là app Maps vào THẲNG chế độ chỉ đường (tự lấy
+    // vị trí hiện tại của người dùng làm điểm xuất phát), không chỉ ghim vị trí rồi phải bấm thêm.
+    $pdMapUrl = $pdMapQuery ? 'https://www.google.com/maps/dir/?api=1&destination=' . urlencode($pdMapQuery) : null;
     $pdMapEmbedSrc = $pdMapQuery
         ? 'https://www.google.com/maps?q=' .
             urlencode($pdMapQuery) .

@@ -49,7 +49,7 @@ class TtlockAccountResource extends Resource
         }
         // Không còn bắt buộc phải có quyền chi nhánh cụ thể mới thấy menu — TtlockAccount đã lọc
         // theo partner_id qua BelongsToPartner, chỉ cần có quyền Shield thông thường.
-        return $user->can('view_any_ttlock::account');
+        return $user->can('view_any_ttlock::account') && $user->partnerHasFeature('ttlock_accounts');
     }
 
     public static function getEloquentQuery(): Builder

@@ -135,11 +135,9 @@ class ExtraChargeService
      */
     public function createExtraChargePayOS(Order $order, int $amount): array
     {
-        $payOS = new PayOS(
-            Config::get('payos.client_id'),
-            Config::get('payos.api_key'),
-            Config::get('payos.checksum_key'),
-        );
+        // Đúng bộ khoá PayOS của đối tác sở hữu đơn này nếu đã cấu hình riêng, không thì PayOS
+        // chung nền tảng như cũ — xem App\Services\PayOSCredentialResolver.
+        $payOS = PayOSCredentialResolver::client($order->partner);
 
         $extraCode = (int) (intval(substr(strval(microtime(true) * 10000), -6)) . rand(10, 99));
         $expiredAt    = now()->addMinutes(15);
@@ -222,11 +220,9 @@ class ExtraChargeService
             return ['error' => 'Số tiền còn lại quá nhỏ hoặc đã thanh toán đủ.'];
         }
 
-        $payOS = new PayOS(
-            Config::get('payos.client_id'),
-            Config::get('payos.api_key'),
-            Config::get('payos.checksum_key'),
-        );
+        // Đúng bộ khoá PayOS của đối tác sở hữu đơn này nếu đã cấu hình riêng, không thì PayOS
+        // chung nền tảng như cũ — xem App\Services\PayOSCredentialResolver.
+        $payOS = PayOSCredentialResolver::client($order->partner);
 
         $remainingCode = (int) (intval(substr(strval(microtime(true) * 10000), -6)) . rand(10, 99));
         $expiredAt     = now()->addMinutes(30);
@@ -357,6 +353,15 @@ class ExtraChargeService
      */
     public function markRefundAsDone(Order $order, int $amount, string $method = 'cash'): void
     {
+        // Chặn xử lý trùng — đơn có thể được thao tác từ 2 nơi khác nhau (OrderForm cũ VÀ trang
+        // "Hoàn tiền chờ xử lý" mới), hoặc admin double-click/2 tab cùng lúc. Refresh trước khi
+        // kiểm tra để lấy đúng trạng thái mới nhất từ DB, không dựa vào bản $order đã load sẵn
+        // (có thể đã cũ nếu request khác vừa xử lý xong).
+        $order->refresh();
+        if (! is_null($order->extra_refund_paid_at)) {
+            throw new \RuntimeException('Khoản hoàn tiền này đã được xử lý trước đó.');
+        }
+
         $order->update([
             'extra_refund_amount'  => $amount,
             'extra_refund_method'  => $method,

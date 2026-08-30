@@ -35,7 +35,16 @@ class TtlockAccountResource extends Resource
     // khiến tick/bỏ tick quyền này ở Roles & Permissions vô tác dụng.
     public static function canViewAny(): bool
     {
-        return auth()->user()?->can('view_any_ttlock::account') ?? false;
+        $user = auth()->user();
+
+        return ($user?->can('view_any_ttlock::account') ?? false) && ($user?->partnerHasFeature('ttlock_accounts') ?? false);
+    }
+
+    // Tạm ẩn hẳn khỏi menu theo yêu cầu — chưa dùng TTLock trong giai đoạn hiện tại. Giữ nguyên
+    // code/route/permission, chỉ cần xoá method này để bật lại menu sau.
+    public static function shouldRegisterNavigation(): bool
+    {
+        return false;
     }
 
     public static function form(Form $form): Form

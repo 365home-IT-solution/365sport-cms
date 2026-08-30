@@ -66,8 +66,6 @@ class ProductDetail extends Component
         $this->initializeProductData();
     }
 
-const LOYALTY_DISCOUNT_ENABLED = 1;
-
     // Tạm tắt theo yêu cầu — đặt sân hiện tại KHÔNG cần khai báo lưu trú CCCD (khác hotel gốc).
     // Đổi thành true để bật lại (đồng bộ với $cccdRequired trong
     // components/product-detail/infomation-book-room.blade.php).
@@ -76,6 +74,11 @@ const LOYALTY_DISCOUNT_ENABLED = 1;
     public $originalTotalAmount = 0;
     public $promoDiscountAmount = 0;
     public $bulkDiscountAmount = 0;
+    // Tách RIÊNG khỏi bulkDiscountAmount (trước đây gộp chung, xem lịch sử) — cần lưu số tiền
+    // giảm giá khách quen XUỐNG ĐƠN (cột 'loyalty_discount') để trang admin đối chiếu lại giá đúng
+    // như phía khách hàng đã thấy lúc đặt, không hiểu nhầm phần giảm giá là "phát sinh thêm cần
+    // thu" khi mở lại đơn (xem total-amount-card.blade.php).
+    public $loyaltyDiscountAmount = 0;
     public $fullBookingDiscount = 0;
     public $hasFullDayBooking = false;
     public $increaseAmount = 0;
@@ -593,7 +596,12 @@ const LOYALTY_DISCOUNT_ENABLED = 1;
 
     protected function getLoyaltyDiscountRate(): float
     {
-        if (!self::LOYALTY_DISCOUNT_ENABLED) return 0;
+        // Đọc qua Partner::effectiveLoyaltyDiscountEnabled()/Rate2ndOrder()/Rate3rdPlus() — mỗi đối
+        // tác có thể ghi đè riêng (bật/tắt/đổi tỷ lệ), null = dùng nguyên cài đặt chung
+        // (GeneralSettings). KHÔNG còn đọc thẳng $settings->loyalty_discount_enabled ở đây nữa.
+        $partner = $this->product->partner;
+
+        if (! $partner || ! $partner->effectiveLoyaltyDiscountEnabled()) return 0;
         $this->customerOrderCount = 0;
 
         if (empty($this->buyerPhone)) return 0;
@@ -604,17 +612,19 @@ const LOYALTY_DISCOUNT_ENABLED = 1;
 
         $this->customerOrderCount = $count;
 
-        if ($count === 1) return 0.10;
-        if ($count >= 2)  return 0.05;
+        if ($count === 1) return $partner->effectiveLoyaltyDiscountRate2ndOrder() / 100;
+        if ($count >= 2)  return $partner->effectiveLoyaltyDiscountRate3rdPlus() / 100;
 
         return 0;
     }
 
     /**
      * Danh sách gói nhiều buổi ĐANG BÁN cho sân đang xem (is_active=true) — hiện ở khối "Mua gói
-     * nhiều buổi" trong infomation-book-room.blade.php. Không lọc theo buyerPhone (khác
-     * getAvailablePackage() — đây là danh sách CHÀO BÁN, ai cũng thấy được, không phải gói đã sở
-     * hữu).
+     * nhiều buổi" trong infomation-book-room.blade.php. Gồm CẢ gói riêng đúng sân này (product_id)
+     * LẪN gói áp dụng cho toàn chi nhánh sân này thuộc về (category_id — xem
+     * migration add_category_scope_to_package_tables), khách xem sân nào trong chi nhánh cũng thấy
+     * được gói chung đó. Không lọc theo buyerPhone (khác getAvailablePackage() — đây là danh sách
+     * CHÀO BÁN, ai cũng thấy được, không phải gói đã sở hữu).
      */
     public function getAvailablePackagePlans(): \Illuminate\Support\Collection
     {
@@ -622,8 +632,15 @@ const LOYALTY_DISCOUNT_ENABLED = 1;
             return collect();
         }
 
-        return \App\Models\PackagePlan::where('product_id', $this->product->id)
-            ->where('is_active', true)
+        $categoryIds = $this->product->categories->pluck('id');
+
+        return \App\Models\PackagePlan::where('is_active', true)
+            ->where(function ($q) use ($categoryIds) {
+                $q->where('product_id', $this->product->id);
+                if ($categoryIds->isNotEmpty()) {
+                    $q->orWhereIn('category_id', $categoryIds);
+                }
+            })
             ->orderBy('sessions_count')
             ->get();
     }
@@ -639,7 +656,15 @@ const LOYALTY_DISCOUNT_ENABLED = 1;
     public function buyPackage(int $planId)
     {
         $plan = \App\Models\PackagePlan::find($planId);
-        if (! $plan || ! $plan->is_active || ! $this->product || $plan->product_id !== $this->product->id) {
+        // Hợp lệ nếu ĐÚNG sân đang xem (product_id khớp) HOẶC gói cả chi nhánh mà sân đang xem
+        // thuộc về (category_id khớp 1 trong các chi nhánh của sân — xem
+        // getAvailablePackagePlans()) — chặn khách sửa tay planId để mua gói của sân/chi nhánh
+        // khác qua trang này.
+        $matchesScope = $plan && $this->product && (
+            $plan->product_id === $this->product->id
+            || ($plan->category_id && $this->product->categories->pluck('id')->contains($plan->category_id))
+        );
+        if (! $plan || ! $plan->is_active || ! $matchesScope) {
             $this->dispatch('notify', ['message' => 'Gói không còn tồn tại hoặc đã ngừng bán.', 'type' => 'error']);
             return;
         }
@@ -647,6 +672,13 @@ const LOYALTY_DISCOUNT_ENABLED = 1;
         if (empty($this->buyerName) || empty($this->buyerPhone)) {
             $this->dispatch('notify', ['message' => 'Vui lòng nhập họ tên và số điện thoại trước khi mua gói.', 'type' => 'error']);
             $this->addError('buyerPhone', 'Bắt buộc để mua gói.');
+            return;
+        }
+
+        // Xem App\Services\BookingRateLimiter — chặn phá hoại theo IP (đồng bộ với confirmBooking()).
+        $blockedReason = app(\App\Services\BookingRateLimiter::class)->checkBlocked(request()->ip());
+        if ($blockedReason) {
+            $this->dispatch('notify', ['message' => $blockedReason, 'type' => 'error']);
             return;
         }
 
@@ -659,15 +691,24 @@ const LOYALTY_DISCOUNT_ENABLED = 1;
             'buyer_email'     => $this->buyerEmail ?: null,
             'amount'          => $plan->price,
             'full_amount'     => $plan->price,
+            'creator_ip'      => request()->ip(),
             'status'          => 'pending',
-            'payment_method'  => 'payos',
+            // Cùng cách quyết định NHƯ ĐƠN ĐẶT SÂN THƯỜNG (resolveEffectivePaymentMethod() —
+            // Partner::effectivePaymentMethod(), KHÔNG để khách chọn) — trước đây mua gói LUÔN cố
+            // định 'PayOS', không hỗ trợ chuyển khoản ngân hàng thủ công như đặt sân, theo yêu cầu
+            // thống nhất 2 luồng thanh toán.
+            'payment_method'  => $this->resolveEffectivePaymentMethod(),
             'description'     => 'Mua goi: ' . $plan->name,
             'category_id'     => $this->product->categories->first()?->id,
             'partner_id'      => $this->product->partner_id,
         ]);
 
         $order->items()->create([
-            'product_id' => $plan->product_id,
+            // Gói cả chi nhánh (plan->product_id null) không có 1 sân cụ thể để gắn — dùng ĐÚNG sân
+            // khách đang xem lúc mua làm sân đại diện cho item (chỉ để hiển thị/thống kê đơn hàng,
+            // KHÔNG ảnh hưởng phạm vi dùng gói thật — quyền dùng gói xét theo CustomerPackage
+            // .category_id, xem findValidForPhoneAndProduct()).
+            'product_id' => $plan->product_id ?? $this->product->id,
             'name'       => $plan->name . ' - ' . $this->product->name,
             'price'      => $plan->price,
             'quantity'   => 1,
@@ -680,16 +721,25 @@ const LOYALTY_DISCOUNT_ENABLED = 1;
         // gói (đã xác nhận qua log PayOS Payment Items lúc test).
         $order->load('items');
 
+        // Cùng nhánh rẽ NHƯ ĐƠN ĐẶT SÂN THƯỜNG (xem datPhong()/confirmBooking()) — bank_transfer
+        // thì chuyển sang trang tra cứu đơn để khách upload ảnh biên lai + chờ admin duyệt, không
+        // gọi PayOS. processBankTransferPayment()/processPayOSPayment() vốn đã tổng quát (chỉ cần
+        // $order có items), không quan tâm order_type nên dùng lại được nguyên vẹn.
+        if ($order->payment_method === 'bank_transfer') {
+            return $this->processBankTransferPayment($order);
+        }
+
         return $this->processPayOSPayment($order);
     }
 
     /**
-     * Gói nhiều buổi CÒN DÙNG ĐƯỢC của khách cho ĐÚNG sân đang xem — tra theo buyerPhone (dự án
-     * này gần như không có khách đăng ký tài khoản, xem ghi chú tại
-     * App\Models\CustomerPackage::findValidForPhoneAndProduct()). Trả về null nếu chưa nhập SĐT/
-     * không có gói/sân đang đặt là style=2 (theo ngày, không hỗ trợ trả bằng gói — xem
-     * $usePackage trong PropertiesProductDetail). Gọi lại (không cache) mỗi lần render — SĐT có
-     * thể đổi liên tục lúc khách đang gõ, chi phí 1 query đơn giản là chấp nhận được.
+     * Gói nhiều buổi CÒN DÙNG ĐƯỢC của khách cho sân đang xem — tra theo buyerPhone (dự án này
+     * gần như không có khách đăng ký tài khoản, xem ghi chú tại
+     * App\Models\CustomerPackage::findValidForPhoneAndProduct()). Gồm CẢ gói riêng đúng sân này
+     * LẪN gói cả chi nhánh sân này thuộc về. Trả về null nếu chưa nhập SĐT/không có gói/sân đang
+     * đặt là style=2 (theo ngày, không hỗ trợ trả bằng gói — xem $usePackage trong
+     * PropertiesProductDetail). Gọi lại (không cache) mỗi lần render — SĐT có thể đổi liên tục lúc
+     * khách đang gõ, chi phí 1 query đơn giản là chấp nhận được.
      */
     public function getAvailablePackage(): ?\App\Models\CustomerPackage
     {
@@ -697,7 +747,11 @@ const LOYALTY_DISCOUNT_ENABLED = 1;
             return null;
         }
 
-        return \App\Models\CustomerPackage::findValidForPhoneAndProduct($this->buyerPhone, $this->product->id);
+        return \App\Models\CustomerPackage::findValidForPhoneAndProduct(
+            $this->buyerPhone,
+            $this->product->id,
+            $this->product->categories->pluck('id')->all()
+        );
     }
 
     public function incrementService(int $serviceId): void
@@ -890,9 +944,10 @@ const LOYALTY_DISCOUNT_ENABLED = 1;
 
             $loyaltyRate = $this->getLoyaltyDiscountRate();
             if ($loyaltyRate > 0) {
-                $loyaltyDiscount           = $totalAfterPromo * $loyaltyRate;
-                $this->bulkDiscountAmount += $loyaltyDiscount;
-                $totalAfterPromo          -= $loyaltyDiscount;
+                $this->loyaltyDiscountAmount = $totalAfterPromo * $loyaltyRate;
+                $totalAfterPromo           -= $this->loyaltyDiscountAmount;
+            } else {
+                $this->loyaltyDiscountAmount = 0;
             }
         }
 
@@ -1039,6 +1094,20 @@ const LOYALTY_DISCOUNT_ENABLED = 1;
     public function updatedStartTime()
     {
         if ($this->bookingStyle == 2) $this->calculateDateRangeTotal();
+    }
+
+    // Giảm giá khách quen (getLoyaltyDiscountRate()) chỉ tính được SAU khi biết SĐT — trước đây
+    // "Tổng tiền" hiện trên màn xác nhận đặt lịch vẫn giữ số CHƯA trừ giảm giá cho tới lúc khách
+    // bấm "Xác nhận & thanh toán" (lúc đó recalculate mới chạy lại với buyerPhone đã có), khiến số
+    // tiền THU THẬT khác số vừa nhìn thấy ngay trước đó — gây hiểu lầm giá bị tính sai dù số thu
+    // là số ĐÚNG. Bắt buộc tính lại ngay khi nhập xong SĐT để 2 màn luôn khớp nhau.
+    public function updatedBuyerPhone()
+    {
+        if ($this->bookingStyle == 2) {
+            $this->calculateDateRangeTotal();
+        } else {
+            $this->updatedSelectedSlots();
+        }
     }
 
     public function updatedEndTime()
@@ -1275,8 +1344,10 @@ const LOYALTY_DISCOUNT_ENABLED = 1;
         } else {
             $this->updatedSelectedSlots();
         }
-        // Thành:
-        if (self::LOYALTY_DISCOUNT_ENABLED) {
+        // Dùng effectiveLoyaltyDiscountEnabled() (có thể bị đối tác ghi đè riêng) thay vì đọc thẳng
+        // GeneralSettings — tránh mở popup "khách quen được giảm giá" trong khi đối tác đã tự tắt
+        // tính năng này (lúc đó getLoyaltyDiscountRate() trả về 0, mở popup báo giảm giá là sai).
+        if ($this->product->partner?->effectiveLoyaltyDiscountEnabled()) {
             $orderCount = \Modules\Payment\Entities\Order::where('buyer_phone', $this->buyerPhone)
                 ->whereIn('status', ['paid', 'completed'])
                 ->count();
@@ -1390,6 +1461,20 @@ const LOYALTY_DISCOUNT_ENABLED = 1;
 public function confirmBooking()
 {
     $this->bookingConfirmError = '';
+
+    // Chặn phá hoại (đặt liên tục nhiều lần đè khung giờ) — theo IP trình duyệt, KHÔNG theo SĐT
+    // (SĐT không xác minh OTP ở luồng này, đổi số vô hạn để né). Kiểm tra NGAY từ đầu, trước khi
+    // upload file/mở transaction gì cả.
+    $blockedReason = app(\App\Services\BookingRateLimiter::class)->checkBlocked(request()->ip());
+    if ($blockedReason) {
+        $this->bookingConfirmError = $blockedReason;
+        // $bookingConfirmError chỉ được render ở booking-checkout.blade.php (style=1 rút gọn) —
+        // dispatch thêm 'notify' để style=2 (livewire/product-detail.blade.php, có sẵn listener
+        // toàn cục cho sự kiện này) cũng hiện được thông báo, không bị im lặng khi bị chặn.
+        $this->dispatch('notify', ['message' => $blockedReason, 'type' => 'error']);
+        return;
+    }
+
     try {
         // Upload file TRƯỚC transaction (không thể rollback file)
         // Nếu auth user đã có CCCD trong profile → dùng lại, không bắt upload lại
@@ -1596,11 +1681,15 @@ public function confirmBooking()
             ? $orderTotal
             : (int) ceil($fullAmount * $depositPercent / 100);
 
+        // Phương thức thanh toán do ADMIN quyết định (Partner::effectivePaymentMethod()), không
+        // phải khách chọn — xem giải thích đầy đủ ở resolveEffectivePaymentMethod().
+        $effectivePaymentMethod = $this->resolveEffectivePaymentMethod();
+
         // =====================================================================
         // TRANSACTION: conflict check + order creation trong cùng 1 transaction
         // lockForUpdate ngăn 2 request đồng thời cùng tạo đơn trùng khung giờ
         // =====================================================================
-        $order = DB::transaction(function () use ($frontPath, $backPath, $companionCccdList, $extraFee, $categoryId, $orderTotal, $noteForAdmin, $paymentAmount, $depositPercent, $fullAmount, $verifiedBuyerName, $verifiedBuyerPhone, $verifiedUserId, $cccdData) {
+        $order = DB::transaction(function () use ($frontPath, $backPath, $companionCccdList, $extraFee, $categoryId, $orderTotal, $noteForAdmin, $paymentAmount, $depositPercent, $fullAmount, $verifiedBuyerName, $verifiedBuyerPhone, $verifiedUserId, $cccdData, $effectivePaymentMethod) {
 
             // --- Kiểm tra xung đột (style 1) ---
             if ($this->bookingStyle == 1 && !empty($this->selectedSlots)) {
@@ -1633,7 +1722,7 @@ public function confirmBooking()
                 'deposit_percent' => $depositPercent < 100 ? $depositPercent : null,
                 // Đơn cọc (style=2 + deposit_percent < 100) → khởi đầu với status 'deposit'
                 'status'         => ($depositPercent < 100) ? 'deposit' : 'pending',
-                'payment_method' => $this->paymentMethod ?? 'payos',
+                'payment_method' => $effectivePaymentMethod,
                 'description'    => $this->note ?: null,
                 'cccd_front'     => $frontPath,
                 'cccd_back'      => $backPath,
@@ -1650,6 +1739,13 @@ public function confirmBooking()
                 'coupon_code'    => collect($this->appliedCoupons)->first()?->code,
                 'coupon_codes'   => collect($this->appliedCoupons)->pluck('code')->values()->all() ?: null,
                 'coupon_discount'=> $this->couponDiscountAmount,
+                // Lưu riêng số tiền giảm giá khách quen (khác coupon_discount) — cần để trang admin
+                // (total-amount-card.blade.php) đối chiếu lại đúng giá khách đã thấy lúc đặt, không
+                // hiểu nhầm phần giảm giá này là "phát sinh thêm cần thu" khi mở lại đơn (bug đã
+                // gặp: đơn 200k giảm 10% còn 180k, admin mở lại tưởng thiếu 20k).
+                'loyalty_discount' => $this->loyaltyDiscountAmount,
+                // Xem App\Services\BookingRateLimiter — chặn phá hoại theo IP thay vì SĐT.
+                'creator_ip'     => request()->ip(),
                 'note_for_admin' => $noteForAdmin,
             ]);
 
@@ -1802,6 +1898,11 @@ public function confirmBooking()
                 'message' => 'Gói của bạn không còn đủ buổi hoặc đã hết hạn. Vui lòng chọn lại hoặc thanh toán trực tiếp.',
                 'type'    => 'error',
             ]);
+            return;
+        }
+
+        if ($effectivePaymentMethod === 'bank_transfer') {
+            $this->processBankTransferPayment($order);
             return;
         }
 
@@ -2098,6 +2199,18 @@ public function confirmBooking()
         return redirect()->to(route('booking.detail', ['code' => $order->order_code]));
     }
 
+    // Quyết định DUY NHẤT (server-side) phương thức thanh toán thật sự dùng cho đơn — hoàn toàn
+    // theo Partner::effectivePaymentMethod(). KHÔNG còn để khách chọn (radio đã bỏ khỏi 2 view
+    // infomation-book-room.blade.php/booking-checkout.blade.php) — khi đối tác có CẢ HAI phương
+    // thức, ADMIN quyết định qua field "Phương thức thanh toán ưu tiên", không phải khách hàng.
+    protected function resolveEffectivePaymentMethod(): string
+    {
+        $partner = $this->product->partner;
+        $method  = $partner?->effectivePaymentMethod() ?? 'payos';
+
+        return $method === 'bank_transfer' ? 'bank_transfer' : 'PayOS';
+    }
+
     protected function processPayOSPayment($order)
     {
         try {
@@ -2105,6 +2218,12 @@ public function confirmBooking()
                 'productName' => $this->product->name,
                 'guests' => $this->guests,
             ];
+
+            // Dùng ĐÚNG bộ khoá PayOS của đối tác sở hữu sân này nếu đã cấu hình riêng (xem
+            // Partner::hasPayosConfigured()), không thì PaymentService tự giữ nguyên bộ khoá CHUNG
+            // của nền tảng đã nạp sẵn ở constructor — áp dụng CHO MỌI request kể cả khi nhiều đối
+            // tác đặt sân xen kẽ nhau (PaymentService là singleton dùng lại giữa các request).
+            $this->paymentService->usePartnerCredentials($this->product->partner);
 
             $paymentData = $this->paymentService->createRoomBookingPaymentData($order, $roomDetails);
             $paymentLink = $this->paymentService->createPaymentLink($paymentData);
@@ -2124,6 +2243,20 @@ public function confirmBooking()
                 'type' => 'error'
             ]);
         }
+    }
+
+    // Luồng "chuyển khoản ngân hàng thủ công" — KHÔNG gọi PayOS, chỉ gia hạn thời gian giữ chỗ dài
+    // hơn (60p thay vì 15p mặc định của PayOS) vì khách cần thời gian chuyển khoản + upload ảnh
+    // biên lai + CHỜ ADMIN ĐỐI TÁC DUYỆT THỦ CÔNG (không tự động như PayOS webhook) — 15p quá gấp
+    // cho quy trình có con người ở giữa. Đơn giữ nguyên status đã set lúc tạo ('deposit'/'pending'),
+    // chỉ chuyển 'paid' khi admin xác nhận (xem OrderTable's action "Xác nhận chuyển khoản").
+    // Chuyển thẳng sang trang tra cứu đơn (booking-detail.blade.php) — nơi hiện mã QR + form upload
+    // ảnh biên lai (BladeThemeV1Controller::uploadPaymentProof()).
+    protected function processBankTransferPayment($order)
+    {
+        $order->update(['expired_at' => now()->addMinutes(60)]);
+
+        return redirect()->to(route('booking.detail', ['code' => $order->order_code]));
     }
 
     public function fetchProduct()
@@ -2618,6 +2751,30 @@ public function confirmBooking()
         }
 
         $now = Carbon::now();
+
+        // Vừa chọn khung giờ xong (đến từ book/_timeline.blade.php -> saveAndRedirect(), xem
+        // Book.php) VÀ là sân theo giờ (style=1, KHÔNG áp dụng cho phòng nghỉ qua đêm style=2) —
+        // hiện thẳng trang xác nhận đặt lịch gọn (giao diện mẫu ALO Booking) thay vì trang chi
+        // tiết sân đầy đủ. KHÔNG có logic đặt/thanh toán mới nào ở đây — view mới chỉ bind vào
+        // đúng các property/method Livewire thật đã có (buyerName, buyerPhone, note,
+        // selectedSlots, additionalServices, incrementService()/decrementService(),
+        // confirmBooking()) — xem components/product-detail/booking-checkout.blade.php.
+        if ($this->fromBookingPage && (int) ($this->bookingStyle ?? 1) === 1) {
+            return view('bladethemev1::components.product-detail.booking-checkout', [
+                'product'             => $this->product,
+                'additionalServices'  => $this->additionalServices ?? collect(),
+                'selectedServices'    => $this->selectedServices ?? [],
+                'selectedSlots'       => $this->selectedSlots ?? [],
+                'totalAmount'         => $this->totalAmount ?? 0,
+                // 'bulkDiscountAmount' gộp CẢ giảm giá theo số lượng khung giờ LẪN giảm giá khách
+                // quen (xem recalculateTotals()/getLoyaltyDiscountRate()) — hiện chung 1 dòng cho
+                // khách thấy rõ vì sao tổng tiền thấp hơn tổng các khung giờ cộng lại, tránh hiểu
+                // lầm "tính sai giá" khi số tiền thu thật (sau updatedBuyerPhone() tính lại) khác
+                // số hiện ban đầu lúc chưa nhập SĐT.
+                'bulkDiscountAmount'  => $this->bulkDiscountAmount ?? 0,
+                'bookingConfirmError' => $this->bookingConfirmError ?? '',
+            ]);
+        }
 
         return view('bladethemev1::livewire.product-detail', [
             'product' => $this->product,

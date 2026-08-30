@@ -147,8 +147,14 @@ class OrderTable
                     ->sortable()
                     ->weight(FontWeight::Bold)
                     ->formatStateUsing(function ($state) {
+                        // 'PayOS' (viết hoa) là giá trị CŨ trước khi có luồng chuyển khoản thủ công —
+                        // 'payos' (thường) là giá trị hiện tại do
+                        // ProductDetail::resolveEffectivePaymentMethod() lưu, giữ cả 2 để không đổi
+                        // nhãn hiển thị của các đơn cũ. 'bank_transfer' trước đây KHÔNG có case nào,
+                        // rơi vào default "Không xác định" dù đơn đó hoàn toàn hợp lệ — bug đã gặp.
                         return match ($state) {
-                            'PayOS' => 'Chuyển khoản',
+                            'PayOS', 'payos' => 'PayOS (QR)',
+                            'bank_transfer' => 'Chuyển khoản',
                             'cod' => 'Cod',
                             default => 'Không xác định',
                         };
@@ -222,6 +228,9 @@ class OrderTable
                     ->toggleable(isToggledHiddenByDefault: true)
                     ->sortable(),
 
+                // Tạm ẩn theo yêu cầu — chưa dùng mã cửa/TTLock trong giai đoạn hiện tại. Ẩn bằng
+                // isToggledHiddenByDefault(true) (không xoá cột) — admin vẫn tự bật lại được qua
+                // nút tuỳ chỉnh cột nếu cần đối chiếu dữ liệu.
                 TextColumn::make('access_code_display')
                     ->label('Mã cổng')
                     ->getStateUsing(function ($record) {
@@ -234,7 +243,7 @@ class OrderTable
                     ->icon('heroicon-o-key')
                     ->badge()
                     ->color(fn($state) => $state ? 'success' : 'gray')
-                    ->toggleable(isToggledHiddenByDefault: false),
+                    ->toggleable(isToggledHiddenByDefault: true),
 
                 // Ẩn theo yêu cầu (giữ lại code, chỉ tắt hiển thị).
                 IconColumn::make('exclude_from_stats')
@@ -257,9 +266,10 @@ class OrderTable
                     ->trueColor('warning')
                     ->falseColor('gray')
                     ->tooltip(fn ($record) => $record->unlock_anytime ? 'Khách có thể mở cổng bất kỳ lúc nào' : 'Mở cổng giới hạn theo giờ đặt sân')
-                    // Chi nhánh chưa có tài khoản TTLock kích hoạt thì trạng thái "mở cổng tự do"
-                    // không có ý nghĩa gì (không có khóa điện tử nào để mở) — ẩn hẳn cột.
-                    ->visible(fn ($record) => TTLockService::hasAccountForCategory($record?->category_id))
+                    // Tạm ẩn hẳn theo yêu cầu — chưa dùng TTLock trong giai đoạn hiện tại (trước đây
+                    // chỉ ẩn khi chi nhánh chưa có tài khoản TTLock, xem TTLockService::
+                    // hasAccountForCategory()).
+                    ->visible(false)
                     ->toggleable(isToggledHiddenByDefault: false),
             ])
             ->defaultSort('created_at', 'desc')
@@ -484,11 +494,12 @@ class OrderTable
                                                 return;
                                             }
 
-                                            $payos = new PayOS(
-                                                Config::get('payos.client_id'),
-                                                Config::get('payos.api_key'),
-                                                Config::get('payos.checksum_key')
-                                            );
+                                            // Đúng bộ khoá PayOS của đối tác sở hữu đơn này (nếu đã
+                                            // cấu hình riêng), không thì PayOS chung nền tảng như cũ
+                                            // — xem App\Services\PayOSCredentialResolver, áp dụng
+                                            // đồng bộ với luồng khách hàng (ProductDetail.php) và
+                                            // luồng webhook/kiểm tra trạng thái (PaymentController).
+                                            $payos = \App\Services\PayOSCredentialResolver::client($record->partner);
 
                                             $orderCode = (int) (intval(substr(strval(microtime(true) * 10000), -6)) . rand(10, 99));
                                             $expiredAt = now()->addMinutes(30);
@@ -580,6 +591,13 @@ class OrderTable
 
                             return $actions;
                         }),
+
+                    // Luồng "chuyển khoản ngân hàng thủ công" — khách upload ảnh biên lai qua
+                    // pages/booking-detail.blade.php (BladeThemeV1Controller::uploadPaymentProof()),
+                    // set bank_transfer_status='pending'; admin đối tác xem ảnh + Xác nhận/Từ chối
+                    // ở đây. Định nghĩa dùng CHUNG cho cả bảng danh sách này VÀ trang "Chỉnh sửa
+                    // Booking" (xem EditOrder::getHeaderActions()) — tránh viết trùng 2 nơi.
+                    static::confirmBankTransferAction(),
 
                     // Nút xem danh sách khung giờ — ẩn theo yêu cầu (giữ lại code, chỉ tắt hiển thị).
                     Action::make('view_items')
@@ -781,6 +799,87 @@ class OrderTable
 
         return new HtmlString($html);
     }),
+
+                    // Huỷ đơn phía admin — KHÁC với huỷ tự huỷ của khách (OrderCancellationService::
+                    // cancelByCustomer(), hoàn 70% cố định). Ở đây admin tự nhập số tiền hoàn (mặc
+                    // định = toàn bộ số đã thu), không đổi 'status' (giữ nguyên paid/deposit để báo
+                    // cáo doanh thu không bị ảnh hưởng) — chỉ set cancelled_at/cancelled_by/
+                    // cancel_reason, đúng quy ước đã có trên Order (xem Order::isCancelled()).
+                    Action::make('cancel_order')
+                        ->label('Huỷ đơn')
+                        ->color('danger')
+                        ->icon('heroicon-o-x-circle')
+                        ->visible(fn ($record) => is_null($record->cancelled_at) && in_array($record->status, ['paid', 'deposit'], true))
+                        ->form([
+                            \Filament\Forms\Components\TextInput::make('refund_amount')
+                                ->label('Số tiền hoàn lại cho khách (đ)')
+                                ->numeric()
+                                ->minValue(0)
+                                ->default(fn ($record) => (int) ($record->full_amount ?? $record->amount ?? 0))
+                                ->required(),
+                            \Filament\Forms\Components\Textarea::make('reason')
+                                ->label('Lý do huỷ')
+                                ->required(),
+                        ])
+                        ->requiresConfirmation()
+                        ->modalHeading(fn ($record) => 'Huỷ đơn #' . $record->order_code)
+                        ->modalDescription('Đơn sẽ được đánh dấu đã huỷ. Nếu có số tiền hoàn, sẽ được ghi nhận là "chờ hoàn tiền" — xử lý tiếp ở trang Hoàn tiền chờ xử lý.')
+                        ->modalSubmitActionLabel('Huỷ đơn')
+                        ->action(function (array $data, $record) {
+                            try {
+                                // Chặn huỷ trùng (double-click/2 tab) — ->visible() chỉ kiểm tra lúc
+                                // bảng render lần đầu, KHÔNG tự kiểm tra lại khi action() thực thi.
+                                $record->refresh();
+                                if (! is_null($record->cancelled_at)) {
+                                    Notification::make()->warning()->title('Đơn này đã được huỷ trước đó.')->send();
+                                    return;
+                                }
+
+                                $record->update([
+                                    'cancelled_at'  => now(),
+                                    'cancelled_by'  => 'admin',
+                                    'cancel_reason' => $data['reason'],
+                                ]);
+
+                                $refundAmount = (int) $data['refund_amount'];
+                                if ($refundAmount > 0) {
+                                    app(\App\Services\ExtraChargeService::class)->recordPendingRefund($record, $refundAmount);
+                                }
+
+                                $record->loadMissing('items');
+                                $itemsByProduct = $record->items->whereNotNull('product_id')->groupBy('product_id');
+                                Order::broadcastSlotsReleasedByProduct($itemsByProduct);
+                                Order::notifyWaitlistByProduct($itemsByProduct);
+
+                                // Đồng bộ với OrderCancellationService::cancelByCustomer() — báo cho
+                                // trang tra cứu đơn (booking-detail.blade.php) nếu khách đang mở xem
+                                // cùng lúc, tránh chỉ admin panel biết đơn đã huỷ.
+                                app(\App\Services\OrderRealtimeService::class)->broadcastOrderUpdate($record->order_code, [
+                                    'status'        => $record->status,
+                                    'cancelled_at'  => $record->cancelled_at->toIso8601String(),
+                                    'refund_amount' => $refundAmount,
+                                ], $record->customer_id);
+
+                                AuditLogger::log(
+                                    'update', 'Order', $record,
+                                    ['cancelled_at' => null],
+                                    [
+                                        'cancelled_at'  => now()->toDateTimeString(),
+                                        'cancelled_by'  => 'admin',
+                                        'cancel_reason' => $data['reason'],
+                                        'refund_amount' => $refundAmount,
+                                    ],
+                                    'Đơn #' . $record->order_code
+                                );
+
+                                Notification::make()
+                                    ->success()
+                                    ->title('Đã huỷ đơn' . ($refundAmount > 0 ? ', đã ghi nhận hoàn tiền chờ xử lý' : ''))
+                                    ->send();
+                            } catch (\Throwable $e) {
+                                Notification::make()->danger()->title('Lỗi: ' . $e->getMessage())->send();
+                            }
+                        }),
                 ],
                 OrderAction::action(static::gateActions())
             ), position: ActionsPosition::BeforeCells)
@@ -790,45 +889,143 @@ class OrderTable
     // 3 action liên quan mã cổng/khoá cửa — gộp CHUNG vào đúng 1 ActionGroup "..." với "Xem chi
     // tiết/Cập nhật/Xóa" (xem OrderAction::action($extraGroupActions)), KHÔNG tách riêng thành 1
     // icon/ActionGroup khác nằm cạnh (theo yêu cầu — 1 dòng chỉ nên có 1 nút "..." duy nhất).
+    // Tạm ẩn hẳn 3 action liên quan mã cổng/khoá cửa (Gán mã truy cập/Mở cổng/Cho mở cổng tự do)
+    // theo yêu cầu — chưa dùng mã cửa/TTLock trong giai đoạn hiện tại. Code implementation gốc còn
+    // nguyên trong lịch sử git (AssignAccessCodeAction/OpenGateAction + action 'toggle_unlock_anytime'),
+    // bật lại bằng cách khôi phục nội dung hàm này.
     private static function gateActions(): array
     {
-        return [
-            AssignAccessCodeAction::make(),
-            OpenGateAction::make(),
-            Action::make('toggle_unlock_anytime')
-                ->label(fn ($record) => $record->unlock_anytime ? 'Khoá giờ mở cổng' : 'Cho mở cổng tự do')
-                ->icon(fn ($record) => $record->unlock_anytime ? 'heroicon-o-lock-closed' : 'heroicon-o-lock-open')
-                ->color(fn ($record) => $record->unlock_anytime ? 'gray' : 'warning')
-                // Chi nhánh chưa có tài khoản TTLock kích hoạt thì không có khóa điện tử nào để
-                // "mở tự do" — ẩn hẳn nút này, giống điều kiện của OpenGateAction ("Mở cổng tự do").
-                ->visible(function ($record): bool {
-                    if (!in_array($record->status, ['paid', 'deposit'])) {
-                        return false;
-                    }
-                    $product = $record->items->first()?->product;
-                    if (!$product || !$product->lock_id) {
-                        return false;
-                    }
-                    return TTLockService::hasAccountForCategory($record->category_id);
-                })
-                ->requiresConfirmation()
-                ->modalHeading(fn ($record) => $record->unlock_anytime
-                    ? 'Khoá lại giờ mở cổng?'
-                    : 'Cho phép khách mở cổng bất kỳ lúc nào?')
-                ->modalDescription(fn ($record) => $record->unlock_anytime
-                    ? 'Khách sẽ chỉ được mở cổng trong khung giờ đặt sân (±30 phút).'
-                    : 'Khách có thể nhấn mở cổng bất kỳ lúc nào, dù chưa đến hoặc đã quá giờ đặt sân. Dùng khi khách đến sớm hoặc về muộn.')
-                ->modalSubmitActionLabel(fn ($record) => $record->unlock_anytime ? 'Khoá lại' : 'Cho phép')
-                ->action(function ($record) {
-                    $record->update(['unlock_anytime' => ! $record->unlock_anytime]);
-                    Notification::make()
-                        ->title($record->unlock_anytime
-                            ? 'Đã cho phép khách mở cổng tự do'
-                            : 'Đã khoá lại theo giờ đặt sân')
-                        ->success()
-                        ->send();
-                }),
-        ];
+        return [];
+    }
+
+    // Action "Duyệt chuyển khoản" — xem ảnh biên lai + Xác nhận/Từ chối cho đơn
+    // payment_method='bank_transfer' đang bank_transfer_status='pending'. Public + static để dùng
+    // được ở CẢ bảng danh sách LẪN trang "Chỉnh sửa Booking" (EditOrder::getHeaderActions()).
+    //
+    // $actionClass BẮT BUỘC truyền đúng theo ngữ cảnh gọi — Filament\Tables\Actions\Action (mặc
+    // định, action của 1 DÒNG trong bảng) và Filament\Actions\Action (action ở ĐẦU TRANG) là 2
+    // class ANH EM cùng kế thừa MountableAction, KHÔNG phải quan hệ cha-con — Filament validate
+    // instanceof CHẶT theo đúng ngữ cảnh (InteractsWithHeaderActions::cacheHeaderActions() ném
+    // "Header actions must be an instance of Filament\Actions\Action" nếu đưa nhầm loại — lỗi thật
+    // đã gặp khi lần đầu gắn action này vào EditOrder::getHeaderActions() mà không đổi class).
+    // EditOrder.php phải gọi static::confirmBankTransferAction(\Filament\Actions\Action::class).
+    public static function confirmBankTransferAction(string $actionClass = Action::class): Action|\Filament\Actions\Action
+    {
+        return $actionClass::make('confirm_bank_transfer')
+            ->label('Duyệt chuyển khoản')
+            ->color('warning')
+            ->icon('heroicon-o-banknotes')
+            ->visible(fn ($record) => $record->payment_method === 'bank_transfer' && $record->bank_transfer_status === 'pending')
+            ->modalHeading(fn ($record) => 'Duyệt chuyển khoản — Đơn ' . $record->order_code)
+            ->modalWidth('md')
+            ->modalContent(function ($record) {
+                $amount = $record->status === 'deposit' ? $record->depositDueAmount() : (int) $record->full_amount;
+                $proofUrl = $record->payment_proof_url;
+
+                $html = '<div style="font-family:sans-serif;">'
+                    . '<div style="margin-bottom:12px;font-size:14px;">'
+                    . '<div><strong>Số tiền cần thu:</strong> ' . number_format($amount, 0, ',', '.') . 'đ</div>'
+                    . '<div><strong>Khách hàng:</strong> ' . e($record->buyer_name) . ' — ' . e($record->buyer_phone) . '</div>'
+                    . '</div>';
+
+                if ($proofUrl) {
+                    $html .= '<a href="' . e($proofUrl) . '" target="_blank" rel="noopener">'
+                        . '<img src="' . e($proofUrl) . '" style="width:100%;border-radius:10px;border:1px solid #e5e7eb;" alt="Ảnh biên lai chuyển khoản">'
+                        . '</a>';
+                } else {
+                    $html .= '<p style="color:#9ca3af;">Không có ảnh biên lai.</p>';
+                }
+
+                $html .= '</div>';
+
+                return new HtmlString($html);
+            })
+            ->modalSubmitAction(false)
+            ->modalCancelActionLabel('Đóng')
+            ->extraModalFooterActions(function () use ($actionClass) {
+                return [
+                    // KHÔNG dùng ->requiresConfirmation() ở 2 action phụ này — chúng đã nằm SẴN bên
+                    // trong modal "Duyệt chuyển khoản" (modal cha đã đóng vai trò xác nhận, có mô tả
+                    // hậu quả rõ ràng ở modalDescription phía trên). Modal-lồng-modal
+                    // (requiresConfirmation() bên trong extraModalFooterActions của 1 action khác
+                    // đang mở modal) là kiểu lồng dễ lỗi ở Filament — bấm nút không mở đúng modal
+                    // xác nhận thứ 2 hoặc đóng cả modal mà KHÔNG chạy ->action(), khiến trạng thái
+                    // đơn không đổi dù admin đã "bấm xác nhận" (bug đã gặp thực tế).
+                    //
+                    // $actionClass::make (không phải Action::make cứng) — action con PHẢI cùng loại
+                    // với action cha (xem giải thích ở đầu hàm), không type-hint cứng
+                    // "Action $action" trên tham số closure vì có thể là 1 trong 2 class khác nhau
+                    // tuỳ ngữ cảnh gọi.
+                    $actionClass::make('reject_bank_transfer')
+                        ->label('Từ chối')
+                        ->color('danger')
+                        ->action(function ($action, $livewire) {
+                            $record = $action->getRecord();
+                            $record->update(['bank_transfer_status' => 'rejected']);
+
+                            AuditLogger::log(
+                                'update', 'Order', $record,
+                                ['bank_transfer_status' => 'pending'],
+                                ['bank_transfer_status' => 'rejected'],
+                                'Đơn #' . $record->order_code
+                            );
+
+                            Notification::make()->warning()->title('Đã từ chối ảnh biên lai')->send();
+
+                            // Tải lại NGUYÊN trang hiện tại — bắt buộc phải làm bước này. Action chỉ
+                            // update() thẳng xuống DB, KHÔNG tự đồng bộ lại state form/bảng đang hiện
+                            // trên trang (ở trang "Chỉnh sửa Booking", $this->data của form được nạp
+                            // 1 LẦN lúc mount(), không tự refetch lại) — nếu bỏ qua bước này, admin
+                            // bấm xong thấy y hệt như CHƯA đổi gì dù DB đã cập nhật đúng (bug thật đã
+                            // gặp: "duyệt xong không chuyển thành đã thanh toán").
+                            //
+                            // url()->previous() — KHÔNG dùng request()->fullUrl(): bên trong 1 action
+                            // Livewire, request() hiện tại chính là request AJAX nội bộ gửi tới
+                            // "/livewire/update" (POST), không phải URL trang admin đang xem —
+                            // redirect thẳng vào đó gây lỗi 405 "GET method not supported for route
+                            // livewire/update" (bug thật đã gặp). url()->previous() lấy đúng URL
+                            // trang GET gần nhất (trang admin đang mở), không bị lẫn với request AJAX.
+                            $livewire->redirect(url()->previous());
+                        }),
+
+                    $actionClass::make('approve_bank_transfer')
+                        ->label('Xác nhận đã nhận tiền')
+                        ->color('success')
+                        ->action(function ($action, $livewire) {
+                            $record = $action->getRecord();
+
+                            try {
+                                // Dùng CHUNG logic với webhook tự động SePay/Casso — xem
+                                // App\Services\BankTransferConfirmationService.
+                                app(\App\Services\BankTransferConfirmationService::class)
+                                    ->confirm($record, auth()->id());
+
+                                // Mã cửa/TTLock đang tắt hẳn (xem BankTransferConfirmationService::
+                                // ACCESS_CODE_ASSIGNMENT_ENABLED) — không còn kiểm tra/nhắc gì về mã
+                                // truy cập ở đây nữa, tránh nhắc tới 1 tính năng đang bị ẩn khỏi UI.
+                                Notification::make()->success()->title('Đã xác nhận thanh toán')->send();
+
+                                // Xem giải thích ở action 'reject_bank_transfer' phía trên (url()->
+                                // previous(), KHÔNG dùng request()->fullUrl()) — bắt buộc tải lại
+                                // trang để form/bảng đang hiện phản ánh đúng status='paid' vừa cập
+                                // nhật.
+                                $livewire->redirect(url()->previous());
+                            } catch (\Throwable $e) {
+                                // Log lại đầy đủ — trước đây chỉ có Notification, nếu admin lỡ không
+                                // kịp thấy toast (vd modal đóng nhanh) thì không còn cách nào tra lại
+                                // được lý do đơn không chuyển trạng thái. Cùng kiểu log với
+                                // SePayWebhookController để dễ đối chiếu 2 luồng (tay/tự động) khi
+                                // debug.
+                                \Illuminate\Support\Facades\Log::error('Admin duyệt chuyển khoản thất bại', [
+                                    'order_code' => $record->order_code,
+                                    'error'      => $e->getMessage(),
+                                ]);
+
+                                Notification::make()->danger()->title('Lỗi: ' . $e->getMessage())->persistent()->send();
+                            }
+                        }),
+                ];
+            });
     }
 
     /**

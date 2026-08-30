@@ -455,7 +455,7 @@ class OrderExtraBookingService
                         'is_paid'  => false,
                     ],
                 ],
-                $order->customer_id ? (int) $order->customer_id : null,
+                $order->customer_id,
             );
         } catch (\Throwable $e) {
             Log::warning('OrderExtraBookingService: broadcast failed', [

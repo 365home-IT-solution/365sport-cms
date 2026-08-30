@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Config;
 use Modules\Payment\Entities\Order;
+use App\Services\PayOSCredentialResolver;
 use PayOS\PayOS;
 
 class OrderController extends Controller
@@ -16,13 +17,14 @@ class OrderController extends Controller
      * @return Renderable
      */
 
-    private string $payOSClientId;
-    private string $payOSApiKey;
-    private string $payOSChecksumKey;
-
     public function getPaymentLinkInfoOfOrder(string $id)
     {
-        $payOS = new PayOS($this->payOSClientId, $this->payOSApiKey, $this->payOSChecksumKey);
+        // Đúng bộ khoá PayOS của đối tác sở hữu đơn này nếu đã cấu hình riêng, không thì PayOS
+        // chung nền tảng như cũ — xem App\Services\PayOSCredentialResolver. $id ở đây thực chất
+        // là order_code (PayOS orderCode), không phải orders.id — tra theo order_code khớp đúng
+        // quy ước dùng ở PaymentController.
+        $order = Order::where('order_code', $id)->first();
+        $payOS = PayOSCredentialResolver::client($order?->partner);
         try {
             $response = $payOS->getPaymentLinkInformation($id);
             return response()->json([
@@ -42,7 +44,8 @@ class OrderController extends Controller
     public function cancelPaymentLinkOfOrder(Request $request, string $id)
     {
         $body = json_decode($request->getContent(), true);
-        $payOS = new PayOS($this->payOSClientId, $this->payOSApiKey, $this->payOSChecksumKey);
+        $order = Order::where('order_code', $id)->first();
+        $payOS = PayOSCredentialResolver::client($order?->partner);
         try {
             $cancelBody = is_array($body) && $body["cancellationReason"] ? $body : null;
             $response = $payOS->cancelPaymentLink($id, $cancelBody);

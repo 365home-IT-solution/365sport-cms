@@ -29,8 +29,6 @@ use Modules\Form\Entities\FormSubmission;
 use Modules\Form\Entities\FormSubmissionPolicy;
 use Modules\Header\Entities\Header;
 use Modules\Header\Entities\HeaderPolicy;
-use Modules\LiveChat\Entities\ContactLink;
-use Modules\LiveChat\Entities\ContactLinkPolicy;
 use Modules\Menu\Entities\Menu;
 use Modules\Menu\Entities\MenuPolicy;
 use Modules\Page\Entities\Component;

@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToPartner;
 use Illuminate\Database\Eloquent\Model;
+use Modules\Category\Entities\Category;
 use Modules\Payment\Entities\Order;
 use Modules\Payment\Entities\OrderItem;
 use Modules\Product\App\Models\Product;
@@ -12,15 +14,21 @@ use Modules\Product\App\Models\Product;
 // Gói mà 1 khách CỤ THỂ đã sở hữu (đã mua/được bán) — xem ghi chú đầy đủ tại migration
 // create_customer_packages_table. sessions_remaining là NGUỒN SỰ THẬT duy nhất cho "còn dùng được
 // không", KHÔNG tự suy từ package_redemptions (trừ/hoàn buổi cập nhật trực tiếp cột này để tránh
-// race condition khi 2 request cùng lúc redeem — xem redeem()/refundFor()).
+// race condition khi 2 request cùng lúc redeem — xem redeem()/refundFor()). Snapshot ĐÚNG 1 TRONG
+// 2 phạm vi từ PackagePlan lúc mua: product_id (dùng riêng 1 sân) HOẶC category_id (dùng cho MỌI
+// sân thuộc 1 chi nhánh) — xem migration add_category_scope_to_package_tables.
 class CustomerPackage extends Model
 {
+    use BelongsToPartner;
+
     protected $fillable = [
         'package_plan_id',
+        'partner_id',
         'customer_id',
         'buyer_phone',
         'buyer_name',
         'product_id',
+        'category_id',
         'name',
         'sessions_total',
         'sessions_remaining',
@@ -52,6 +60,11 @@ class CustomerPackage extends Model
         return $this->belongsTo(Product::class, 'product_id');
     }
 
+    public function category()
+    {
+        return $this->belongsTo(Category::class, 'category_id');
+    }
+
     public function order()
     {
         return $this->belongsTo(Order::class);
@@ -69,18 +82,70 @@ class CustomerPackage extends Model
     }
 
     /**
+     * Kích hoạt gói cho 1 Order order_type=package_purchase VỪA THANH TOÁN XONG — DÙNG CHUNG cho
+     * cả 2 đường xác nhận tiền: PayOS (webhook/checkPaymentStatus, xem
+     * PaymentController::handlePackagePurchasePaid()) VÀ chuyển khoản ngân hàng thủ công/tự động
+     * (xem BankTransferConfirmationService::confirm()) — trước đây chỉ có nhánh PayOS gọi logic
+     * này, thêm đường chuyển khoản mà không tách ra dùng chung sẽ tạo ra CustomerPackage lệch
+     * nhau giữa 2 đường (bug thật cần tránh: khách chuyển khoản xong, admin xác nhận "đã nhận
+     * tiền" nhưng KHÔNG có gói nào được kích hoạt vì logic tạo gói chỉ nằm trong nhánh PayOS).
+     * Idempotent qua kiểm tra order_id đã có CustomerPackage chưa — an toàn khi gọi lại nhiều lần
+     * (webhook retry, hoặc order vừa xác nhận qua chuyển khoản rồi lỡ tay bấm confirm PayOS nữa).
+     */
+    public static function activateFromOrder(Order $order): ?self
+    {
+        if (self::where('order_id', $order->id)->exists()) {
+            return self::where('order_id', $order->id)->first();
+        }
+
+        $plan = PackagePlan::find($order->package_plan_id);
+        if (! $plan) {
+            return null;
+        }
+
+        return self::create([
+            'package_plan_id'    => $plan->id,
+            // Đơn được tạo TỪ TRANG KHÁCH (không chạy trong admin panel) nên BelongsToPartner
+            // KHÔNG tự gán partner_id được (hook creating() chỉ hoạt động trong context Filament
+            // admin) — set thủ công tại đây, ưu tiên partner_id của plan, fallback qua order nếu
+            // plan cũ chưa có (trước migration add_partner_id_to_customer_packages_table).
+            'partner_id'         => $plan->partner_id ?? $order->partner_id,
+            'buyer_phone'        => $order->buyer_phone,
+            'buyer_name'         => $order->buyer_name,
+            'product_id'         => $plan->product_id,
+            'category_id'        => $plan->category_id,
+            'name'               => $plan->name,
+            'sessions_total'     => $plan->sessions_count,
+            'sessions_remaining' => $plan->sessions_count,
+            'price_paid'         => (int) $order->amount,
+            'purchased_at'       => now(),
+            'expires_at'         => $plan->validity_days ? now()->addDays($plan->validity_days) : null,
+            'sale_channel'       => 'online',
+            'order_id'           => $order->id,
+        ]);
+    }
+
+    /**
      * Tra cứu gói CÒN DÙNG ĐƯỢC của khách cho ĐÚNG 1 sân — theo SỐ ĐIỆN THOẠI (dự án này gần như
      * không có khách đăng ký tài khoản, xem ghi chú migration make_customer_id_nullable...), khớp
      * ĐÚNG cách AccountPage::phoneQuery() tra cứu đơn hàng. Dùng ở ProductDetail (hiện lựa chọn
-     * "Dùng gói" lúc đặt sân) — 1 khách có thể sở hữu NHIỀU gói cùng sân (mua thêm khi gói cũ gần
-     * hết), trả về gói SẮP HẾT HẠN NHẤT trước để dùng hết trước khi mua gói mới hết hạn theo sau.
+     * "Dùng gói" lúc đặt sân) — 1 khách có thể sở hữu NHIỀU gói khớp (mua thêm khi gói cũ gần hết,
+     * hoặc vừa có gói riêng sân này VỪA có gói cả chi nhánh), trả về gói SẮP HẾT HẠN NHẤT trước để
+     * dùng hết trước khi mua gói mới hết hạn theo sau. $categoryIds (chi nhánh sân này thuộc về,
+     * xem Product::categories()) — TÌM CẢ gói riêng sân này (product_id khớp) LẪN gói cả chi nhánh
+     * (category_id khớp 1 trong các chi nhánh), ưu tiên gói nào hết hạn sớm hơn bất kể loại nào.
      */
-    public static function findValidForPhoneAndProduct(string $phone, string $productId): ?self
+    public static function findValidForPhoneAndProduct(string $phone, string $productId, array $categoryIds = []): ?self
     {
-        return self::where('product_id', $productId)
-            ->where('buyer_phone', $phone)
+        return self::where('buyer_phone', $phone)
             ->where('sessions_remaining', '>', 0)
             ->where(fn ($q) => $q->whereNull('expires_at')->orWhere('expires_at', '>', now()))
+            ->where(function ($q) use ($productId, $categoryIds) {
+                $q->where('product_id', $productId);
+                if (! empty($categoryIds)) {
+                    $q->orWhereIn('category_id', $categoryIds);
+                }
+            })
             ->orderByRaw('expires_at IS NULL, expires_at ASC')
             ->first();
     }

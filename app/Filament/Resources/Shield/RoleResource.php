@@ -27,6 +27,14 @@ class RoleResource extends Resource implements HasShieldPermissions
 
     protected static $permissionsCollection;
 
+    // Cả trang "Vai trò" (không riêng danh sách checkbox quyền, xem getAllowedPermissions() bên
+    // dưới) bị khoá theo tính năng 'staff_roles' — đối tác gói thấp không tự tạo được vai trò
+    // riêng cho nhân viên. Không ảnh hưởng super_admin.
+    public static function canViewAny(): bool
+    {
+        return parent::canViewAny() && (auth()->user()?->partnerHasFeature('staff_roles') ?? false);
+    }
+
     public static function getPermissionPrefixes(): array
     {
         return [
@@ -47,7 +55,26 @@ class RoleResource extends Resource implements HasShieldPermissions
             return null;
         }
 
-        return $user->getAllPermissions()->pluck('name');
+        $permissions = $user->getAllPermissions()->pluck('name');
+
+        // Lọc thêm theo GÓI DỊCH VỤ đối tác đang dùng (Partner::hasFeature(), xem
+        // App\Models\PartnerPlan) — đối tác có thể vẫn ĐANG SỞ HỮU permission của 1 tính năng
+        // trên vai trò chủ (PartnerRolePermissionsSeeder cấp cố định 1 lần, không tự đổi theo
+        // gói), nhưng KHÔNG được chọn permission đó khi tự tạo vai trò cho nhân viên của mình
+        // nếu gói hiện tại không có tính năng đó — tránh trường hợp đối tác gói thấp vẫn gán
+        // được quyền khuyến mãi/phân quyền chi nhánh cho nhân viên dù bản thân module đó đã bị
+        // ẩn khỏi menu của chính họ.
+        foreach (\App\Filament\Resources\PartnerPlanResource::FEATURE_RESOURCE_SLUGS as $featureKey => $slugs) {
+            if ($user->partnerHasFeature($featureKey)) {
+                continue;
+            }
+
+            $permissions = $permissions->reject(
+                fn (string $name) => collect($slugs)->contains(fn (string $slug) => str_contains($name, $slug))
+            );
+        }
+
+        return $permissions->values();
     }
 
     public static function getEloquentQuery(): Builder

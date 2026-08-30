@@ -45,6 +45,12 @@ class PartnerRolePermissionsSeeder extends Seeder
                                 // User + hồ sơ Employee liên kết) — đã lọc theo partner_id
         'user::branch::permission',
         'shield::role',          // Đối tác tự tạo role phụ cho nhân viên (đã lọc theo created_by)
+        'warehouse::category',   // Danh mục vật tư
+        'warehouse::unit',       // Đơn vị tính
+        'warehouse::item',       // Vật tư / tồn kho
+        'warehouse::stock::in',  // Nhập kho
+        'warehouse::stock::out', // Xuất kho
+        'warehouse::stock::check', // Kiểm kê
     ];
 
     // Nhân viên: thao tác vận hành hằng ngày, không quản lý tài khoản/role/audit log của đối tác.
@@ -65,6 +71,12 @@ class PartnerRolePermissionsSeeder extends Seeder
         'addition::service',
         'tag',
         'post',
+        'warehouse::category',
+        'warehouse::unit',
+        'warehouse::item',
+        'warehouse::stock::in',
+        'warehouse::stock::out',
+        'warehouse::stock::check',
     ];
 
     private const EXTRA_PAGES = [

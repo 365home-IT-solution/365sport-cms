@@ -26,6 +26,15 @@ class CategoryResource extends Resource implements HasKnowledgeBase
 
     protected static ?string $model = Category::class;
 
+    // Resource này dùng chung cho CẢ 2 loại category_type (Chi nhánh 'product' LẪN danh mục Bài
+    // viết 'post', xem getEloquentQuery() bên dưới) — khoá theo tính năng 'branches' sẽ ẩn CẢ HAI
+    // cùng lúc (hạn chế đã có sẵn từ trước, không phải do gate này tạo ra: PartnerRolePermissions
+    // Seeder cũng chỉ cấp 1 permission 'category' chung cho cả 2 loại).
+    public static function canViewAny(): bool
+    {
+        return parent::canViewAny() && (auth()->user()?->partnerHasFeature('branches') ?? false);
+    }
+
     public static function getNavigationIcon(): string
     {
         return __('category::category.resource.navigation_icon');

@@ -61,6 +61,12 @@ return [
             'options' => extension_loaded('pdo_mysql') ? array_filter([
                 PDO::MYSQL_ATTR_SSL_CA => env('MYSQL_ATTR_SSL_CA'),
             ]) : [],
+            // spatie/laravel-backup đọc 'dump.dump_binary_path' để tìm mysqldump — chỉ cần khai
+            // báo khi mysqldump KHÔNG có sẵn trong PATH hệ thống (vd Windows dev, XAMPP/Ampps).
+            // Production Linux thường không cần biến này (để trống trong .env là được).
+            'dump' => array_filter([
+                'dump_binary_path' => env('MYSQLDUMP_BINARY_PATH'),
+            ]),
         ],
 
         'pgsql' => [

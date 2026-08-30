@@ -9,8 +9,18 @@
 
     @livewire('bladethemev1::location-modal')
 
-    {{-- Hero Section --}}
+    {{-- Giao diện trang chủ theo mẫu tham khảo ALO Booking (datlich.alobo.vn): top-bar xanh +
+         thanh tìm kiếm nhanh phía trên form tìm kiếm nâng cao (hero-section) hiện có. --}}
+    <x-bladethemev1::home.top-bar />
+    <x-bladethemev1::home.search-bar />
+
+    {{-- Hero Section (form tìm kiếm nâng cao theo ngày/giờ/khách — giữ nguyên, không đổi logic) --}}
     @livewire('bladethemev1::hero-section')
+
+    <x-bladethemev1::home.promo-banner />
+
+    {{-- Lưới sân/chi nhánh --}}
+    @livewire('bladethemev1::venue-grid')
 
     {{-- Flash Sale --}}
     @livewire('bladethemev1::flash-sale')

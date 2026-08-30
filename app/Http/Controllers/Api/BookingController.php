@@ -35,7 +35,10 @@ class BookingController extends Controller
             'type'                    => 'required|in:slot,monthly,daily',
             'room_id'                 => 'required|string',
             'guest_count'             => 'required|integer|min:1',
-            'payment_method'          => 'sometimes|in:PayOS,cod',
+            // Xem giải thích chi tiết ở GuestBookingController::store() — giá trị client gửi ở đây
+            // chỉ còn ý nghĩa khi đúng 'cod', PayOS/bank_transfer do admin quyết định qua
+            // Partner::effectivePaymentMethod().
+            'payment_method'          => 'sometimes|in:PayOS,bank_transfer,cod',
             'payment_type'            => 'sometimes|in:full,deposit',
             'coupon_codes'            => 'sometimes|nullable|array',
             'coupon_codes.*'          => 'string',
@@ -79,6 +82,14 @@ class BookingController extends Controller
         $customer   = auth('sanctum')->user();
         $buyerName  = $customer->fullname;
         $buyerPhone = $customer->phone;
+
+        // Chặn phá hoại (đặt liên tục nhiều lần đè khung giờ) theo IP — xem
+        // App\Services\BookingRateLimiter. Tài khoản có đăng nhập nên rủi ro thấp hơn luồng khách
+        // vãng lai (đổi SĐT tự do), nhưng vẫn giữ cùng 1 lớp bảo vệ cho nhất quán — 1 tài khoản vẫn
+        // có thể spam-click đặt/bỏ nhiều lần chiếm khung giờ.
+        if ($blockedReason = app(\App\Services\BookingRateLimiter::class)->checkBlocked($request->ip())) {
+            return response()->json(['message' => $blockedReason], 429);
+        }
 
         if (empty($customer->cccd_front) || empty($customer->cccd_back) || empty($customer->cccd_data)) {
             return response()->json([
@@ -286,7 +297,13 @@ class BookingController extends Controller
         $finalAmount    = $slotFinalPrice + $servicesTotal + $guestSurcharge;
 
         // ── Deposit (chỉ daily) ───────────────────────────────────────────────
-        $paymentMethod = $request->input('payment_method', 'PayOS');
+        // Phương thức thanh toán online (PayOS/chuyển khoản) do ADMIN quyết định qua
+        // Partner::effectivePaymentMethod() — KHÔNG cho client tự chọn, khớp đúng luồng web + đúng
+        // GuestBookingController::store() (xem giải thích chi tiết ở đó). 'cod' vẫn client tự chọn
+        // được nếu gửi rõ.
+        $paymentMethod = $request->input('payment_method') === 'cod'
+            ? 'cod'
+            : (($room->partner?->effectivePaymentMethod() ?? 'payos') === 'bank_transfer' ? 'bank_transfer' : 'PayOS');
         $amountDue     = $finalAmount;
         $depositInfo   = null;
 
@@ -346,7 +363,7 @@ class BookingController extends Controller
             $room, $amountDue, $finalAmount, $subtotal, $buyerName, $buyerPhone,
             $customer, $category, $itemsData, $servicesData,
             $paymentMethod, $request, $appliedCoupons, $appliedCouponCodes, $depositPercentToSave,
-            $guestCccdRows
+            $guestCccdRows, $couponDiscount
         ) {
             Product::where('id', $room->id)->lockForUpdate()->first();
 
@@ -381,6 +398,9 @@ class BookingController extends Controller
                 'deposit_percent' => $depositPercentToSave,
                 'coupon_code'     => $firstCode,           // backward compat
                 'coupon_codes'    => $appliedCouponCodes ?: null,
+                // Cùng lỗi đã sửa ở luồng web/GuestBookingController — thiếu field này khiến số
+                // tiền giảm giá theo coupon không được lưu dù đơn vẫn thu ĐÚNG giá đã giảm.
+                'coupon_discount' => $couponDiscount,
                 'description'     => 'Đặt sân - ' . $room->name,
                 'buyer_name'      => $buyerName,
                 'buyer_phone'     => $buyerPhone,
@@ -388,6 +408,8 @@ class BookingController extends Controller
                 'status'          => 'pending',
                 'guest_count'     => $request->guest_count,
                 'category_id'     => $category?->id,
+                // Xem App\Services\BookingRateLimiter — chặn phá hoại theo IP.
+                'creator_ip'      => $request->ip(),
                 // Đơn đặt qua API khách hàng đăng nhập (Customer, không phải App\Models\User) nên
                 // BelongsToPartner::creating() không tự gán được partner_id — gán thẳng theo đúng
                 // partner_id của sân đang đặt (xem giải thích chi tiết ở GuestBookingController).
@@ -427,9 +449,13 @@ class BookingController extends Controller
             return $order;
         });
 
-        // ── 8. Tạo link PayOS ────────────────────────────────────────────────
+        // ── 8. Tạo link PayOS / gia hạn giữ chỗ cho chuyển khoản ─────────────
         if ($paymentMethod === 'PayOS' && $amountDue >= 2000) {
             $this->createPayOSLink($order, $summaryName, $request->input('return_url'), $request->input('cancel_url'));
+        } elseif ($paymentMethod === 'bank_transfer') {
+            // Xem giải thích ở GuestBookingController::store() — không có API cổng thanh toán nào
+            // để gọi, chỉ gia hạn giữ chỗ 60p, thông tin QR trả thẳng trong response bên dưới.
+            $order->update(['expired_at' => now()->addMinutes(60)]);
         }
 
         // ── 9. Realtime: cập nhật trạng thái slot ────────────────────────────
@@ -483,6 +509,17 @@ class BookingController extends Controller
             'system_discount'  => $appliedSystemDiscount,
             'coupons'          => $couponsForResponse,
             'deposit' => $depositInfo,
+            // Xem giải thích chi tiết ở GuestBookingController::store().
+            'bank_transfer' => $paymentMethod === 'bank_transfer' ? [
+                'mode'                 => $room->partner?->bankTransferMode(),
+                'bank_name'            => $room->partner?->bank_name,
+                'bank_account_number'  => $room->partner?->bank_account_number,
+                'bank_account_holder'  => $room->partner?->bank_account_holder,
+                'amount'               => $amountDue,
+                'transfer_note'        => $order->order_code,
+                'qr_image_url'         => $room->partner?->vietQrImageUrl($amountDue, $order->order_code),
+                'upload_proof_url'     => route('api.orders.payment-proof', ['order_code' => $order->order_code]),
+            ] : null,
             'summary' => [
                 'slots_total'          => $basePrice,
                 'promotion_discount'   => $promotionDiscount,
@@ -1108,15 +1145,13 @@ class BookingController extends Controller
     private function createPayOSLink(Order $order, string $itemName, ?string $returnUrl = null, ?string $cancelUrl = null): void
     {
         try {
-            $clientId    = Config::get('payos.client_id');
-            $apiKey      = Config::get('payos.api_key');
-            $checksumKey = Config::get('payos.checksum_key');
+            $creds = \App\Services\PayOSCredentialResolver::resolve($order->partner);
 
-            if (! $clientId || ! $apiKey || ! $checksumKey) {
+            if (! $creds['client_id'] || ! $creds['api_key'] || ! $creds['checksum_key']) {
                 return;
             }
 
-            $payOS     = new PayOS($clientId, $apiKey, $checksumKey);
+            $payOS     = \App\Services\PayOSCredentialResolver::client($order->partner);
             $expiredAt = now()->addMinutes(15);
             $dueNow    = $order->depositDueAmount();
 

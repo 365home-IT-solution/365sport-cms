@@ -20,7 +20,8 @@
             window.__headerAlwaysExpanded = false;
         }, { once: true });
     </script>
-    @livewire('bladethemev1::header')
+    <x-bladethemev1::home.top-bar />
+    <x-bladethemev1::home.search-bar />
     @livewire('bladethemev1::drawer-menu')
 
     <style>
@@ -309,6 +310,7 @@
             #rooms-left-panel {
                 position: static;
                 width: 46%;
+                min-width: 0;
                 height: auto;
                 max-height: none;
                 min-height: 0;
@@ -317,6 +319,7 @@
                 box-shadow: none;
                 flex-shrink: 0;
                 transition: none;
+                overflow: hidden;
             }
 
             #sheet-handle {
@@ -345,20 +348,31 @@
                 padding: 4px 0 24px;
             }
 
-            /* Desktop: lưới cố định 3 cột (giống Airbnb) */
+            /* Desktop: lưới cố định 3 cột (giống Airbnb). min-width:0 trên container VÀ từng
+               .branch-card — mặc định browser tính min-width của grid item là "auto" (co giãn
+               theo nội dung bên trong, không theo track 1fr), nếu ảnh/card sân giữ nguyên bề rộng
+               cố định từ carousel trang chủ (.home-card) thì 3 card cộng lại có thể rộng hơn track
+               1fr thật, đẩy #rooms-left-panel tràn/đè lên bản đồ bên phải (bug đã gặp) — ép
+               min-width:0 để track 1fr luôn thắng, ảnh/chữ bên trong tự co theo. */
             .branch-grid {
                 display: grid;
-                grid-template-columns: repeat(3, 1fr);
+                grid-template-columns: repeat(3, minmax(0, 1fr));
                 gap: 20px 14px;
                 overflow: visible;
                 cursor: default;
                 touch-action: auto;
+                min-width: 0;
             }
 
             .branch-grid .branch-card {
                 width: auto;
                 max-width: none;
+                min-width: 0;
                 scroll-snap-align: none;
+            }
+
+            .branch-grid .branch-card .home-card {
+                min-width: 0;
             }
 
             .room-slider-nav {
@@ -951,9 +965,11 @@
                 .setView([cfg.lat, cfg.lng], cfg.zoom);
             window.__searchMapInstance = map;
 
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            // CARTO Voyager — đồng bộ với bản đồ /ban-do (nền sạch hơn, nhãn tiếng Anh cho khu vực
+            // ngoài VN), thay cho tile OSM mặc định trước đây. Miễn phí, không cần API key.
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
                 maxZoom: 19,
-                attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+                attribution: '© OpenStreetMap contributors © CARTO'
             }).addTo(map);
 
             var cards = document.querySelectorAll('.branch-card');
@@ -1133,9 +1149,11 @@
             var map = L.map(mapEl, { zoomControl: true, scrollWheelZoom: true }).setView([cfg.lat, cfg.lng], cfg.zoom);
             window.__searchMapInstance = map;
 
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            // CARTO Voyager — đồng bộ với bản đồ /ban-do (nền sạch hơn, nhãn tiếng Anh cho khu vực
+            // ngoài VN), thay cho tile OSM mặc định trước đây. Miễn phí, không cần API key.
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
                 maxZoom: 19,
-                attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+                attribution: '© OpenStreetMap contributors © CARTO'
             }).addTo(map);
 
             function esc(s) {

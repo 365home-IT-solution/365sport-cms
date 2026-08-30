@@ -31,6 +31,11 @@ class Customer extends Authenticatable
         'date_of_birth',
         'phone',
         'phone_verified_at',
+        'email',
+        'email_verified_at',
+        'referral_code',
+        'referred_by_customer_id',
+        'referrer_rewarded_at',
         'status',
         'password',
         'password_updated_at',
@@ -51,6 +56,8 @@ class Customer extends Authenticatable
 
     protected $casts = [
         'phone_verified_at'      => 'datetime',
+        'email_verified_at'      => 'datetime',
+        'referrer_rewarded_at'   => 'datetime',
         'date_of_birth'          => 'date',
         'password'               => 'hashed',
         'password_updated_at'    => 'datetime',
@@ -81,6 +88,13 @@ class Customer extends Authenticatable
         static::creating(function (self $model): void {
             if (empty($model->id)) {
                 $model->id = Str::uuid()->toString();
+            }
+
+            if (empty($model->referral_code)) {
+                do {
+                    $code = strtoupper(Str::random(6));
+                } while (self::where('referral_code', $code)->exists());
+                $model->referral_code = $code;
             }
         });
 
@@ -134,6 +148,11 @@ class Customer extends Authenticatable
         return $this->hasMany(Wishlist::class, 'customer_id');
     }
 
+    public function waitlists(): HasMany
+    {
+        return $this->hasMany(SlotWaitlist::class, 'customer_id');
+    }
+
     public function orders(): HasMany
     {
         return $this->hasMany(Order::class, 'customer_id');
@@ -144,5 +163,15 @@ class Customer extends Authenticatable
     public function companions(): HasMany
     {
         return $this->hasMany(CustomerCompanion::class);
+    }
+
+    public function referredBy(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'referred_by_customer_id');
+    }
+
+    public function referrals(): HasMany
+    {
+        return $this->hasMany(self::class, 'referred_by_customer_id');
     }
 }

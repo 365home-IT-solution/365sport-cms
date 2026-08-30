@@ -41,7 +41,16 @@ class AccessCodeResource extends Resource
 
     public static function canViewAny(): bool
     {
-        return auth()->user()?->can('view_any_access::code') ?? false;
+        $user = auth()->user();
+
+        return ($user?->can('view_any_access::code') ?? false) && ($user?->partnerHasFeature('access_codes') ?? false);
+    }
+
+    // Tạm ẩn hẳn khỏi menu theo yêu cầu — chưa dùng mã cửa/TTLock trong giai đoạn hiện tại. Giữ
+    // nguyên code/route/permission, chỉ cần xoá method này để bật lại menu sau.
+    public static function shouldRegisterNavigation(): bool
+    {
+        return false;
     }
 
     public static function getNavigationBadge(): ?string

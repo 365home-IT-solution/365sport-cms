@@ -151,6 +151,13 @@ class SearchController extends Controller
                 'has_promotion' => $branchHasPromoByBranch[$branch->category->id] ?? false,
                 'latitude'      => $coordsByBranch[$branch->category->id]['latitude'] ?? null,
                 'longitude'     => $coordsByBranch[$branch->category->id]['longitude'] ?? null,
+                // Link "dẫn đường" dựng từ toạ độ đại diện chi nhánh, cùng logic build map_url đã
+                // dùng ở RoomController::buildRoomDetail() / Admin/ProductController::toDetailItem()
+                // (cột map_url không còn tồn tại trên bảng products, chỉ có latitude/longitude).
+                // Dạng "dir" (api=1) để app Maps mở thẳng vào chế độ chỉ đường thay vì chỉ ghim vị trí.
+                'map_url'       => isset($coordsByBranch[$branch->category->id])
+                    ? 'https://www.google.com/maps/dir/?api=1&destination=' . $coordsByBranch[$branch->category->id]['latitude'] . ',' . $coordsByBranch[$branch->category->id]['longitude']
+                    : null,
             ])
             ->sortByDesc('has_promotion')
             ->values();

@@ -3,9 +3,11 @@
 namespace App\Providers;
 
 use App\Http\View\Composers\ProductColorComposer;
+use App\Models\GoogleOauthConfiguration;
 use App\Services\ContractSigning\ContractSigningManager;
 use App\Services\ContractSigning\Contracts\DigitalSignatureProvider;
 use App\Settings\MailSettings;
+use Illuminate\Support\Facades\Config;
 use Filament\Tables\Table;
 use Filament\Support\Facades\FilamentView;
 use Filament\View\PanelsRenderHook;
@@ -83,6 +85,18 @@ class AppServiceProvider extends ServiceProvider
             $settings->loadMailSettingsToConfig();
         } catch (\Exception $e) {
             \Log::error('Failed to load mail settings: ' . $e->getMessage());
+        }
+
+        // Đăng nhập Google cho khách hàng — client_id/secret nhập ở admin, không dùng .env (xem
+        // App\Filament\Pages\GoogleLoginSettings, App\Models\GoogleOauthConfiguration).
+        try {
+            $googleConfig = GoogleOauthConfiguration::first();
+            if ($googleConfig) {
+                Config::set('services.google.client_id', $googleConfig->client_id);
+                Config::set('services.google.client_secret', $googleConfig->client_secret);
+            }
+        } catch (\Exception $e) {
+            \Log::error('Failed to load Google OAuth config: ' . $e->getMessage());
         }
 
         ViewFacade::composer('*', ProductColorComposer::class);

@@ -217,6 +217,10 @@ class OrderController extends Controller
                     } else {
                         $updates['full_amount'] = max(0, $newAmtWithSurcharge - $gcTotalDiscount);
                     }
+                    // Cùng lỗi đã sửa ở nhánh đổi coupon bên dưới — full_amount vừa tính lại CÓ trừ
+                    // $gcCouponDiscount, nhưng cột coupon_discount không được ghi theo, để lại giá
+                    // trị cũ/rỗng không khớp giá thật.
+                    $updates['coupon_discount'] = $gcCouponDiscount;
 
                     Log::info('order.update guest-surcharge', [
                         'order_code'     => $order->order_code,
@@ -280,6 +284,10 @@ class OrderController extends Controller
             $appliedCodes = collect($appliedCoupons)->pluck('code')->values()->all();
             $updates['coupon_code']  = $appliedCodes[0] ?? null;
             $updates['coupon_codes'] = $appliedCodes ?: null;
+            // Cùng lỗi đã sửa ở nơi TẠO đơn (GuestBookingController/BookingController) — thiếu
+            // field này khiến 'coupon_discount' không được cập nhật dù full_amount bên dưới ĐÃ trừ
+            // đúng $newCouponDiscount, làm giá trị lưu trong DB không khớp với giá thật đã áp dụng.
+            $updates['coupon_discount'] = $newCouponDiscount;
 
             // Tính lại full_amount với coupon mới
             $baseAmt     = isset($updates['amount']) ? (int) $updates['amount'] : (int) $order->amount;
@@ -596,6 +604,48 @@ class OrderController extends Controller
     }
 
     /**
+     * POST /api/orders/{order_code}/payment-proof
+     * Khách đã đăng nhập tải ảnh biên lai chuyển khoản — tương đương
+     * GuestBookingController::uploadPaymentProof() nhưng xác thực qua sanctum + customer_id thay
+     * vì buyer_phone.
+     */
+    public function uploadPaymentProof(Request $request, string $orderCode): JsonResponse
+    {
+        /** @var \App\Models\Customer $customer */
+        $customer = auth('sanctum')->user();
+
+        $request->validate([
+            'payment_proof' => ['required', 'image', 'max:8192'],
+        ]);
+
+        $order = Order::where('order_code', $orderCode)
+            ->where('customer_id', $customer->id)
+            ->first();
+
+        if (! $order) {
+            return response()->json(['message' => 'Đơn hàng không tồn tại.'], 404);
+        }
+
+        if ($order->payment_method !== 'bank_transfer' || $order->isCancelled() || in_array($order->status, ['paid', 'refunded'], true)) {
+            return response()->json(['message' => 'Đơn này không ở trạng thái chờ chuyển khoản.'], 422);
+        }
+
+        $path = $request->file('payment_proof')->store('payment-proofs', 'public');
+
+        $order->update([
+            'payment_proof'        => $path,
+            'bank_transfer_status' => 'pending',
+            'expired_at'           => now()->addHours(2),
+        ]);
+
+        return response()->json([
+            'order_code'           => $order->order_code,
+            'bank_transfer_status' => $order->bank_transfer_status,
+            'payment_proof_url'    => $order->payment_proof_url,
+        ]);
+    }
+
+    /**
      * POST /api/orders/{order_code}/retry-payment
      */
     public function retryPayment(Request $request, string $orderCode): JsonResponse
@@ -683,15 +733,13 @@ class OrderController extends Controller
         }
 
         try {
-            $clientId    = Config::get('payos.client_id');
-            $apiKey      = Config::get('payos.api_key');
-            $checksumKey = Config::get('payos.checksum_key');
+            $creds = \App\Services\PayOSCredentialResolver::resolve($order->partner);
 
-            if (! $clientId || ! $apiKey || ! $checksumKey) {
+            if (! $creds['client_id'] || ! $creds['api_key'] || ! $creds['checksum_key']) {
                 return response()->json(['message' => 'Cổng thanh toán chưa được cấu hình.'], 500);
             }
 
-            $payOS         = new PayOS($clientId, $apiKey, $checksumKey);
+            $payOS         = \App\Services\PayOSCredentialResolver::client($order->partner);
             $remainingCode = (int) (intval(substr(strval(microtime(true) * 10000), -6)) . rand(10, 99));
             $expiredAt     = now()->addMinutes(30);
 
@@ -876,11 +924,9 @@ class OrderController extends Controller
         }
 
         try {
-            $clientId    = Config::get('payos.client_id');
-            $apiKey      = Config::get('payos.api_key');
-            $checksumKey = Config::get('payos.checksum_key');
+            $creds = \App\Services\PayOSCredentialResolver::resolve($order->partner);
 
-            if (! $clientId || ! $apiKey || ! $checksumKey) {
+            if (! $creds['client_id'] || ! $creds['api_key'] || ! $creds['checksum_key']) {
                 return response()->json([
                     'order_code'     => $order->order_code,
                     'status'         => $order->status,
@@ -894,7 +940,7 @@ class OrderController extends Controller
                 ? (int) $order->remaining_payos_code
                 : (int) $order->order_code;
 
-            $payOS    = new PayOS($clientId, $apiKey, $checksumKey);
+            $payOS    = \App\Services\PayOSCredentialResolver::client($order->partner);
             $response = $payOS->getPaymentLinkInformation($payosCode);
             $status   = $response['status'] ?? 'PENDING';
 
@@ -983,15 +1029,13 @@ class OrderController extends Controller
     private function buildPayOSLink(Order $order, string $itemName, ?string $returnUrl = null, ?string $cancelUrl = null): ?string
     {
         try {
-            $clientId    = Config::get('payos.client_id');
-            $apiKey      = Config::get('payos.api_key');
-            $checksumKey = Config::get('payos.checksum_key');
+            $creds = \App\Services\PayOSCredentialResolver::resolve($order->partner);
 
-            if (! $clientId || ! $apiKey || ! $checksumKey) {
+            if (! $creds['client_id'] || ! $creds['api_key'] || ! $creds['checksum_key']) {
                 return null;
             }
 
-            $payOS     = new PayOS($clientId, $apiKey, $checksumKey);
+            $payOS     = \App\Services\PayOSCredentialResolver::client($order->partner);
             $expiredAt = now()->addMinutes(15);
 
             $oldPayosCode = $order->current_payos_code ?? (int) $order->order_code;

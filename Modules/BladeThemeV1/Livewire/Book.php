@@ -17,14 +17,68 @@ use Modules\Category\Entities\Category;
 use Modules\Product\App\Models\Product;
 use Modules\BladeThemeV1\Traits\HandleConfigTrait;
 use Modules\BladeThemeV1\Traits\Book as BookTrait;
+use Modules\BladeThemeV1\Traits\SellsPackagePlans;
 use Modules\Product\App\Models\RoomTimeSlot;
 
 class Book extends Component
 {
-    use HandleConfigTrait, BookTrait;
+    use HandleConfigTrait, BookTrait, SellsPackagePlans;
 
     public $choose_room, $title_booking, $sub_title_booking;
     public $blindBag, $image_event;
+
+    // Mua gói nhiều buổi CẢ CHI NHÁNH (xem buyPackage()/getAvailablePackagePlans() bên dưới) —
+    // khác ProductDetail (trang 1 sân, buyerName/buyerPhone gắn với việc đặt sân đang thao tác),
+    // trang này chỉ có mục đích chào bán gói nên KHÔNG cần đồng bộ với luồng đặt khung giờ. Tự
+    // điền sẵn nếu khách ĐÃ đăng nhập (xem prefillFromAuth() — cùng cơ chế token localStorage với
+    // ProductDetail::prefillFromAuth(), trước đây quên làm khiến khách đã đăng nhập vẫn phải gõ
+    // lại tên/SĐT từ đầu mỗi lần mở popup mua gói, dù trang khác trong site đều tự điền sẵn).
+    public string $buyerName = '';
+    public string $buyerPhone = '';
+    public string $buyerEmail = '';
+    public bool $isAuthUser = false;
+
+    /**
+     * Tự điền họ tên/SĐT từ tài khoản đã đăng nhập (Sanctum token trong localStorage, đọc qua
+     * Alpine x-init ở book/_package-plans.blade.php) — bản RÚT GỌN của
+     * ProductDetail::prefillFromAuth() (không cần CCCD/coupon, trang này chỉ bán gói).
+     */
+    public function prefillFromAuth(string $token): void
+    {
+        if (empty($token)) {
+            $this->buyerName = '';
+            $this->buyerPhone = '';
+            $this->isAuthUser = false;
+
+            return;
+        }
+
+        try {
+            $pat = \Laravel\Sanctum\PersonalAccessToken::findToken($token);
+            if (! $pat || $pat->tokenable_type !== \App\Models\Customer::class) {
+                return;
+            }
+
+            /** @var \App\Models\Customer $customer */
+            $customer = $pat->tokenable;
+            if (! $customer || $customer->status !== \App\Models\Customer::STATUS_ACTIVE) {
+                return;
+            }
+
+            // DB lưu phone dạng 84xxxxxxxxx → hiển thị 0xxxxxxxxx (khớp đúng cách ProductDetail
+            // đang làm, cùng 1 định dạng lưu SĐT trong hệ thống).
+            $phone = $customer->phone ?? '';
+            if (str_starts_with($phone, '84') && strlen($phone) >= 11) {
+                $phone = '0' . substr($phone, 2);
+            }
+
+            $this->buyerName = $customer->fullname ?? '';
+            $this->buyerPhone = $phone;
+            $this->isAuthUser = true;
+        } catch (\Throwable) {
+            // Silent fail — khách tiếp tục với form thường (tự gõ tay).
+        }
+    }
 
     /** Chỉ true khi nhúng ở trang chủ — hiện thêm header tên chi nhánh vì trang chủ không có
      *  ngữ cảnh URL như /branch/{slug} để người dùng biết đang xem lịch của chi nhánh nào. */
@@ -112,6 +166,62 @@ class Book extends Component
         $this->setConfig($config);
         $this->initializeData();
         $this->blindBag = BlindBag::first();
+    }
+
+    /**
+     * Danh sách gói nhiều buổi ĐANG BÁN liên quan tới chi nhánh đang xem — trang này (lưới nhiều
+     * sân /branch/{slug}) hiện CẢ 2 loại: gói áp dụng cả chi nhánh (category_id khớp) LẪN gói
+     * riêng 1 trong các sân đang liệt kê trên lưới (product_id nằm trong roomIds) — trước đây chỉ
+     * lọc theo category_id, khiến gói tạo riêng cho 1 sân cụ thể (VD "002 Pickleball & Coffee -
+     * Sân 2") không hiện ở đây dù trang này liệt kê đủ cả 3 sân của chi nhánh (bug thật đã gặp:
+     * người dùng tạo gói riêng sân, không thấy chỗ bán ở trang lưới). $this->activeCategoryId LUÔN
+     * là ĐÚNG id chi nhánh (Category gốc) trong ngữ cảnh trang này — BranchBookConfig::build() chỉ
+     * tạo đúng 1 category duy nhất = chi nhánh, không có tab con nào khác.
+     */
+    public function getAvailablePackagePlans(): \Illuminate\Support\Collection
+    {
+        if (empty($this->activeCategoryId)) {
+            return collect();
+        }
+
+        return \App\Models\PackagePlan::where('is_active', true)
+            ->where(function ($q) {
+                $q->where('category_id', $this->activeCategoryId);
+                if (! empty($this->roomIds)) {
+                    $q->orWhereIn('product_id', $this->roomIds);
+                }
+            })
+            ->orderBy('sessions_count')
+            ->get();
+    }
+
+    /**
+     * Khách tự mua gói nhiều buổi ngay trên trang lưới đặt sân (không cần chọn khung giờ trước) —
+     * dùng chung logic tạo đơn/thanh toán với buyPackagePlan() (SellsPackagePlans). Sân đại diện
+     * lấy sân ĐẦU TIÊN đang hiển thị trên lưới của chi nhánh (chỉ để gắn item hoá đơn + tra đối
+     * tác/phương thức thanh toán — không giới hạn phạm vi dùng gói, xem docblock trait).
+     */
+    public function buyPackage(int $planId)
+    {
+        // Chặn sửa tay planId để mua gói của chi nhánh/sân khác không liên quan trang này — phải
+        // khớp ĐÚNG danh sách đang chào bán ở getAvailablePackagePlans() (category cả chi nhánh
+        // HOẶC 1 trong các sân đang liệt kê trên lưới).
+        if (! $this->getAvailablePackagePlans()->contains('id', $planId)) {
+            $this->dispatch('notify', ['message' => 'Gói không còn tồn tại hoặc đã ngừng bán.', 'type' => 'error']);
+
+            return null;
+        }
+
+        $representativeProductId = $this->roomIds[0] ?? null;
+        $representativeProduct = $representativeProductId ? Product::find($representativeProductId) : null;
+
+        if (! $representativeProduct) {
+            $this->dispatch('notify', ['message' => 'Chi nhánh chưa có sân nào khả dụng để mua gói.', 'type' => 'error']);
+
+            return null;
+        }
+
+        return $this->buyPackagePlan($planId, $representativeProduct, $this->buyerName, $this->buyerPhone, $this->buyerEmail);
     }
 
     /**
@@ -417,6 +527,24 @@ class Book extends Component
         $totalDiscount = 0;
         $activePromotions = [];
 
+        // Sân thuộc đối tác gói KHÔNG có tính năng "promotions" (Partner::hasFeature(), xem
+        // PartnerPlan) — coi như hoàn toàn không có khuyến mãi nào, kể cả khi vẫn còn Promotion đã
+        // gắn sẵn vào khung giờ này trong DB (dữ liệu cũ/còn sót từ trước khi đổi gói) — khách hàng
+        // chỉ nên thấy đúng những gì đối tác ĐANG được phép dùng theo gói hiện tại.
+        if (!$this->roomAllowsPromotions($slot)) {
+            return [
+                'final_price' => $originalPrice,
+                'original_price' => $originalPrice,
+                'price_after_increase' => $originalPrice,
+                'increase_amount' => 0,
+                'total_discount' => 0,
+                'has_promotion' => false,
+                'is_increase' => false,
+                'promotions' => [],
+                'is_full_day_booking' => false,
+            ];
+        }
+
         // Kiểm tra xem ngày này có phải full booking không
         $isFullDayBooking = false;
         if ($roomId && !empty($selectedSlots)) {
@@ -552,6 +680,27 @@ class Book extends Component
             'promotions' => $activePromotions,
             'is_full_day_booking' => false
         ];
+    }
+
+    // Sân của slot này có thuộc đối tác đang được phép dùng tính năng khuyến mãi không (theo gói
+    // dịch vụ, Partner::hasFeature('promotions')) — memo hoá theo room_id trong 1 lượt request vì
+    // hàm này bị gọi lặp lại cho MỖI khung giờ/mỗi sân khi render cả bảng lịch.
+    private array $roomAllowsPromotionsCache = [];
+
+    protected function roomAllowsPromotions($slot): bool
+    {
+        $room = $slot->room ?? null;
+        $roomId = $room->id ?? null;
+
+        if ($roomId === null) {
+            return true;
+        }
+
+        if (!array_key_exists($roomId, $this->roomAllowsPromotionsCache)) {
+            $this->roomAllowsPromotionsCache[$roomId] = $room->partner?->hasFeature('promotions') ?? true;
+        }
+
+        return $this->roomAllowsPromotionsCache[$roomId];
     }
 
     protected function isPromotionApplicable($promotion, Carbon $slotDateTime, Carbon $currentDate, $slot = null)
@@ -698,6 +847,10 @@ class Book extends Component
             'increase' => [],
             'discount' => []
         ];
+
+        if (!$this->roomAllowsPromotions($slot)) {
+            return $result;
+        }
 
         if ($slotStartTime) {
             $timeString = strlen($slotStartTime) === 5 ? $slotStartTime . ':00' : $slotStartTime;

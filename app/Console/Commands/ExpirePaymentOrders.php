@@ -12,7 +12,7 @@ use Carbon\Carbon;
 class ExpirePaymentOrders extends Command
 {
     protected $signature   = 'orders:expire-pending';
-    protected $description = 'Tự động hủy các đơn hàng pending quá 15 phút';
+    protected $description = 'Tự động hủy các đơn hàng pending/deposit chưa thanh toán quá hạn (expired_at)';
 
     protected $accessCodeService;
 
@@ -26,8 +26,23 @@ class ExpirePaymentOrders extends Command
     {
         $this->info('🔍 Đang kiểm tra đơn hàng hết hạn...');
 
+        // 'deposit' TRƯỚC ĐÂY không bao giờ được coi là hết hạn — chỉ đơn 'pending' mới tự huỷ.
+        // Nhưng đơn tạo với status='deposit' mà khách CHƯA TỪNG thanh toán đồng nào (bỏ ngang lúc
+        // chọn "trả cọc") cũng kẹt y hệt 1 đơn 'pending' bị bỏ quên — không ai tự dọn, và
+        // BookingRateLimiter đếm CẢ 'pending' lẫn 'deposit' để chặn IP đặt quá nhiều đơn chưa thanh
+        // toán, nên các đơn cọc bị bỏ quên này khiến 1 IP bị CHẶN VĨNH VIỄN không cách nào tự hết.
+        // Phân biệt an toàn: deposit_paid_at CHỈ được ghi đúng lúc tiền cọc THẬT được xác nhận (cả
+        // luồng PayOS lẫn chuyển khoản, xem PaymentController::handlePaidStatus()/
+        // BankTransferConfirmationService::confirm()) — deposit_paid_at NULL nghĩa là chưa nhận
+        // được đồng nào, an toàn để huỷ như đơn pending. Đơn ĐÃ có deposit_paid_at (tiền cọc thật
+        // sự đã vào) sẽ KHÔNG BAO GIỜ bị điều kiện này chạm tới.
         $orders = Order::with('items.product.roomTimeSlots.timeSlot')
-            ->where('status', 'pending')
+            ->where(function ($q) {
+                $q->where('status', 'pending')
+                    ->orWhere(function ($q2) {
+                        $q2->where('status', 'deposit')->whereNull('deposit_paid_at');
+                    });
+            })
             ->whereNotNull('expired_at')
             ->where('expired_at', '<=', Carbon::now())
             ->oldest('expired_at')

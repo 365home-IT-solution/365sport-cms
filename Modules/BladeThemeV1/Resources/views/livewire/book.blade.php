@@ -5,6 +5,7 @@
     fullBookingDiscount: 0,
     hasFullDayBooking: false,
     fullDayDates: [], // Thêm để track ngày nào full booking
+    showPackageModal: false, // Popup Mua gói nhiều buổi — xem book/_package-plans.blade.php
 
     resetSelection() {
         document.querySelectorAll('.selectable.active').forEach(el => el.classList.remove('active'));
@@ -144,6 +145,63 @@
         }, 0);
     },
 
+    // Dùng cho dòng Tổng giờ ở book/_pricing.blade.php (thanh tổng tiền) — cộng dồn thời lượng
+    // thật của từng khung giờ đã chọn (startTime/endTime), không phải đếm số khung giờ.
+    get totalHoursLabel() {
+        const mins = this.selectedSlots.reduce((sum, s) => {
+            const [sh, sm] = s.startTime.split(':').map(Number);
+            const [eh, em] = s.endTime.split(':').map(Number);
+            let m = (eh * 60 + em) - (sh * 60 + sm);
+            if (m <= 0) m += 24 * 60;
+            return sum + m;
+        }, 0);
+        const h = Math.floor(mins / 60);
+        const m = mins % 60;
+        return m > 0 ? (h + 'h' + m) : (h + 'h');
+    },
+
+    // Rút gọn tên sân giống PHP $shortRoomName() ở book/_timeline.blade.php (chỉ lấy số thứ tự ở
+    // cuối tên) — dùng cho khối Chi tiết đặt sân ở book/_pricing.blade.php, hiển thị dạng Sân N gọn
+    // hơn thay vì tên chi nhánh đầy đủ đã gửi kèm slot (roomName, xem book/_slot-cell.blade.php).
+    shortRoomName(name) {
+        const m = String(name || '').match(/(\d+)(\s*\([^)]*\))?\s*$/u);
+        return m ? ('Sân ' + m[1] + (m[2] || '')) : name;
+    },
+
+    // Đổi dạng giờ 16:00:00 hoặc 16:00 thành 16h00
+    formatSlotTime(t) {
+        const parts = String(t || '').split(':');
+        return parts[0] + 'h' + (parts[1] || '00');
+    },
+
+    // Gộp các khung giờ liên tiếp cùng sân/cùng ngày thành 1 dòng khoảng giờ (vd chọn liền
+    // 10h00-11h00, 11h00-12h00, ... -> chỉ hiện 1 dòng 10h00-20h00) thay vì liệt kê từng giờ rời
+    // rạc — dùng cho khối Chi tiết đặt sân ở book/_pricing.blade.php.
+    get groupedSlotDetails() {
+        const groups = {};
+        const order = [];
+        this.selectedSlots.forEach(s => {
+            const key = s.roomId + '|' + s.date;
+            if (!groups[key]) { groups[key] = []; order.push(key); }
+            groups[key].push(s);
+        });
+        const result = [];
+        order.forEach(key => {
+            const slots = groups[key].slice().sort((a, b) => a.startTime.localeCompare(b.startTime));
+            let current = null;
+            slots.forEach(s => {
+                if (current && current.endTime === s.startTime) {
+                    current.endTime = s.endTime;
+                } else {
+                    if (current) result.push(current);
+                    current = { roomName: s.roomName, startTime: s.startTime, endTime: s.endTime };
+                }
+            });
+            if (current) result.push(current);
+        });
+        return result;
+    },
+
     get totalPrice() {
         return this.selectedSlots.reduce((sum, s) => {
             // Nếu là ngày full booking, tính lại giá = basePrice + increaseAmount
@@ -229,6 +287,14 @@
         return summary;
     }
 }" x-on:book-category-changed.window="resetSelection()"
+    x-init="$watch('selectedSlots', (val, oldVal) => {
+        if (val.length > 0 && (!oldVal || oldVal.length === 0) && window.innerWidth < 1024) {
+            $nextTick(() => {
+                const panel = document.querySelector('.book-panel');
+                if (panel) panel.scrollIntoView({ behavior: 'auto', block: 'start' });
+            });
+        }
+    });"
     data-room-ids="{{ implode(',', $this->roomIds) }}">
     <div class="w-full mx-auto">
         @include('bladethemev1::livewire.book._header')
@@ -261,15 +327,24 @@
                 @endphp
 
                 @if($totalStyleOneRooms > 0)
-                    @include('bladethemev1::livewire.book._legend')
+                    {{-- Chú thích trạng thái giờ nằm TRONG book/_timeline.blade.php (không dùng
+                         book/_legend.blade.php nữa — legend cũ theo đúng nhãn "Đã Đặt/Còn
+                         Trống/Đang chọn/Khuyến mãi" của layout nhiều-ngày cũ, khác nhãn "Trống/Đã
+                         đặt/Khoá/Đang chọn" của layout timeline mới).
 
-                    {{-- Bảng đặt sân, và bên dưới là bảng tính giá (Giá cơ bản, tổng tiền tạm
-                         tính) — luôn xếp dọc (cả mobile lẫn desktop). Trên mobile, bảng tính giá này
-                         bị ẩn và thay bằng bottom sheet (bên dưới) để không chiếm chỗ khi chưa chọn
-                         khung giờ. --}}
+                         Bảng tính giá CHI TIẾT (Giá cơ bản/Khuyến mãi/Giảm giá đặt nhiều khung
+                         giờ/quà tặng/Tổng tiền tạm tính) là book/_pricing.blade.php — ĐÃ TỪNG bị
+                         xoá nhầm vì tưởng trùng với thanh CTA đơn giản tự thêm ở
+                         book/_timeline.blade.php, nhưng bảng chi tiết này mới là nội dung người
+                         dùng thật sự cần (đúng ảnh mẫu). Nên: bỏ thanh CTA đơn giản khỏi
+                         _timeline.blade.php (xem ghi chú ở đó), khôi phục lại bảng giá desktop +
+                         bottom-sheet mobile ở đây — CHỈ 1 khối tổng tiền/nút đặt sân duy nhất, đúng
+                         như trước khi bị xoá nhầm. --}}
                     <div class="book-panel">
-                        @include('bladethemev1::livewire.book._mobile')
-                        @include('bladethemev1::livewire.book._desktop-grid')
+                        {{-- Mua gói nhiều buổi cả chi nhánh — nút mở popup nằm ngay trong hàng chú
+                             thích của book/_timeline.blade.php (book-tl-legend), không phải hàng
+                             riêng ở đây nữa — xem ghi chú tại đó. --}}
+                        @include('bladethemev1::livewire.book._timeline')
 
                         <div class="book-pricing-desktop">
                             @include('bladethemev1::livewire.book._pricing')
@@ -289,11 +364,13 @@
             </div>
         </div>
 
-        {{-- Mobile bottom sheet: hiện bảng tính giá đầy đủ sau khi user chọn khung giờ.
-             Không dùng backdrop toàn màn hình nữa — trước đây backdrop phủ inset:0 chặn
-             luôn cả click vào bảng khung giờ phía trên sheet, khiến không chọn thêm được
-             khung giờ thứ 2 (chỉ bấm được nút "X" hoặc bấm ra ngoài để đóng). Giờ người
-             dùng có thể chọn tiếp trong khi sheet vẫn hiện, đóng bằng nút "X". --}}
+        {{-- Mobile bottom sheet: hiện bảng tính giá chi tiết đầy đủ sau khi user chọn khung giờ
+             (đúng ảnh mẫu — Giá cơ bản/Khuyến mãi/Giảm giá đặt nhiều khung giờ/quà tặng/Tổng tiền
+             tạm tính, nút "Đặt sân ngay" gọi thẳng saveAndRedirect() thật). Không dùng backdrop
+             toàn màn hình — trước đây backdrop phủ inset:0 chặn luôn cả click vào bảng khung giờ
+             phía trên sheet, khiến không chọn thêm được khung giờ thứ 2 (chỉ bấm được nút "X" hoặc
+             bấm ra ngoài để đóng). Người dùng có thể chọn tiếp trong khi sheet vẫn hiện, đóng bằng
+             nút "X". --}}
         <div class="book-bottom-sheet"
              x-show="selectedSlots.length > 0"
              x-transition:enter="sheet-enter"
@@ -313,6 +390,11 @@
                 @include('bladethemev1::livewire.book._pricing')
             </div>
         </div>
+
+        {{-- Popup Mua gói nhiều buổi — đặt Ở GỐC cây x-data (cùng cấp .book-bottom-sheet phía
+             trên, KHÔNG lồng trong .book-panel) để position:fixed hoạt động đúng, không bị khối
+             cha nào chặn — xem ghi chú đầy đủ trong book/_package-modal.blade.php. --}}
+        @include('bladethemev1::livewire.book._package-modal')
 
         @include('bladethemev1::livewire.book._styles')
     </div>

@@ -37,7 +37,12 @@ return [
         ],
         'options' => [
             'payment_method' => [
-                'PayOS' => 'Chuyển khoản',
+                // Trước đây ghi 'Chuyển khoản' — dễ nhầm với lựa chọn 'Chuyển khoản ngân hàng'
+                // (payment_method='bank_transfer', xem OrderForm.php) mới thêm sau này, 2 lựa chọn
+                // khác hẳn nhau (PayOS = cổng thanh toán online, bank_transfer = QR tĩnh + admin
+                // duyệt tay/SePay) nhưng nhãn cũ khiến admin không phân biệt được khi cùng hiện
+                // trong 1 dropdown.
+                'PayOS' => 'PayOS',
                 'cod' => 'Cod'
             ],
             'shipping_method' => [

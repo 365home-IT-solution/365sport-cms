@@ -63,15 +63,13 @@ class OrderPaymentController extends Controller
             return response()->json(['message' => 'Số tiền thanh toán không đủ tối thiểu.'], 422);
         }
 
-        $clientId    = Config::get('payos.client_id');
-        $apiKey      = Config::get('payos.api_key');
-        $checksumKey = Config::get('payos.checksum_key');
+        $creds = \App\Services\PayOSCredentialResolver::resolve($order->partner);
 
-        if (! $clientId || ! $apiKey || ! $checksumKey) {
+        if (! $creds['client_id'] || ! $creds['api_key'] || ! $creds['checksum_key']) {
             return response()->json(['message' => 'Cổng thanh toán chưa được cấu hình.'], 500);
         }
 
-        $payOS = new PayOS($clientId, $apiKey, $checksumKey);
+        $payOS = \App\Services\PayOSCredentialResolver::client($order->partner);
 
         $oldPayosCode = $order->current_payos_code ?? (int) $order->order_code;
         try {
@@ -378,15 +376,13 @@ class OrderPaymentController extends Controller
             return ['error' => 'Số tiền còn lại quá nhỏ hoặc đã thanh toán đủ.'];
         }
 
-        $clientId    = Config::get('payos.client_id');
-        $apiKey      = Config::get('payos.api_key');
-        $checksumKey = Config::get('payos.checksum_key');
+        $creds = \App\Services\PayOSCredentialResolver::resolve($order->partner);
 
-        if (! $clientId || ! $apiKey || ! $checksumKey) {
+        if (! $creds['client_id'] || ! $creds['api_key'] || ! $creds['checksum_key']) {
             return ['error' => 'Cổng thanh toán chưa được cấu hình.'];
         }
 
-        $payOS         = new PayOS($clientId, $apiKey, $checksumKey);
+        $payOS         = \App\Services\PayOSCredentialResolver::client($order->partner);
         $remainingCode = (int) (intval(substr(strval(microtime(true) * 10000), -6)) . rand(10, 99));
         $expiredAt     = now()->addMinutes(30);
 

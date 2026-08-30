@@ -520,8 +520,17 @@
                 <h3 class="text-lg font-semibold text-gray-900">Bài viết mới nhất</h3>
                 @foreach ($latestPosts as $post)
                     <div class="flex items-start space-x-4">
-                        <img src="{{ $post->media->first()->getUrl() }}" alt="{{ $post->title }}"
-                             class="w-16 h-16 rounded-lg object-cover">
+                        {{-- Bài viết chưa có ảnh đại diện (media rỗng) -> gọi thẳng
+                             $post->media->first()->getUrl() vỡ lỗi 500 (bug đã gặp — "Call to a
+                             member function getUrl() on null" khi tạo bài viết mới chưa gắn ảnh). --}}
+                        @if ($post->media->first())
+                            <img src="{{ $post->media->first()->getUrl() }}" alt="{{ $post->title }}"
+                                 class="w-16 h-16 rounded-lg object-cover">
+                        @else
+                            <div class="flex h-16 w-16 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-gray-300">
+                                <x-heroicon-o-photo class="h-6 w-6" />
+                            </div>
+                        @endif
                         <div>
                             <div class="flex space-x-2 mb-1">
                                 @foreach ($post->categories as $category)

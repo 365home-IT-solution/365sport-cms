@@ -146,14 +146,13 @@ class OrderForm
                                                                 Select::make('customer_id')
                                                                     ->label('Thành viên')
                                                                     ->placeholder('Tìm theo tên hoặc số điện thoại')
-                                                                    // Chỉ super_admin thấy được — toàn bộ luồng "chọn thành viên" (CCCD
-                                                                    // thành viên, người đi cùng từ customer_companions...) CHƯA hoàn
-                                                                    // thiện hết, ẩn khỏi các role khác cho tới khi xong hẳn. ->dehydrated()
-                                                                    // BẮT BUỘC dù đang ẩn — nếu không, admin thường (không phải
-                                                                    // super_admin) mở sửa 1 đơn ĐÃ có customer_id (do super_admin gán từ
-                                                                    // trước) rồi lưu lại sẽ vô tình xoá mất customer_id đó (field ẩn mặc
-                                                                    // định không dehydrate, xem HasState::isDehydrated()).
-                                                                    ->visible(fn () => (bool) auth()->user()?->isSuperAdmin())
+                                                                    // Tạm ẩn hẳn theo yêu cầu — nghiệp vụ đặt sân không cần gắn đơn với
+                                                                    // 1 tài khoản "thành viên" riêng (luồng này vốn cũng CHƯA hoàn
+                                                                    // thiện, xem CCCD thành viên đã ẩn trước đó). ->dehydrated() BẮT
+                                                                    // BUỘC dù đang ẩn — nếu không, mở sửa 1 đơn ĐÃ có customer_id (gán
+                                                                    // từ trước khi ẩn) rồi lưu lại sẽ vô tình xoá mất customer_id đó
+                                                                    // (field ẩn mặc định không dehydrate, xem HasState::isDehydrated()).
+                                                                    ->visible(false)
                                                                     ->dehydrated()
                                                                     ->searchable()
                                                                     ->preload()
@@ -254,6 +253,11 @@ class OrderForm
                                                         // chọn thành viên thì đổi hẳn sang 1 nút CCCD thành viên duy nhất
                                                         // (self::buildMemberCccdAction()) lấy CCCD/người đi cùng từ hồ sơ
                                                         // thành viên (customer_companions) thay vì nhập tay lại từ đầu.
+                                                        // Tạm ẩn hẳn theo yêu cầu — nghiệp vụ đặt sân thể thao KHÔNG cần
+                                                        // khai báo/quét CCCD (khác homestay/khách sạn gốc mà module này
+                                                        // được clone từ đó). Code/logic lưu trữ (cccd_front/back, OCR scan,
+                                                        // CccdDeclarationService...) vẫn còn nguyên phía sau, chỉ ẩn UI —
+                                                        // đổi `false` thành điều kiện cũ để bật lại khi cần.
                                                         \Filament\Forms\Components\Actions::make(array_merge(
                                                             [self::buildGuestOneCccdAction()],
                                                             array_map(
@@ -261,18 +265,13 @@ class OrderForm
                                                                 range(2, 8)
                                                             )
                                                         ))
-                                                            ->visible(fn (Get $get) => ! $get('customer_id'))
+                                                            ->visible(false)
                                                             ->columnSpanFull(),
 
-                                                        // Chỉ super_admin thấy nút này — cùng lý do ẩn Select 'customer_id'
-                                                        // ở trên (luồng CCCD thành viên chưa hoàn thiện hết). Vẫn cần check
-                                                        // thêm customer_id vì field đó ->dehydrated() dù ẩn — đơn ĐÃ có
-                                                        // customer_id do super_admin gán trước đó, admin thường mở lại thì
-                                                        // KHÔNG được thấy nút này.
                                                         \Filament\Forms\Components\Actions::make([
                                                             self::buildMemberCccdAction(),
                                                         ])
-                                                            ->visible(fn (Get $get) => (bool) auth()->user()?->isSuperAdmin() && (bool) $get('customer_id'))
+                                                            ->visible(false)
                                                             ->columnSpanFull(),
 
                                                         // Phương thức/trạng thái thanh toán — chuyển xuống cuối cột 1
@@ -282,10 +281,26 @@ class OrderForm
                                                                 Select::make('payment_method')
                                                                     ->label('Phương thức thanh toán')
                                                                     ->placeholder('-- Chọn phương thức --')
-                                                                    ->options([
-                                                                        'cod' => ('Tiền mặt'),
-                                                                        'PayOS' => '' . __('payment::order.form.options.payment_method.PayOS'),
-                                                                    ])
+                                                                    // 'bank_transfer' CHỈ hiện khi chi nhánh đang chọn thuộc 1 đối tác
+                                                                    // (a) đã điền đủ thông tin ngân hàng (Partner::hasBankTransferInfo())
+                                                                    // VÀ (b) CHƯA tự cấu hình PayOS riêng (Partner::hasPayosConfigured())
+                                                                    // — đối tác đã có cổng PayOS riêng thì không cho chọn chuyển khoản ở
+                                                                    // đây nữa, tránh admin chọn nhầm trong khi đối tác đã có cổng thanh
+                                                                    // toán riêng. Chọn chi nhánh khác/chưa chọn thì tự ẩn lựa chọn này.
+                                                                    ->options(function (Get $get) {
+                                                                        $options = [
+                                                                            'cod' => 'Tiền mặt',
+                                                                            'PayOS' => '' . __('payment::order.form.options.payment_method.PayOS'),
+                                                                        ];
+
+                                                                        $partner = \Modules\Category\Entities\Category::find($get('category_id'))?->partner;
+
+                                                                        if ($partner?->hasBankTransferInfo() && ! $partner->hasPayosConfigured()) {
+                                                                            $options['bank_transfer'] = 'Chuyển khoản ngân hàng';
+                                                                        }
+
+                                                                        return $options;
+                                                                    })
                                                                     ->required()
                                                                     ->live()
                                                                     ->dehydrateStateUsing(fn($state) => $state),
@@ -1301,11 +1316,10 @@ class OrderForm
                                                             return;
                                                         }
 
-                                                        $payos = new PayOS(
-                                                            config('payos.client_id'),
-                                                            config('payos.api_key'),
-                                                            config('payos.checksum_key')
-                                                        );
+                                                        // Đúng bộ khoá PayOS của đối tác sở hữu
+                                                        // đơn này nếu đã cấu hình riêng, không thì
+                                                        // PayOS chung nền tảng như cũ.
+                                                        $payos = \App\Services\PayOSCredentialResolver::client($record->partner);
 
                                                         $orderCode = (int) (intval(substr(strval(microtime(true) * 10000), -6)) . rand(10, 99));
                                                         $expiredAt = now()->addMinutes(30);

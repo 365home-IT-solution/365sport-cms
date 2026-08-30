@@ -15,12 +15,8 @@ class FormResource extends Resource
 {
     protected static ?string $model = Form::class;
 
-    // Nhóm "Biểu mẫu" đang ẩn tạm khỏi menu — bật lại bằng cách xoá method này.
-    public static function shouldRegisterNavigation(): bool
-    {
-        return false;
-    }
-
+    // Bật lại hiển thị menu — cần thiết để quản lý form "Đăng ký làm đối tác" (/lam-doi-tac) và
+    // cấu hình email thông báo (EmailSetting) khi có người gửi.
     public static function getNavigationIcon(): string
     {
         return __('form::form.resource.navigation_icon');

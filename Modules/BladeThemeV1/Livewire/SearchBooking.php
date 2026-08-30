@@ -82,11 +82,7 @@ class SearchBooking extends Component
 
             $depositAmount = (int) $order->amount; // amount đã được set = deposit khi tạo đơn
 
-            $clientId    = Config::get('payos.client_id');
-            $apiKey      = Config::get('payos.api_key');
-            $checksumKey = Config::get('payos.checksum_key');
-
-            $payOS = new PayOS($clientId, $apiKey, $checksumKey);
+            $payOS = \App\Services\PayOSCredentialResolver::client($order->partner);
 
             $retryCode = (int) (intval(substr(strval(microtime(true) * 10000), -6)) . rand(10, 99));
 
@@ -168,11 +164,7 @@ class SearchBooking extends Component
                 return;
             }
 
-            $clientId    = Config::get('payos.client_id');
-            $apiKey      = Config::get('payos.api_key');
-            $checksumKey = Config::get('payos.checksum_key');
-
-            $payOS = new PayOS($clientId, $apiKey, $checksumKey);
+            $payOS = \App\Services\PayOSCredentialResolver::client($order->partner);
 
             $remainingCode = (int) (intval(substr(strval(microtime(true) * 10000), -6)) . rand(10, 99));
 

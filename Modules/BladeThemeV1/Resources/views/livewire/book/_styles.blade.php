@@ -95,21 +95,32 @@
         pointer-events: none !important;
     }
 
+    /* to hơn (16px cũ quá nhỏ, dễ lẫn với hoạ tiết nền trên di động) + nhấp nháy nhẹ để phân biệt
+       với ô .booked/.blocked TĨNH — báo đúng bản chất "đang diễn ra, sẽ tự hết trong ít phút", chứ
+       không phải trạng thái cố định như đã đặt/đã khoá (bug đã gặp: người dùng phản ánh "icon khoá
+       chưa rõ ràng", không phân biệt được với các trạng thái không thể bấm khác). */
     .lock-icon {
         position: absolute;
         top: 50%;
         left: 50%;
         transform: translate(-50%, -50%);
         z-index: 20;
-        width: 16px;
-        height: 16px;
+        width: 22px;
+        height: 22px;
         color: #fff;
         pointer-events: none;
+        animation: held-lock-pulse 1.6s ease-in-out infinite;
     }
 
     .lock-icon svg {
         width: 100%;
         height: 100%;
+        filter: drop-shadow(0 1px 2px rgba(0, 0, 0, .35));
+    }
+
+    @keyframes held-lock-pulse {
+        0%, 100% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+        50%      { opacity: .65; transform: translate(-50%, -50%) scale(1.12); }
     }
 
     /* ★★★ END HELD STYLE ★★★ */
@@ -1415,12 +1426,21 @@
 
     .book-dt-slot-cell .selectable { width: 100%; height: 28px; }
 
-    /* ── Bảng tính giá đầy đủ (Giá cơ bản, phụ thu, khuyến mãi, tổng tiền tạm tính): ẩn hẳn
-         cả mobile lẫn desktop — mobile hiện trong bottom sheet riêng (book.blade.php), desktop
-         thay bằng nút "Đặt sân ngay" + tổng tiền tạm tính gọn trên hàng chú thích trạng thái
-         (xem book/_legend.blade.php) để phần này trống/gọn hơn thay vì chiếm cả khối bên dưới. ── */
+    /* ── Bảng tính giá đầy đủ (Giá cơ bản, phụ thu, khuyến mãi, tổng tiền tạm tính): mobile hiện
+         trong bottom sheet riêng (.book-bottom-sheet, ẩn ở >=1024px — xem @media bên dưới),
+         desktop hiện khối này ngay dưới bảng khung giờ. TRƯỚC ĐÂY rule này là "display:none"
+         không điều kiện (ẩn luôn cả desktop, sót lại từ thiết kế cũ dùng nút gọn trong hàng chú
+         thích book/_legend.blade.php — file đó không còn dùng nữa sau khi đổi sang
+         book/_timeline.blade.php), khiến desktop (>=1024px) KHÔNG hiện giá ở đâu cả — vừa bị ẩn ở
+         đây, vừa bị ẩn ở .book-bottom-sheet (bug đã gặp). Chỉ ẩn ở mobile, hiện đúng từ 1024px trở
+         lên (đúng ngưỡng bottom-sheet biến mất). ── */
     .book-pricing-desktop {
         display: none;
+    }
+    @media (min-width: 1024px) {
+        .book-pricing-desktop {
+            display: block;
+        }
     }
 
     /* ── Mobile bottom sheet — hiện sau khi user chọn khung giờ, chứa đầy đủ bảng tính giá.
@@ -1645,10 +1665,27 @@
         opacity: 1 !important;
     }
 
+    {{-- Khung giờ ĐÃ QUA (past-date, xem book/_slot-cell.blade.php) — style trung tính mặc định,
+         dùng cho các khung KHÔNG hề có đơn nào (chỉ đơn giản là giờ đã trôi qua, không phản ánh
+         nhu cầu đặt sân). --}}
     .selectable.past-time,
     .selectable.past-date {
         background: #f3f4f6 !important;
         border: 1px solid #e5e7eb !important;
+    }
+
+    {{-- Khung giờ ĐÃ QUA nhưng THẬT SỰ TỪNG CÓ ĐƠN (past-booked, chỉ gắn kèm past-date khi
+         $matchedItem tồn tại — xem book/_slot-cell.blade.php) — tô ĐỎ riêng, KHÔNG dùng chung màu
+         var(--color-primary) của .selectable.booked (xanh) nữa: trước đây khung đã qua nhưng từng
+         có đơn thật vẫn ăn theo y hệt màu "đang có người đặt" hiện tại của sân, khiến khách hàng
+         lướt qua cả ngày thấy đầy màu xanh và tưởng sân lúc nào cũng kín chỗ — dù chỉ là giờ ĐÃ
+         TRÔI QUA (bug đã gặp: "khách hàng sẽ cảm thấy sân này cũng có nhiều người đặt"). Lần sửa
+         sau đó tô đỏ NHẦM CẢ những khung chưa từng có đơn (bug đã gặp lần 2: "chỉ những khung có
+         đặt nhưng hết giờ thôi chứ tại sao hiển thị toàn bộ") — .past-booked phải đi kèm .past-date
+         mới áp dụng, để thắng specificity so với rule trung tính phía trên (2 class cụ thể hơn 1). --}}
+    .selectable.past-date.past-booked {
+        background: #fecaca !important;
+        border: 1px solid #ef4444 !important;
     }
 
     /* Đặt sau cùng để "đang chọn" luôn thắng dù ô đó cũng đang booked/pending (trường hợp

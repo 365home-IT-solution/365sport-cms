@@ -36,7 +36,7 @@ class SyncOrderLifecycleCommand extends Command
             $realtime->broadcastOrderUpdate(
                 (string) $order->order_code,
                 ['order_status' => $order->order_status, 'payment_status' => $order->payment_status],
-                $order->customer_id ? (int) $order->customer_id : null,
+                $order->customer_id,
             );
         }
 

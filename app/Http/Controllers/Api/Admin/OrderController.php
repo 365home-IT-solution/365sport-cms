@@ -202,6 +202,73 @@ class OrderController extends Controller
     }
 
     /**
+     * POST /api/admin/orders/{order_code}/approve-bank-transfer
+     * Xác nhận đã nhận chuyển khoản (xem ảnh biên lai qua 'payment_proof_url' ở GET show()) — dùng
+     * CHUNG logic với Filament admin
+     * (OrderTable::confirmBankTransferAction()/approve_bank_transfer) và webhook SePay
+     * (App\Services\BankTransferConfirmationService) để 3 đường LUÔN xử lý y hệt nhau.
+     */
+    public function approveBankTransfer(Request $request, string $orderCode): JsonResponse
+    {
+        /** @var User $user */
+        $user = $request->user();
+
+        $order = Order::where('order_code', $orderCode)->first();
+
+        if (! $order || (! $user->isSuperAdmin() && $order->partner_id !== $user->partner_id)) {
+            return response()->json(['message' => 'Không tìm thấy đơn.'], 404);
+        }
+
+        if ($order->payment_method !== 'bank_transfer' || $order->bank_transfer_status !== 'pending') {
+            return response()->json(['message' => 'Đơn này không ở trạng thái chờ duyệt chuyển khoản.'], 422);
+        }
+
+        try {
+            app(\App\Services\BankTransferConfirmationService::class)->confirm($order, (string) $user->id);
+        } catch (\Throwable $e) {
+            Log::error('Admin API duyệt chuyển khoản thất bại', [
+                'order_code' => $order->order_code,
+                'error'      => $e->getMessage(),
+            ]);
+            return response()->json(['message' => 'Lỗi khi xác nhận: ' . $e->getMessage()], 500);
+        }
+
+        return response()->json(['order' => $this->toDetailItem($order->fresh())]);
+    }
+
+    /**
+     * POST /api/admin/orders/{order_code}/reject-bank-transfer
+     * Từ chối ảnh biên lai chưa hợp lệ — khách sẽ thấy thông báo trên trang tra cứu và có thể tải
+     * ảnh khác, KHÔNG huỷ đơn (xem booking-detail.blade.php nhánh bank_transfer_status='rejected').
+     */
+    public function rejectBankTransfer(Request $request, string $orderCode): JsonResponse
+    {
+        /** @var User $user */
+        $user = $request->user();
+
+        $order = Order::where('order_code', $orderCode)->first();
+
+        if (! $order || (! $user->isSuperAdmin() && $order->partner_id !== $user->partner_id)) {
+            return response()->json(['message' => 'Không tìm thấy đơn.'], 404);
+        }
+
+        if ($order->payment_method !== 'bank_transfer' || $order->bank_transfer_status !== 'pending') {
+            return response()->json(['message' => 'Đơn này không ở trạng thái chờ duyệt chuyển khoản.'], 422);
+        }
+
+        $order->update(['bank_transfer_status' => 'rejected']);
+
+        \Modules\AuditLog\Services\AuditLogger::log(
+            'update', 'Order', $order,
+            ['bank_transfer_status' => 'pending'],
+            ['bank_transfer_status' => 'rejected'],
+            'Đơn #' . $order->order_code . ' (qua API admin)'
+        );
+
+        return response()->json(['order' => $this->toDetailItem($order->fresh())]);
+    }
+
+    /**
      * GET /api/admin/orders/{order_code}/cccds
      * Toàn bộ CCCD đã lưu của 1 đơn, GỘP CHUNG khách chính (guest_index=1 — lưu trực tiếp trên
      * Order.cccd_front/back/data) và khách đi cùng (guest_index từ 2 — bảng order_guest_cccds)
@@ -571,7 +638,16 @@ class OrderController extends Controller
                     }
                 }
 
-                $slotFinalPrice = max(0, $basePrice - $promotionDiscount - $systemDiscount);
+                // Đơn đang có mã giảm giá (coupon_discount > 0, xem lúc tạo đơn) — endpoint này chỉ
+                // cho đổi khung giờ/sân/dịch vụ, KHÔNG cho đổi coupon, nên phải GIỮ NGUYÊN số tiền
+                // đã giảm khi tính lại tổng, không thì admin đổi giờ 1 đơn đang có coupon sẽ vô tình
+                // tăng giá đúng bằng đúng số tiền coupon đã giảm (bug thật: trước đây bỏ sót hẳn
+                // coupon_discount ở đây, chỉ trừ promotionDiscount/systemDiscount). Không recompute
+                // lại theo luật coupon (vd % theo base mới) vì controller này không có sẵn logic đó
+                // (khác app/Http/Controllers/Api/OrderController.php) — clamp để không âm nếu base
+                // mới nhỏ hơn số đã giảm trước đó (vd bớt hẳn 1 khung giờ).
+                $existingCouponDiscount = (int) ($order->coupon_discount ?? 0);
+                $slotFinalPrice = max(0, $basePrice - $promotionDiscount - $systemDiscount - $existingCouponDiscount);
 
                 // Dịch vụ: THAY THẾ toàn bộ nếu có gửi 'services', không thì giữ nguyên (cộng theo DB).
                 if (array_key_exists('services', $data)) {
@@ -993,6 +1069,13 @@ class OrderController extends Controller
             'checkout_url'      => $order->checkout_url,
             'qr_code'           => $order->qr_code,
             'expired_at'        => $order->expired_at,
+            // Luồng "chuyển khoản ngân hàng thủ công" (payment_method='bank_transfer') — khớp đúng
+            // dữ liệu admin xem ở Filament (Modules\Payment\App\Filament\Resources\OrderResource\
+            // Tables\OrderTable::confirmBankTransferAction()). Trước đây API admin hoàn toàn không
+            // có gì cho luồng này — chỉ xem/duyệt được qua trang admin Filament, không qua API.
+            'bank_transfer_status'       => $order->bank_transfer_status,
+            'payment_proof_url'          => $order->payment_proof_url,
+            'bank_transfer_confirmed_at' => $order->bank_transfer_confirmed_at,
             'paid_at'           => $order->paid_at,
             'deposit_paid_at'   => $order->deposit_paid_at,
             'remaining_paid_at' => $order->remaining_paid_at,

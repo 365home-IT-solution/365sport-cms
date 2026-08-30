@@ -39,7 +39,9 @@ class CouponResource extends Resource
 
     public static function canViewAny(): bool
     {
-        return auth()->user()?->can('view_any_coupon') ?? false;
+        $user = auth()->user();
+
+        return ($user?->can('view_any_coupon') ?? false) && ($user?->partnerHasFeature('coupons') ?? false);
     }
 
     public static function getEloquentQuery(): Builder

@@ -201,7 +201,7 @@ class AssignAccessCodeAction
                                 'gate_password'        => $manualPwd->gate_password,
                                 'room_password'        => $manualPwd->room_password,
                             ],
-                            $record->customer_id ? (int) $record->customer_id : null,
+                            $record->customer_id,
                         );
                     } catch (\Throwable $e) {
                         \Illuminate\Support\Facades\Log::warning('AssignAccessCodeAction: manual FCM failed', [

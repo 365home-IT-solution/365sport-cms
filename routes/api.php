@@ -21,12 +21,15 @@ use App\Http\Controllers\Api\LockRecordCallbackController;
 use App\Http\Controllers\Api\UnlockController;
 use App\Http\Controllers\Api\DailyRoomController;
 use App\Http\Controllers\Api\DailyRoomHoldController;
+use App\Http\Controllers\Api\DirectionsController;
 use App\Http\Controllers\Api\RoomController;
 use App\Http\Controllers\Api\RoomTypeController;
 use App\Http\Controllers\Api\DeviceTokenController;
 use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\RatingController;
+use App\Http\Controllers\Api\WaitlistController;
 use App\Http\Controllers\Api\WishlistController;
+use App\Http\Controllers\Api\BookingFundController;
 use Illuminate\Support\Facades\Route;
 use Modules\AppPage\App\Http\Controllers\AppPageController;
 
@@ -141,6 +144,11 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
 */
 Route::post('graphql', [GraphQLController::class, 'handle'])->name('graphql')->middleware('throttle:public-api');
 
+// Dẫn đường bản đồ /ban-do (map-page.blade.php) — proxy qua backend để giữ API key
+// OpenRouteService riêng (xem DirectionsController). Public, không cần đăng nhập, cùng mức throttle
+// với các endpoint công khai khác.
+Route::post('directions/route', [DirectionsController::class, 'route'])->name('directions.route')->middleware('throttle:public-api');
+
 /*
 |--------------------------------------------------------------------------
 | V2 — Wards (phường / xã)
@@ -248,6 +256,14 @@ Route::prefix('auth')->name('api.auth.')->group(function () {
     Route::post('send-otp',   [ZaloOtpController::class, 'sendOtp'])->name('send-otp')->middleware('throttle:otp-send');
     Route::post('verify-otp', [ZaloOtpController::class, 'verifyOtp'])->name('verify-otp')->middleware('throttle:otp-verify');
     Route::post('login',      [ZaloOtpController::class, 'login'])->name('login')->middleware('throttle:6,1');
+    // Đăng nhập bằng Email — phương thức THÊM cho tài khoản đã tồn tại, xem
+    // ZaloOtpController::emailLogin().
+    Route::post('email-login', [ZaloOtpController::class, 'emailLogin'])->name('email-login')->middleware('throttle:6,1');
+
+    // Đổi mã trao đổi 1 lần từ luồng đăng nhập Google (routes/web.php: auth/google/callback) lấy
+    // token thật — public, không cần đăng nhập trước, bảo vệ bằng mã ngẫu nhiên 40 ký tự + TTL 2
+    // phút, xem ZaloOtpController::googleCallback()/googleExchange().
+    Route::post('google/exchange', [ZaloOtpController::class, 'googleExchange'])->name('google.exchange')->middleware('throttle:10,1');
 
     // Đăng ký
     Route::post('register', [ZaloOtpController::class, 'register'])->name('register')->middleware('throttle:register');
@@ -263,6 +279,15 @@ Route::prefix('auth')->name('api.auth.')->group(function () {
             Route::post('deactivate',      [ZaloOtpController::class, 'deactivate'])->name('deactivate');
             Route::delete('account',       [ZaloOtpController::class, 'deleteAccount'])->name('delete-account');
             Route::delete('companions/{id}', [ZaloOtpController::class, 'deleteCompanion'])->name('companions.destroy')->whereNumber('id');
+
+            // Gắn/xác thực email cho tài khoản đã đăng nhập bằng phone — xem
+            // ZaloOtpController::sendEmailVerificationCode()/verifyEmail().
+            Route::post('email/send-code', [ZaloOtpController::class, 'sendEmailVerificationCode'])->name('email.send-code')->middleware('throttle:6,1');
+            Route::post('email/verify',    [ZaloOtpController::class, 'verifyEmail'])->name('email.verify')->middleware('throttle:6,1');
+
+            // Mã giới thiệu bạn bè của khách + link chia sẻ + số bạn đã giới thiệu — xem
+            // ZaloOtpController::referral().
+            Route::get('referral', [ZaloOtpController::class, 'referral'])->name('referral');
         });
     });
 
@@ -298,6 +323,8 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('orders/{order_code}/payment-qr',         [OrderController::class,       'paymentQr'])->name('api.orders.payment-qr');
         Route::post('orders/{order_code}/retry-payment',    [OrderController::class, 'retryPayment'])->name('api.orders.retry-payment');
         Route::post('orders/{order_code}/remaining-payment',[OrderController::class, 'remainingPayment'])->name('api.orders.remaining-payment');
+        // Đơn payment_method='bank_transfer' — khớp booking-detail.blade.php (web).
+        Route::post('orders/{order_code}/payment-proof',    [OrderController::class, 'uploadPaymentProof'])->name('api.orders.payment-proof');
         Route::post('orders/{order}/services',              [OrderServiceController::class,'store'])->name('api.orders.services.store');
         Route::post('orders/{order_code}/extra',             [OrderController::class,       'addExtra'])->name('api.orders.extra');
         Route::post('orders/{order_code}/extra-charge-qr',   [OrderController::class,       'extraChargeQr'])->name('api.orders.extra-charge-qr');
@@ -320,12 +347,21 @@ Route::middleware('auth:sanctum')->group(function () {
 | GET    /api/guest/orders/{order_code}/payment-status?phone=xx  → App polling trạng thái thanh toán
 |--------------------------------------------------------------------------
 */
-Route::prefix('guest')->name('api.guest.')->group(function () {
+// Xác thực đơn khách vãng lai CHỈ dựa vào buyer_phone (KHÔNG xác minh OTP, ai gõ SĐT gì cũng qua)
+// + order_code (chuỗi 6 số suy từ microtime() lúc tạo đơn, xem Order::booted() — KHÔNG phải chuỗi
+// ngẫu nhiên bảo mật, không gian chỉ ~1 triệu giá trị). 2 yếu tố đều YẾU, nếu không giới hạn tần
+// suất thì dò được: kẻ tấn công đoán order_code (thu hẹp phạm vi nếu biết khoảng thời gian khách
+// đặt) để xem/tải ảnh CCCD mặt trước-sau + dữ liệu cá nhân của người khác qua GET
+// orders/{order_code}, hoặc sửa được đơn người khác qua POST orders/{order_code} — throttle CHẶT
+// hơn mức mặc định của toàn API (60/phút) là bắt buộc, giống hệt route unlock bên dưới đã làm.
+Route::prefix('guest')->name('api.guest.')->middleware('throttle:20,1')->group(function () {
     Route::post('orders',                                        [GuestBookingController::class, 'store'])->name('orders.store');
     Route::post('orders/{order_code}',                           [GuestBookingController::class, 'update'])->name('orders.update');
     Route::get('orders',                                         [GuestBookingController::class, 'lookup'])->name('orders.lookup');
     Route::get('orders/{order_code}',                            [GuestBookingController::class, 'show'])->name('orders.show');
     Route::post('orders/{order_code}/remaining-payment',         [GuestBookingController::class, 'remainingPayment'])->name('orders.remaining-payment');
+    // Đơn payment_method='bank_transfer' — khớp booking-detail.blade.php (web).
+    Route::post('orders/{order_code}/payment-proof',             [GuestBookingController::class, 'uploadPaymentProof'])->name('orders.payment-proof');
     Route::post('orders/{order_code}/extra',                     [GuestBookingController::class, 'addExtra'])->name('orders.extra');
     Route::post('orders/{order_code}/extra-charge-qr',           [GuestBookingController::class, 'extraChargeQr'])->name('orders.extra-charge-qr');
     Route::get('orders/{order_code}/payment-status',             [GuestBookingController::class, 'paymentStatus'])->name('orders.payment-status');
@@ -405,5 +441,50 @@ Route::middleware(['auth:sanctum', 'customer.active'])->group(function () {
 Route::middleware(['auth:sanctum', 'customer.active'])->prefix('wishlist')->name('api.wishlist.')->group(function () {
     Route::get('/',            [WishlistController::class, 'index'])->name('index');
     Route::post('{id}/toggle', [WishlistController::class, 'toggle'])->name('toggle');
+});
+
+/*
+|--------------------------------------------------------------------------
+| Waitlist — "Báo khi có chỗ trống"
+| GET    /api/waitlist       → Danh sách đăng ký chờ (chưa được báo)
+| POST   /api/waitlist       → Đăng ký chờ 1 khung giờ/ngày đã hết chỗ
+| DELETE /api/waitlist/{id}  → Huỷ đăng ký chờ
+|--------------------------------------------------------------------------
+*/
+Route::middleware(['auth:sanctum', 'customer.active'])->prefix('waitlist')->name('api.waitlist.')->group(function () {
+    Route::get('/',      [WaitlistController::class, 'index'])->name('index');
+    Route::post('/',     [WaitlistController::class, 'store'])->name('store');
+    Route::delete('{id}', [WaitlistController::class, 'destroy'])->name('destroy')->whereNumber('id');
+});
+
+/*
+|--------------------------------------------------------------------------
+| Booking Fund — Quỹ nhóm góp tiền đặt sân (App\Models\BookingFund)
+| GET    /api/booking-funds                                 → Quỹ đang làm trưởng nhóm + đã tham gia
+| POST   /api/booking-funds                                 → Tạo quỹ mới (người tạo = trưởng nhóm)
+| GET    /api/booking-funds/{code}                           → Chi tiết quỹ (nội dung tuỳ vai trò)
+| POST   /api/booking-funds/{code}/join                      → Xin tham gia
+| POST   /api/booking-funds/{code}/members/{memberId}/decide → (Trưởng nhóm) duyệt/từ chối thành viên
+| POST   /api/booking-funds/{code}/contributions              → (Thành viên đã duyệt) gửi biên lai góp quỹ
+| POST   /api/booking-funds/{code}/contributions/{id}/decide  → (Trưởng nhóm) xác nhận/từ chối khoản góp
+| POST   /api/booking-funds/{code}/close                      → (Trưởng nhóm) đóng quỹ
+| GET    /api/booking-funds/{code}/messages                   → Lịch sử chat nhóm
+| POST   /api/booking-funds/{code}/messages                   → Gửi tin nhắn (broadcast Socket.IO
+|                                                                 kênh "fundchat:{id}", cùng kênh
+|                                                                 web đang dùng)
+| Tiền KHÔNG đi qua hệ thống — quỹ chỉ theo dõi/minh bạch hoá việc góp quỹ, không tạo Order/PayOS.
+|--------------------------------------------------------------------------
+*/
+Route::middleware(['auth:sanctum', 'customer.active'])->prefix('booking-funds')->name('api.booking-funds.')->group(function () {
+    Route::get('/',                              [BookingFundController::class, 'index'])->name('index');
+    Route::post('/',                             [BookingFundController::class, 'store'])->name('store');
+    Route::get('{code}',                         [BookingFundController::class, 'show'])->name('show');
+    Route::post('{code}/join',                   [BookingFundController::class, 'join'])->name('join');
+    Route::post('{code}/members/{memberId}/decide', [BookingFundController::class, 'decideMember'])->name('members.decide')->whereNumber('memberId');
+    Route::post('{code}/contributions',          [BookingFundController::class, 'storeContribution'])->name('contributions.store');
+    Route::post('{code}/contributions/{id}/decide', [BookingFundController::class, 'decideContribution'])->name('contributions.decide')->whereNumber('id');
+    Route::post('{code}/close',                  [BookingFundController::class, 'close'])->name('close');
+    Route::get('{code}/messages',                [BookingFundController::class, 'messages'])->name('messages.index');
+    Route::post('{code}/messages',               [BookingFundController::class, 'sendMessage'])->name('messages.store');
 });
 

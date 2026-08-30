@@ -64,7 +64,9 @@ class RoomSpecialResource extends Resource
     // view_any_room::special), khiến tick/bỏ tick quyền này ở Roles & Permissions vô tác dụng.
     public static function canViewAny(): bool
     {
-        return auth()->user()?->can('view_any_room::special') ?? false;
+        $user = auth()->user();
+
+        return ($user?->can('view_any_room::special') ?? false) && ($user?->partnerHasFeature('room_specials') ?? false);
     }
 
     public static function form(Form $form): Form

@@ -3,7 +3,7 @@
 return [
     'resource' => [
         'navigation_icon' => 'heroicon-o-queue-list',
-        'navigation_group' => 'Biểu mẫu',
+        'navigation_group' => 'Quản lý',
         'navigation_label' => 'Cấu hình biểu mẫu',
         'model_label' => 'Cấu hình biểu mẫu',
         'plural_model_label' => 'Cấu hình biểu mẫu',

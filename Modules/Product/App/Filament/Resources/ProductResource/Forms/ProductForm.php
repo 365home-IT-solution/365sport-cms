@@ -72,6 +72,22 @@ class ProductForm
                 ->helperText(__('product::product.form.helper_text.categories'))
                 ->inlineLabel(),
 
+            // Môn thể thao thật (Modules\Product\App\Models\RoomType — cầu lông/bóng đá mini/
+            // tennis/pickleball) — dùng để lọc sân theo môn ở trang Bản đồ/Tìm kiếm ngoài site
+            // (RoomSearchService::search(), MapPage::mount()). TRƯỚC ĐÂY không có field này ở
+            // đây, chỉ gán được qua thao tác riêng "Gán sân" ở trang Room Type (RoomTypeResource
+            // > AssignProductsAction) — dễ quên, khiến sân mới tạo không lọc được theo môn (bug đã
+            // gặp, phải backfill thủ công 36/42 sân cũ theo tên). Thêm thẳng vào đây để không còn
+            // phải nhớ bước riêng.
+            Select::make('room_type_id')
+                ->label('Môn thể thao')
+                ->relationship('roomType', 'name')
+                ->searchable()
+                ->preload()
+                ->placeholder('Chọn môn thể thao')
+                ->helperText('Dùng để lọc sân theo môn ở trang Bản đồ/Tìm kiếm ngoài site.')
+                ->inlineLabel(),
+
             Select::make('tags')
                 ->label(__('product::product.form.label.tags'))
                 ->relationship('tags', 'name')

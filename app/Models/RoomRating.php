@@ -6,11 +6,12 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Modules\Payment\Entities\Order;
 use Modules\Product\App\Models\Product;
 
 class RoomRating extends Model
 {
-    protected $fillable = ['customer_id', 'room_id', 'star', 'comment'];
+    protected $fillable = ['customer_id', 'room_id', 'order_id', 'star', 'comment'];
 
     protected $casts = [
         'star' => 'integer',
@@ -24,5 +25,10 @@ class RoomRating extends Model
     public function room(): BelongsTo
     {
         return $this->belongsTo(Product::class, 'room_id');
+    }
+
+    public function order(): BelongsTo
+    {
+        return $this->belongsTo(Order::class);
     }
 }

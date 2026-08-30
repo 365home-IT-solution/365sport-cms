@@ -21,7 +21,16 @@
     foreach ($room->orderItems as $orderItem) {
         $checkin  = \Carbon\Carbon::parse($orderItem->checkin_date);
         $checkout = \Carbon\Carbon::parse($orderItem->checkout_date);
-        if ($currentDateTime->between($checkin, $checkout)) {
+        // Khoảng NỬA MỞ [checkin, checkout) — KHÔNG dùng between() (mặc định bao gồm CẢ 2 đầu mút)
+        // vì với các khung giờ liền kề nhau (vd đơn đặt 13:00-16:00 gồm 3 khung 1 tiếng), giờ bắt
+        // đầu của khung NGAY SAU checkout (ở đây là khung 16:00-17:00) TRÙNG CHÍNH XÁC với checkout
+        // (16:00), between() coi đó là "nằm trong" đơn (bao gồm đầu mút) nên đánh dấu NHẦM khung
+        // 16:00-17:00 cũng là "đã đặt" dù đơn chỉ tới 16:00 (bug đã gặp: client hiện dư 1 khung giờ
+        // so với admin — "sai khung giờ giữa admin và client", ví dụ đơn #24 chỉ đặt 13:00-16:00
+        // nhưng client tô cả 16:00-17:00). Admin (RoomCardsService.php) không có lỗi này vì dùng so
+        // sánh khoảng chồng lấn đầy đủ ($start < $end thật && $end > $start thật), không dựa vào
+        // between() theo mốc bắt đầu 1 điểm như ở đây.
+        if ($currentDateTime->gte($checkin) && $currentDateTime->lt($checkout)) {
             if ($orderItem->order) { $status = $orderItem->order->status; }
             $matchedItem = $orderItem;
             break;
@@ -51,10 +60,16 @@
     $yesterday  = now()->subDay()->startOfDay();
     $cutoffTime = now()->startOfDay()->setTime(7, 30, 0);
 
+    // Đỏ (past-booked) CHỈ khi khung giờ đã qua VÀ thật sự từng có đơn ($matchedItem) — khung đã
+    // qua nhưng KHÔNG hề có ai đặt vẫn giữ nguyên style trung tính cũ (past-date, xám nhạt), không
+    // tô đỏ tràn lan cả ngày (bug đã gặp: "chỉ những khung có đặt nhưng hết giờ thôi chứ tại sao
+    // hiển thị toàn bộ" — bản trước tô đỏ MỌI khung đã qua bất kể có đơn hay không).
+    $pastClass = $matchedItem ? ' past-date past-booked' : ' past-date';
+
     if ($slotDate->lt($yesterday)) {
-        $isSelectable = false; $classes .= ' past-date';
+        $isSelectable = false; $classes .= $pastClass;
     } elseif ($slotDate->eq($yesterday)) {
-        if (now()->gte($cutoffTime)) { $isSelectable = false; $classes .= ' past-date'; }
+        if (now()->gte($cutoffTime)) { $isSelectable = false; $classes .= $pastClass; }
     } elseif ($slotDate->eq($today)) {
         $slotEndTimeParsed = \Carbon\Carbon::parse($roomTimeSlot->timeSlot->end_time);
         $isOvernightSlot   = $slotEndTimeParsed->lt(\Carbon\Carbon::parse($roomTimeSlot->timeSlot->start_time));
@@ -64,7 +79,7 @@
             $slotEndTimeParsed->second
         );
         if ($isOvernightSlot) { $slotEndDateTime->addDay(); }
-        if (now()->gte($slotEndDateTime)) { $isSelectable = false; $classes .= ' past-date'; }
+        if (now()->gte($slotEndDateTime)) { $isSelectable = false; $classes .= $pastClass; }
     }
 
     $rtsSettings  = is_array($roomTimeSlot->settings)
@@ -135,6 +150,10 @@
         endTime: '{{ $roomTimeSlot->timeSlot->end_time }}',
         timeslotId: '{{ $roomTimeSlot->timeSlot->id }}',
         roomId: '{{ $room->id }}',
+        {{-- addslashes() TRƯỚC — Blade {{ }} tự escape HTML entity SAU, nên dấu ' hay " thật (hiếm
+             gặp trong tên sân) đều an toàn khi nhúng vào chuỗi JS bọc bởi dấu nháy đơn ở đây, dùng
+             cho khối "Chi tiết đặt sân" liệt kê từng khung giờ đã chọn (book/_pricing.blade.php). --}}
+        roomName: '{{ addslashes($room->name) }}',
         price: {{ $finalPrice }},
         originalPrice: {{ $priceData['price_after_increase'] }},
         basePrice: {{ $originalPrice }},

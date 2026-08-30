@@ -79,6 +79,14 @@ class Category extends Model
         return $this->hasMany(UserBranchPermission::class, 'category_id');
     }
 
+    // Tỉnh/Thành + Phường/Xã thật của chi nhánh (category_type=product) — dùng để lọc trang bản đồ
+    // /ban-do (Modules\BladeThemeV1\Livewire\MapPage) và trang tìm kiếm (RoomSearchService). Chỉ
+    // có ý nghĩa với chi nhánh, category "khu vực/bài viết" không cần quan hệ này.
+    public function provinceBranch()
+    {
+        return $this->hasOne(\App\Models\ProvinceBranch::class, 'categorie_id');
+    }
+
     public function isAssignedToUserPermission(): bool
     {
         return $this->branchPermissions()->exists();

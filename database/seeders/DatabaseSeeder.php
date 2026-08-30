@@ -68,5 +68,11 @@ class DatabaseSeeder extends Seeder
             SettingsSeeder::class,
             PaymentConfigSeeder::class,
         ]);
+
+        // Thêm nhiều chi nhánh/sân mẫu hơn (đủ số lượng để lưới sân trang chủ hiển thị dày như
+        // giao diện mẫu) — cần chạy sau PartnerSeeder (dùng chung 3 đối tác mẫu).
+        $this->call([
+            SportVenueDemoSeeder::class,
+        ]);
     }
 }

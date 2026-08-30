@@ -152,6 +152,15 @@ public function getFilamentAvatarUrl(): ?string
         return $this->belongsTo(\App\Models\Partner::class);
     }
 
+    // Gói dịch vụ (PartnerPlan) của đối tác có mở khoá tính năng $key không — super_admin LUÔN
+    // true (không thuộc đối tác nào, không bị giới hạn gói). Dùng ở canViewAny()/canCreate() của
+    // các Filament Resource cần giới hạn theo gói (vd Khuyến mãi chỉ có ở gói Chuyên nghiệp trở
+    // lên, Phân quyền chi nhánh chỉ có ở gói Doanh nghiệp — xem PartnerPlansSeeder).
+    public function partnerHasFeature(string $key): bool
+    {
+        return $this->isSuperAdmin() || ($this->partner?->hasFeature($key) ?? true);
+    }
+
     // Hồ sơ nhân viên liên kết (lương, chi nhánh làm việc, phòng ban...). Trang tạo/sửa tài
     // khoản (UserResource) tạo/đồng bộ đồng thời bản ghi này — null với super_admin/chủ đối tác
     // (những tài khoản chỉ cần đăng nhập, không cần hồ sơ nhân viên).

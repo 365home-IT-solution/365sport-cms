@@ -21,6 +21,11 @@ class TagResource extends Resource
 {
     protected static ?string $model = Tag::class;
 
+    public static function canViewAny(): bool
+    {
+        return parent::canViewAny() && (auth()->user()?->partnerHasFeature('tags') ?? false);
+    }
+
     public static function getNavigationIcon(): string
     {
         return __('tag::tag.resource.navigation_icon');

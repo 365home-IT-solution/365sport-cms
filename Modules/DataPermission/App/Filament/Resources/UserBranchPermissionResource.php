@@ -47,6 +47,26 @@ class UserBranchPermissionResource extends Resource
         return (string) static::getEloquentQuery()->distinct('user_id')->count('user_id');
     }
 
+    // Phân quyền chi nhánh chỉ mở khoá ở gói "Doanh nghiệp" (Partner::hasFeature(
+    // 'staff_permissions'), xem PartnerPlansSeeder) — đối tác gói thấp hơn không thấy menu này dù
+    // có permission Shield 'view_any_user::branch::permission' (UserBranchPermissionPolicy). Giữ
+    // nguyên check permission gốc, chỉ CỘNG THÊM điều kiện gói.
+    public static function canViewAny(): bool
+    {
+        $user = auth()->user();
+
+        return ($user?->can('view_any_user::branch::permission') ?? false)
+            && ($user?->partnerHasFeature('staff_permissions') ?? false);
+    }
+
+    public static function canCreate(): bool
+    {
+        $user = auth()->user();
+
+        return ($user?->can('create_user::branch::permission') ?? false)
+            && ($user?->partnerHasFeature('staff_permissions') ?? false);
+    }
+
     /**
      * Chỉ lấy 1 dòng/user (dòng cũ nhất), để table hiển thị gọn 1 dòng mỗi user.
      * Non-super_admin chỉ thấy bản ghi của tài khoản thuộc đối tác mình (partner_id), không

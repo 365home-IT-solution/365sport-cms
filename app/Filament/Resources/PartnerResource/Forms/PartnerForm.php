@@ -31,6 +31,8 @@ class PartnerForm
                 ->tabs([
                     self::representativeTab(),
                     self::businessTab(),
+                    self::landingPageTab(),
+                    self::loyaltyDiscountTab(),
                     self::financialTab(),
                     self::propertiesTab(),
                     self::branchAssignmentTab(),
@@ -124,7 +126,17 @@ class PartnerForm
                             Forms\Components\TextInput::make('legal_name')
                                 ->label('Tên doanh nghiệp (Tiếng Việt)')
                                 ->required()
-                                ->maxLength(255),
+                                ->maxLength(255)
+                                ->live(onBlur: true)
+                                ->afterStateUpdated(function ($state, callable $set, callable $get) {
+                                    // Gợi ý slug subdomain (tab "Trang landing") — Filament Tabs chỉ
+                                    // là nhóm hiển thị, $get/$set vẫn thấy chung 1 state form nên
+                                    // hoạt động xuyên tab bình thường. Chỉ gợi ý khi CHƯA từng tự gõ
+                                    // slug (tránh ghi đè slug đã chỉnh tay mỗi lần sửa lại tên).
+                                    if (! $get('slug')) {
+                                        $set('slug', \Illuminate\Support\Str::slug($state));
+                                    }
+                                }),
 
                             Forms\Components\TextInput::make('tax_code')
                                 ->label('Mã số thuế')
@@ -148,6 +160,347 @@ class PartnerForm
             ]);
     }
 
+    // ── TAB: Trang landing (subdomain riêng) ────────────────────────────────
+    // Tách hẳn khỏi tab "Doanh nghiệp" (trước đây nhét chung với thông tin pháp lý, viết loạn) —
+    // toàn bộ cấu hình cho trang landing page riêng theo subdomain
+    // (BladeThemeV1Controller::partnerLandingPage()) gom về đây: subdomain, màu chủ đạo, logo.
+    private static function landingPageTab(): Forms\Components\Tabs\Tab
+    {
+        return Forms\Components\Tabs\Tab::make('Trang landing')
+            ->icon('heroicon-o-globe-alt')
+            ->schema([
+                Forms\Components\Section::make('Trang landing page riêng (subdomain)')
+                    ->description('Chỉ có tác dụng khi gói của đối tác bật tính năng "Trang landing riêng (subdomain)" — xem trang "Tính năng theo gói".')
+                    ->schema([
+                        // Công tắc RIÊNG, ĐỘC LẬP với tính năng theo gói — cho phép admin/đối tác
+                        // tự tạm ẩn trang landing dù gói vẫn cho phép (vd đang chỉnh sửa nội dung,
+                        // chưa muốn khách thấy). Cả 2 điều kiện (gói CHO PHÉP + công tắc này BẬT)
+                        // đều phải đúng thì trang mới hiển thị — xem
+                        // BladeThemeV1Controller::partnerLandingPage().
+                        Forms\Components\Toggle::make('landing_page_enabled')
+                            ->label('Bật trang landing')
+                            ->helperText('Tắt để tạm ẩn trang landing (subdomain trả về 404) mà không cần xoá subdomain đã cấu hình.')
+                            ->default(true),
+
+                        // 7 mẫu giao diện DÙNG CHUNG toàn bộ dữ liệu đã nhập bên dưới (logo, ảnh,
+                        // điểm nổi bật, dịch vụ, bảng giá...) — đổi qua lại KHÔNG mất/phải nhập lại
+                        // nội dung, chỉ đổi cách trình bày. Xem BladeThemeV1Controller::
+                        // partnerLandingPage() (chọn đúng file view theo giá trị này). Chỉ để TÊN,
+                        // không mô tả — admin tự xem trực tiếp trang landing thật sau khi lưu để
+                        // biết mẫu nào trông ra sao (theo yêu cầu người dùng).
+                        Forms\Components\Select::make('landing_template')
+                            ->label('Mẫu giao diện')
+                            ->options([
+                                'bento'     => 'Bento',
+                                'editorial' => 'Editorial',
+                                'minimal'   => 'Minimal',
+                                'split'     => 'Split',
+                                'neon'      => 'Neon',
+                                'classic'   => 'Classic',
+                                'playful'   => 'Playful',
+                            ])
+                            ->default('bento')
+                            ->native(false)
+                            ->required()
+                            ->helperText('Xem trước từng mẫu tại trang landing thật của đối tác sau khi lưu — đổi thử thoải mái, không ảnh hưởng dữ liệu đã nhập.')
+                            ->columnSpanFull(),
+
+                        Forms\Components\Grid::make(2)->schema([
+                            // Định danh subdomain riêng của đối tác (vd "mamble" ->
+                            // mamble.365sport-cms.test). Để trống = không có trang landing riêng,
+                            // không ảnh hưởng gì tới đối tác đó.
+                            Forms\Components\TextInput::make('slug')
+                                ->label('Subdomain')
+                                ->helperText('VD: "mamble" → mamble.365sport-cms.test. Để trống nếu không cần trang riêng.')
+                                ->maxLength(63)
+                                ->rule('alpha_dash')
+                                ->unique(ignoreRecord: true),
+
+                            // KHÔNG đổi màu chủ đạo toàn hệ thống (đó vẫn do
+                            // GeneralSettings->site_theme quyết định) — chỉ scope cục bộ trong
+                            // .partner-landing-scope (pages/partner-landing.blade.php).
+                            Forms\Components\ColorPicker::make('landing_primary_color')
+                                ->label('Màu chủ đạo trang landing')
+                                ->helperText('Để trống dùng màu xanh lá mặc định.'),
+                        ]),
+
+                        SpatieMediaLibraryFileUpload::make('landing_logo')
+                            ->label('Logo trang landing')
+                            ->collection('landing_logo')
+                            ->image()
+                            ->imageEditor()
+                            ->imageEditorAspectRatios(['1:1'])
+                            ->helperText('Hiển thị ở header/footer trang landing. Để trống dùng chữ cái đầu tên đối tác.'),
+
+                        Forms\Components\TextInput::make('landing_tagline')
+                            ->label('Khẩu hiệu / Tagline')
+                            ->maxLength(150)
+                            ->placeholder('VD: Sân thể thao chuẩn thi đấu, đặt lịch trong 30 giây')
+                            ->helperText('Hiển thị ngay dưới tên đối tác ở đầu trang. Để trống sẽ dùng mô tả mặc định.'),
+
+                        Forms\Components\Textarea::make('landing_description')
+                            ->label('Giới thiệu')
+                            ->rows(4)
+                            ->maxLength(1000)
+                            ->helperText('Đoạn giới thiệu ngắn về đối tác, hiển thị ở mục "Giới thiệu" trên trang landing. Để trống sẽ ẩn mục này.'),
+
+                        Forms\Components\TextInput::make('landing_facebook_url')
+                            ->label('Link Facebook')
+                            ->url()
+                            ->maxLength(255)
+                            ->prefixIcon('heroicon-o-link'),
+
+                        Forms\Components\Grid::make(2)->schema([
+                            SpatieMediaLibraryFileUpload::make('landing_hero_secondary')
+                                ->label('Ảnh banner — ô ngang (giữa)')
+                                ->collection('landing_hero_secondary')
+                                ->image()
+                                ->imageEditor(),
+
+                            SpatieMediaLibraryFileUpload::make('landing_hero_image')
+                                ->label('Ảnh banner — ô dọc (phải, kèm video)')
+                                ->collection('landing_hero_image')
+                                ->image()
+                                ->imageEditor(),
+                        ]),
+                        Forms\Components\Placeholder::make('landing_hero_note')
+                            ->hiddenLabel()
+                            ->content('Khối banner đầu trang chia 3 ô: chữ giới thiệu (trái) + 2 ảnh trên (giữa/phải). Để trống ô nào sẽ hiện khung trống thay thế.'),
+
+                        Forms\Components\TextInput::make('landing_hero_video_url')
+                            ->label('Link video giới thiệu (YouTube, tuỳ chọn)')
+                            ->url()
+                            ->maxLength(255)
+                            ->helperText('Hiện nút Play đè lên ảnh banner, mở video ở tab mới khi bấm.'),
+                    ]),
+
+                self::landingRepeaterSections(),
+            ]);
+    }
+
+    // Toàn bộ khối NỘI DUNG LINH HOẠT của trang landing (kiểu "sườn sẵn giống WP" — đối tác/admin tự
+    // thêm/sửa/xoá/sắp xếp lại từng mục, không cần code, xem yêu cầu người dùng) — mỗi khối là 1
+    // Repeater lưu JSON riêng trên Partner (landing_features/services/stats/testimonials/
+    // pricing_plans/faqs/news). Controller tự dùng nội dung mặc định khi rỗng (xem
+    // BladeThemeV1Controller::partnerLandingPage()) nên KHÔNG bắt buộc phải điền để trang không bị
+    // trống — chỉ cần điền khi muốn TUỲ CHỈNH riêng cho đối tác đó.
+    private static function landingRepeaterSections(): Forms\Components\Component
+    {
+        return Forms\Components\Group::make([
+            Forms\Components\Section::make('Điểm nổi bật (4 icon)')
+                ->description('Để trống dùng 4 mục mặc định.')
+                ->collapsed()
+                ->schema([
+                    Forms\Components\Repeater::make('landing_features')
+                        ->hiddenLabel()
+                        ->schema([
+                            Forms\Components\Select::make('icon')
+                                ->label('Icon')
+                                ->options([
+                                    'heroicon-o-bolt' => 'Tia sét',
+                                    'heroicon-o-shield-check' => 'Khiên bảo vệ',
+                                    'heroicon-o-map-pin' => 'Ghim bản đồ',
+                                    'heroicon-o-clock' => 'Đồng hồ',
+                                    'heroicon-o-currency-dollar' => 'Tiền',
+                                    'heroicon-o-star' => 'Ngôi sao',
+                                    'heroicon-o-users' => 'Người dùng',
+                                    'heroicon-o-trophy' => 'Cúp',
+                                ])
+                                ->default('heroicon-o-star')
+                                ->required(),
+                            Forms\Components\TextInput::make('title')->label('Tiêu đề')->required()->maxLength(80),
+                            Forms\Components\Textarea::make('description')->label('Mô tả')->rows(2)->maxLength(200),
+                        ])
+                        ->columns(3)
+                        ->itemLabel(fn (array $state): ?string => $state['title'] ?? null)
+                        ->addActionLabel('+ Thêm điểm nổi bật')
+                        ->reorderable()
+                        ->collapsible(),
+                ]),
+
+            Forms\Components\Section::make('Dịch vụ')
+                ->description('Để trống dùng danh sách dịch vụ mặc định.')
+                ->collapsed()
+                ->schema([
+                    Forms\Components\Repeater::make('landing_services')
+                        ->hiddenLabel()
+                        ->schema([
+                            Forms\Components\FileUpload::make('image')
+                                ->label('Ảnh')
+                                ->image()
+                                ->directory('partners/landing/services'),
+                            Forms\Components\TextInput::make('title')->label('Tiêu đề')->required()->maxLength(80),
+                            Forms\Components\Textarea::make('description')->label('Mô tả')->rows(2)->maxLength(200),
+                        ])
+                        ->columns(3)
+                        ->itemLabel(fn (array $state): ?string => $state['title'] ?? null)
+                        ->addActionLabel('+ Thêm dịch vụ')
+                        ->reorderable()
+                        ->collapsible(),
+                ]),
+
+            Forms\Components\Section::make('Số liệu nổi bật')
+                ->description('Để trống dùng số liệu mặc định.')
+                ->collapsed()
+                ->schema([
+                    Forms\Components\Repeater::make('landing_stats')
+                        ->hiddenLabel()
+                        ->schema([
+                            Forms\Components\TextInput::make('number')->label('Con số')->required()->maxLength(20)->placeholder('VD: 20+'),
+                            Forms\Components\TextInput::make('label')->label('Nhãn')->required()->maxLength(60)->placeholder('VD: Năm kinh nghiệm'),
+                        ])
+                        ->columns(2)
+                        ->itemLabel(fn (array $state): ?string => ($state['number'] ?? '') . ' ' . ($state['label'] ?? ''))
+                        ->addActionLabel('+ Thêm số liệu')
+                        ->reorderable()
+                        ->collapsible(),
+                ]),
+
+            Forms\Components\Section::make('Đánh giá khách hàng')
+                ->description('Để trống ẩn hẳn mục đánh giá.')
+                ->collapsed()
+                ->schema([
+                    Forms\Components\Repeater::make('landing_testimonials')
+                        ->hiddenLabel()
+                        ->schema([
+                            Forms\Components\FileUpload::make('image')
+                                ->label('Ảnh')
+                                ->image()
+                                ->directory('partners/landing/testimonials'),
+                            Forms\Components\TextInput::make('name')->label('Tên khách hàng')->required()->maxLength(80),
+                            Forms\Components\TextInput::make('role')->label('Chức danh / Mô tả ngắn')->maxLength(80),
+                            Forms\Components\Textarea::make('quote')->label('Nội dung đánh giá')->required()->rows(3)->maxLength(400),
+                        ])
+                        ->columns(2)
+                        ->itemLabel(fn (array $state): ?string => $state['name'] ?? null)
+                        ->addActionLabel('+ Thêm đánh giá')
+                        ->reorderable()
+                        ->collapsible(),
+                ]),
+
+            Forms\Components\Section::make('Gói hội viên / Bảng giá')
+                ->description('Bảng giá RIÊNG của đối tác dành cho khách hàng của họ — khác với "Gói đối tác" (gói thuê nền tảng). Để trống ẩn hẳn mục bảng giá.')
+                ->collapsed()
+                ->schema([
+                    Forms\Components\Repeater::make('landing_pricing_plans')
+                        ->hiddenLabel()
+                        ->schema([
+                            Forms\Components\TextInput::make('name')->label('Tên gói')->required()->maxLength(60),
+                            Forms\Components\TextInput::make('price')->label('Giá')->required()->maxLength(30)->placeholder('VD: 149.000đ'),
+                            Forms\Components\TextInput::make('unit')->label('Đơn vị')->maxLength(30)->placeholder('VD: /tháng'),
+                            Forms\Components\Toggle::make('highlighted')->label('Nổi bật (tô đậm)'),
+                            Forms\Components\Textarea::make('features')
+                                ->label('Danh sách quyền lợi')
+                                ->rows(4)
+                                ->helperText('Mỗi dòng 1 quyền lợi.'),
+                        ])
+                        ->columns(2)
+                        ->itemLabel(fn (array $state): ?string => $state['name'] ?? null)
+                        ->addActionLabel('+ Thêm gói')
+                        ->reorderable()
+                        ->collapsible(),
+                ]),
+
+            Forms\Components\Section::make('Câu hỏi thường gặp (FAQ)')
+                ->description('Để trống ẩn hẳn mục FAQ.')
+                ->collapsed()
+                ->schema([
+                    SpatieMediaLibraryFileUpload::make('landing_faq_image')
+                        ->label('Ảnh minh hoạ (cạnh danh sách câu hỏi)')
+                        ->collection('landing_faq_image')
+                        ->image()
+                        ->imageEditor(),
+
+                    Forms\Components\Repeater::make('landing_faqs')
+                        ->hiddenLabel()
+                        ->schema([
+                            Forms\Components\TextInput::make('question')->label('Câu hỏi')->required()->maxLength(200),
+                            Forms\Components\Textarea::make('answer')->label('Câu trả lời')->required()->rows(2)->maxLength(500),
+                        ])
+                        ->itemLabel(fn (array $state): ?string => $state['question'] ?? null)
+                        ->addActionLabel('+ Thêm câu hỏi')
+                        ->reorderable()
+                        ->collapsible(),
+                ]),
+
+            Forms\Components\Section::make('Tin tức / Ưu đãi')
+                ->description('Để trống ẩn hẳn mục tin tức.')
+                ->collapsed()
+                ->schema([
+                    Forms\Components\Repeater::make('landing_news')
+                        ->hiddenLabel()
+                        ->schema([
+                            Forms\Components\FileUpload::make('image')
+                                ->label('Ảnh')
+                                ->image()
+                                ->directory('partners/landing/news'),
+                            Forms\Components\TextInput::make('title')->label('Tiêu đề')->required()->maxLength(120),
+                            Forms\Components\Textarea::make('excerpt')->label('Mô tả ngắn')->rows(2)->maxLength(200),
+                            Forms\Components\TextInput::make('url')->label('Link (tuỳ chọn)')->url()->maxLength(255),
+                        ])
+                        ->columns(2)
+                        ->itemLabel(fn (array $state): ?string => $state['title'] ?? null)
+                        ->addActionLabel('+ Thêm tin')
+                        ->reorderable()
+                        ->collapsible(),
+                ]),
+        ]);
+    }
+
+    // ── TAB: Giảm giá khách quen ─────────────────────────────────────────────
+    // Cho phép đối tác này ghi đè riêng cài đặt CHUNG ở ManageGeneral.php (tab "Giảm giá khách
+    // quen") — cả 3 field đều KHÔNG bắt buộc, để trống ("Theo cài đặt chung") thì hành vi y hệt
+    // trước đây, không đổi gì cho các đối tác chưa từng cấu hình riêng. Xem
+    // Partner::effectiveLoyaltyDiscountEnabled()/Rate2ndOrder()/Rate3rdPlus() và
+    // ProductDetail::getLoyaltyDiscountRate() (nơi đọc giá trị hiệu lực cuối cùng).
+    private static function loyaltyDiscountTab(): Forms\Components\Tabs\Tab
+    {
+        return Forms\Components\Tabs\Tab::make('Giảm giá khách quen')
+            ->icon('heroicon-o-gift')
+            ->schema([
+                Forms\Components\Section::make('Ghi đè riêng cho đối tác này')
+                    ->description('Để trống (chọn "Theo cài đặt chung") sẽ dùng nguyên cấu hình chung của toàn hệ thống (Cấu hình web > Cài đặt chung > tab "Giảm giá khách quen"). Chỉ chọn Bật/Tắt riêng nếu đối tác này cần khác với mặc định.')
+                    ->schema([
+                        Forms\Components\Select::make('loyalty_discount_enabled')
+                            ->label('Trạng thái')
+                            ->options([
+                                '1' => 'Bật riêng cho đối tác này',
+                                '0' => 'Tắt riêng cho đối tác này',
+                            ])
+                            ->placeholder('Theo cài đặt chung (mặc định)')
+                            ->native(false)
+                            ->live()
+                            // Cột DB là boolean nullable (true/false/null) — Select cần state dạng
+                            // string ('1'/'0') để khớp đúng options khi tải lại form, nên phải tự
+                            // convert 2 chiều thay vì để Filament tự suy luận.
+                            ->afterStateHydrated(fn ($component, $state) => $component->state(
+                                $state === null ? null : ($state ? '1' : '0')
+                            ))
+                            ->dehydrateStateUsing(fn ($state) => $state === null || $state === '' ? null : (bool) $state)
+                            ->columnSpanFull(),
+
+                        Forms\Components\TextInput::make('loyalty_discount_rate_2nd_order')
+                            ->label('% giảm cho đơn đã thanh toán thứ 2')
+                            ->numeric()
+                            ->suffix('%')
+                            ->minValue(0)
+                            ->maxValue(100)
+                            ->visible(fn (callable $get) => $get('loyalty_discount_enabled') === '1')
+                            ->helperText('Bỏ trống sẽ dùng % của cài đặt chung.'),
+
+                        Forms\Components\TextInput::make('loyalty_discount_rate_3rd_plus')
+                            ->label('% giảm cho đơn đã thanh toán thứ 3 trở đi')
+                            ->numeric()
+                            ->suffix('%')
+                            ->minValue(0)
+                            ->maxValue(100)
+                            ->visible(fn (callable $get) => $get('loyalty_discount_enabled') === '1')
+                            ->helperText('Bỏ trống sẽ dùng % của cài đặt chung.'),
+                    ])
+                    ->columns(2),
+            ]);
+    }
+
     // ── TAB 3: Tài chính ─────────────────────────────────────────────────────
     private static function financialTab(): Forms\Components\Tabs\Tab
     {
@@ -158,10 +511,24 @@ class PartnerForm
                     ->schema([
                         Forms\Components\Grid::make(2)->schema([
                             Forms\Components\Grid::make(1)->schema([
-                                Forms\Components\TextInput::make('bank_name')->label('Tên ngân hàng')->maxLength(255),
+                                // Chọn từ danh sách (config/vietnam_banks.php) thay vì gõ tay tên
+                                // ngân hàng — bank_bin (mã BIN chuẩn Napas) là field THẬT SỰ CẦN
+                                // để sinh mã QR VietQR tự động (xem Partner::vietQrImageUrl(),
+                                // luồng "Chuyển khoản ngân hàng" ở trang đặt sân). Đồng bộ luôn
+                                // bank_name (text hiển thị) từ label đã chọn để không phá các chỗ
+                                // khác đang đọc bank_name — 2 field cùng lưu, không tách rời.
+                                Forms\Components\Select::make('bank_bin')
+                                    ->label('Ngân hàng')
+                                    ->options(config('vietnam_banks'))
+                                    ->searchable()
+                                    ->live()
+                                    ->afterStateUpdated(function ($state, callable $set) {
+                                        $set('bank_name', config('vietnam_banks')[$state] ?? null);
+                                    })
+                                    ->helperText('Bắt buộc chọn nếu muốn dùng "Chuyển khoản ngân hàng" (sinh mã QR tự động) ở trang đặt sân.'),
                                 Forms\Components\TextInput::make('bank_branch')->label('Chi nhánh')->maxLength(255),
                                 Forms\Components\TextInput::make('bank_account_number')->label('Số tài khoản')->maxLength(50),
-                                Forms\Components\TextInput::make('bank_account_holder')->label('Tên chủ tài khoản')->maxLength(255),
+                                Forms\Components\TextInput::make('bank_account_holder')->label('Tên chủ tài khoản (KHÔNG dấu, đúng như trên thẻ)')->maxLength(255),
                             ]),
 
                             SpatieMediaLibraryFileUpload::make('bank_card_image')
@@ -169,6 +536,56 @@ class PartnerForm
                                 ->collection('bank_card_image')
                                 ->image(),
                         ]),
+                    ]),
+
+                Forms\Components\Section::make('Cổng thanh toán PayOS riêng')
+                    ->description('Chỉ có tác dụng khi mục "Phương thức thanh toán áp dụng" bên dưới chọn PayOS. Để trống: dùng chung tài khoản PayOS của nền tảng. Đã điền: MỌI thanh toán (đặt sân, cọc, tiền còn lại, admin tạo QR tay...) tự động dùng ĐÚNG tài khoản PayOS riêng — xem App\\Services\\PayOSCredentialResolver.')
+                    ->collapsed()
+                    ->schema([
+                        Forms\Components\TextInput::make('payos_client_id')
+                            ->label('Client ID')
+                            ->maxLength(255),
+                        Forms\Components\TextInput::make('payos_api_key')
+                            ->label('API Key')
+                            ->password()
+                            ->revealable()
+                            ->maxLength(255),
+                        Forms\Components\TextInput::make('payos_checksum_key')
+                            ->label('Checksum Key')
+                            ->password()
+                            ->revealable()
+                            ->maxLength(255)
+                            ->helperText('Để trống thì đối tác dùng chung tài khoản PayOS của nền tảng khi "Phương thức thanh toán áp dụng" chọn PayOS.'),
+
+                        // ĐIỂM DUY NHẤT quyết định đối tác này thu tiền bằng gì — admin chọn CHÍNH
+                        // XÁC 1 trong 3, khách hàng KHÔNG tự chọn được (xem
+                        // Partner::effectivePaymentMethod()/bankTransferMode()). Không còn kiểu
+                        // "trộn" trước đây (chọn chuyển khoản nhưng vẫn ngầm bật thêm SePay tự động
+                        // theo tính năng gói phía sau, khách vừa thấy banner "tự động xác nhận" vừa
+                        // thấy link ẩn "chưa thấy xác nhận, tải ảnh") — giờ chọn "SePay tự động" thì
+                        // CHỈ hiện đúng luồng tự động (không có form upload dự phòng), chọn "Xác
+                        // nhận qua ảnh" thì CHỈ hiện đúng luồng upload/admin duyệt tay.
+                        Forms\Components\Radio::make('payment_method_preference')
+                            ->label('Phương thức thanh toán áp dụng')
+                            ->helperText('"SePay tự động" chỉ THẬT SỰ tự động nếu gói hiện tại của đối tác có tính năng "Xác nhận chuyển khoản tự động (SePay)" — chưa có thì hệ thống tự rơi về "Xác nhận qua ảnh" dù đã chọn mục này.')
+                            ->options([
+                                'payos' => 'PayOS (cổng thanh toán online)',
+                                'bank_transfer_sepay' => 'Chuyển khoản — Tự động xác nhận (SePay)',
+                                'bank_transfer_manual' => 'Chuyển khoản — Xác nhận thủ công (duyệt ảnh biên lai)',
+                            ])
+                            ->default('payos')
+                            ->required()
+                            ->inline(false)
+                            ->live(),
+
+                        Forms\Components\Placeholder::make('bank_transfer_missing_info_hint')
+                            ->label('')
+                            ->content(new \Illuminate\Support\HtmlString(
+                                '<div class="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">⚠️ Chưa điền đủ mã ngân hàng/số tài khoản/tên chủ tài khoản ở mục "Thông tin Ngân hàng" — chọn chuyển khoản lúc này sẽ tự rơi về PayOS cho tới khi điền đủ.</div>'
+                            ))
+                            ->visible(fn (Forms\Get $get) => in_array($get('payment_method_preference'), ['bank_transfer_sepay', 'bank_transfer_manual'], true)
+                                && ! ($get('bank_bin') && $get('bank_account_number') && $get('bank_account_holder')))
+                            ->columnSpanFull(),
                     ]),
 
                 Forms\Components\Section::make('Ví điện tử')
@@ -531,6 +948,18 @@ class PartnerForm
                     ->columnSpanFull(),
 
                 Forms\Components\Grid::make(2)->schema([
+                    // Gói dịch vụ (PartnerPlan) quyết định số chi nhánh tối đa + tính năng đối tác
+                    // được dùng (Partner::hasFeature()/branchLimit(), enforce ở ListCategory.php +
+                    // PromotionResource + UserBranchPermissionResource) — CHỈ super_admin được gán,
+                    // đối tác không tự nâng cấp gói cho mình được (giống field "Đối tác sở hữu" ở
+                    // CategoryForm, cùng lý do).
+                    Forms\Components\Select::make('partner_plan_id')
+                        ->label('Gói dịch vụ')
+                        ->relationship('plan', 'name')
+                        ->searchable()
+                        ->preload()
+                        ->helperText('Để trống = không giới hạn số chi nhánh/tính năng (áp dụng cho đối tác chưa xếp gói).'),
+
                     Forms\Components\TextInput::make('commission_rate')
                         ->label('Tỷ lệ hoa hồng (%)')
                         ->helperText('Áp dụng cho tất cả các loại sân và dịch vụ cộng thêm.'),

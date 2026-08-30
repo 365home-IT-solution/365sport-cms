@@ -30,6 +30,12 @@ use App\Http\Controllers\Api\Admin\TagController as AdminTagController;
 use App\Http\Controllers\Api\Admin\TimeSlotController as AdminTimeSlotController;
 use App\Http\Controllers\Api\Admin\TimeSlotHoldController as AdminTimeSlotHoldController;
 use App\Http\Controllers\Api\Admin\UnlockController as AdminUnlockController;
+use App\Http\Controllers\Api\Admin\WarehouseCategoryController;
+use App\Http\Controllers\Api\Admin\WarehouseItemController;
+use App\Http\Controllers\Api\Admin\WarehouseStockCheckController;
+use App\Http\Controllers\Api\Admin\WarehouseStockInController;
+use App\Http\Controllers\Api\Admin\WarehouseStockOutController;
+use App\Http\Controllers\Api\Admin\WarehouseUnitController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -325,6 +331,11 @@ Route::middleware(['auth:sanctum', 'admin.api'])->prefix('admin/orders')->name('
     Route::post('/{order_code}/remaining-payment', [OrderPaymentController::class, 'remainingPayment'])->name('remaining-payment');
     Route::post('/{order_code}/extra',             [OrderPaymentController::class, 'addExtra'])->name('extra');
     Route::post('/{order_code}/extra-charge-qr',   [OrderPaymentController::class, 'extraChargeQr'])->name('extra-charge-qr');
+    // Đơn payment_method='bank_transfer', bank_transfer_status='pending' — khớp đúng luồng Filament
+    // admin (OrderTable::confirmBankTransferAction()). Ảnh biên lai xem qua 'payment_proof_url' ở
+    // GET /{order_code}.
+    Route::post('/{order_code}/approve-bank-transfer', [OrderController::class, 'approveBankTransfer'])->name('approve-bank-transfer');
+    Route::post('/{order_code}/reject-bank-transfer',  [OrderController::class, 'rejectBankTransfer'])->name('reject-bank-transfer');
 });
 
 /*
@@ -503,4 +514,57 @@ Route::middleware(['auth:sanctum', 'admin.api'])->prefix('admin/products')->name
 */
 Route::middleware(['auth:sanctum', 'admin.api'])->prefix('admin/cccd')->name('api.admin.cccd.')->group(function () {
     Route::post('/scan', [AdminCccdController::class, 'scan'])->name('scan');
+});
+
+/*
+|--------------------------------------------------------------------------
+| Warehouse (Kho) — Vật tư/nhập/xuất/kiểm kê, scoped theo CẢ đối tác lẫn chi nhánh (branch_id →
+| categories gốc). Global scope 'partner'/'branch' của model (BelongsToPartner/BelongsToBranch) chỉ
+| tự áp dụng bên trong admin panel Filament — các controller dưới đây TỰ lọc thủ công lại đúng logic
+| đó cho route API, không dựa vào global scope tự chạy.
+| GET/POST      /api/admin/warehouse/categories(/{id})   → nhóm vật tư (dùng chung mọi chi nhánh)
+| GET/POST      /api/admin/warehouse/units(/{id})        → đơn vị tính (dùng chung mọi chi nhánh)
+| GET/POST      /api/admin/warehouse/items(/{id})        → vật tư — ?search=&category_id=&unit_id=
+|                                                            &low_stock=1&all=1&per_page=
+| GET/POST      /api/admin/warehouse/stock-ins(/{id})    → phiếu nhập — ?search=&per_page=
+| GET/POST      /api/admin/warehouse/stock-outs(/{id})   → phiếu xuất — ?search=&reason=&room_id=&per_page=
+| GET/POST      /api/admin/warehouse/stock-checks(/{id}) → phiếu kiểm kê — ?search=&per_page=
+|--------------------------------------------------------------------------
+*/
+Route::middleware(['auth:sanctum', 'admin.api'])->prefix('admin/warehouse')->name('api.admin.warehouse.')->group(function () {
+    Route::get('/categories',        [WarehouseCategoryController::class, 'index'])->name('categories.index');
+    Route::post('/categories',       [WarehouseCategoryController::class, 'store'])->name('categories.store');
+    Route::get('/categories/{id}',   [WarehouseCategoryController::class, 'show'])->name('categories.show')->whereNumber('id');
+    Route::put('/categories/{id}',   [WarehouseCategoryController::class, 'update'])->name('categories.update')->whereNumber('id');
+    Route::delete('/categories/{id}', [WarehouseCategoryController::class, 'destroy'])->name('categories.destroy')->whereNumber('id');
+
+    Route::get('/units',        [WarehouseUnitController::class, 'index'])->name('units.index');
+    Route::post('/units',       [WarehouseUnitController::class, 'store'])->name('units.store');
+    Route::get('/units/{id}',   [WarehouseUnitController::class, 'show'])->name('units.show')->whereNumber('id');
+    Route::put('/units/{id}',   [WarehouseUnitController::class, 'update'])->name('units.update')->whereNumber('id');
+    Route::delete('/units/{id}', [WarehouseUnitController::class, 'destroy'])->name('units.destroy')->whereNumber('id');
+
+    Route::get('/items',        [WarehouseItemController::class, 'index'])->name('items.index');
+    Route::post('/items',       [WarehouseItemController::class, 'store'])->name('items.store');
+    Route::get('/items/{id}',   [WarehouseItemController::class, 'show'])->name('items.show');
+    Route::put('/items/{id}',   [WarehouseItemController::class, 'update'])->name('items.update');
+    Route::delete('/items/{id}', [WarehouseItemController::class, 'destroy'])->name('items.destroy');
+
+    Route::get('/stock-ins',        [WarehouseStockInController::class, 'index'])->name('stock-ins.index');
+    Route::post('/stock-ins',       [WarehouseStockInController::class, 'store'])->name('stock-ins.store');
+    Route::get('/stock-ins/{id}',   [WarehouseStockInController::class, 'show'])->name('stock-ins.show')->whereNumber('id');
+    Route::put('/stock-ins/{id}',   [WarehouseStockInController::class, 'update'])->name('stock-ins.update')->whereNumber('id');
+    Route::delete('/stock-ins/{id}', [WarehouseStockInController::class, 'destroy'])->name('stock-ins.destroy')->whereNumber('id');
+
+    Route::get('/stock-outs',        [WarehouseStockOutController::class, 'index'])->name('stock-outs.index');
+    Route::post('/stock-outs',       [WarehouseStockOutController::class, 'store'])->name('stock-outs.store');
+    Route::get('/stock-outs/{id}',   [WarehouseStockOutController::class, 'show'])->name('stock-outs.show')->whereNumber('id');
+    Route::put('/stock-outs/{id}',   [WarehouseStockOutController::class, 'update'])->name('stock-outs.update')->whereNumber('id');
+    Route::delete('/stock-outs/{id}', [WarehouseStockOutController::class, 'destroy'])->name('stock-outs.destroy')->whereNumber('id');
+
+    Route::get('/stock-checks',        [WarehouseStockCheckController::class, 'index'])->name('stock-checks.index');
+    Route::post('/stock-checks',       [WarehouseStockCheckController::class, 'store'])->name('stock-checks.store');
+    Route::get('/stock-checks/{id}',   [WarehouseStockCheckController::class, 'show'])->name('stock-checks.show')->whereNumber('id');
+    Route::put('/stock-checks/{id}',   [WarehouseStockCheckController::class, 'update'])->name('stock-checks.update')->whereNumber('id');
+    Route::delete('/stock-checks/{id}', [WarehouseStockCheckController::class, 'destroy'])->name('stock-checks.destroy')->whereNumber('id');
 });

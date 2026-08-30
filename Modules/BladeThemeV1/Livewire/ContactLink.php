@@ -3,7 +3,6 @@
 namespace Modules\BladeThemeV1\Livewire;
 
 use Livewire\Component;
-use Modules\LiveChat\Entities\ContactLink as ContactLinkModel;
 use Modules\ThemeSetting\App\Models\ThemeSection;
 use Modules\BladeThemeV1\Enums\ContactLinkSection;
 use Modules\BladeThemeV1\Traits\HandleSectionCfgTrait;

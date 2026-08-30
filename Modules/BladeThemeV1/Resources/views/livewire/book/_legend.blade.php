@@ -22,6 +22,14 @@
                         <div class="flex items-center gap-1">
                             <span class="selectable-mini promo-mini w-4 h-4 rounded"></span> Khuyến mãi
                         </div>
+                        {{-- Trạng thái "held" (TimeslotHoldService, xem echo-client.js) — admin đang giữ ô
+                             này để tư vấn/lên đơn cho 1 khách khác, tự bỏ khoá sau tối đa 5 phút. Trước
+                             đây không có mục chú thích nào cho màu này (chỉ có icon khoá nhỏ + tooltip khi
+                             hover — vô dụng trên di động), khách không hiểu vì sao ô đang trống lại không
+                             bấm được (bug đã gặp: người dùng phản ánh "icon khoá chưa rõ ràng"). --}}
+                        <div class="flex items-center gap-1">
+                            <span class="w-4 h-4 rounded" style="background:#f59e0b;"></span> Đang tư vấn
+                        </div>
                     </div>
 
                     {{-- Giá + nút đặt sân gộp làm 1 (thay cho bảng tóm tắt giá đầy đủ bên dưới

@@ -81,10 +81,20 @@ trait HasTimeslotGridSelection
         // RoomTimeSlot::find() giống nhau ngay trong cùng request.
         $this->recalculateItemFromSelectedSlots($itemKey, $selectedSlots, $slot);
 
-        $this->data['amount'] = OrderForm::computeOrderTotal(
+        $newTotal = OrderForm::computeOrderTotal(
             $this->data['orderItems'] ?? [],
             $this->data['orderServices'] ?? []
         ) + (float) ($this->data['surcharge'] ?? 0);
+
+        // Ghi CẢ 2 đường dẫn — 'amount' gốc (data.amount, dùng để LƯU khi submit form, xem
+        // CreateOrder::mutateFormDataBeforeCreate()) VÀ 'orderItems.0.amount' (đường dẫn thật của
+        // ô TextInput "Tổng tiền đơn" đang HIỂN THỊ, vì field đó nằm lồng trong
+        // Group::make()->statePath('orderItems.0')). Trước đây chỉ ghi 'amount' gốc — số tiền LƯU
+        // vẫn đúng, nhưng ô hiển thị trên form KHÔNG cập nhật theo, khiến admin thấy 1 số cũ/sai dù
+        // vừa chọn thêm khung giờ (bug đã gặp: chọn 2 khung 100k vẫn hiện tổng cũ 190k thay vì
+        // 200k). Giống hệt cách calculateTotal() đã làm cho trường hợp đổi 'surcharge'.
+        $this->data['amount'] = $newTotal;
+        $this->data['orderItems'][$itemKey]['amount'] = $newTotal;
 
         // Ghi thẳng vào $this->data (bỏ qua Set của Filament — xem ghi chú đầu file) khiến
         // Placeholder "Tổng thanh toán" (đọc qua $get('orderItems'), phụ thuộc cơ chế theo dõi
@@ -154,10 +164,16 @@ trait HasTimeslotGridSelection
         }
 
         if (! empty($lostSlotLabels)) {
-            $this->data['amount'] = OrderForm::computeOrderTotal(
+            $newTotal = OrderForm::computeOrderTotal(
                 $this->data['orderItems'] ?? [],
                 $this->data['orderServices'] ?? []
             ) + (float) ($this->data['surcharge'] ?? 0);
+
+            // Ghi cả 2 đường dẫn — xem giải thích ở selectTimeslot().
+            $this->data['amount'] = $newTotal;
+            foreach (array_keys($this->data['orderItems'] ?? []) as $key) {
+                $this->data['orderItems'][$key]['amount'] = $newTotal;
+            }
 
             \Filament\Notifications\Notification::make()
                 ->title('Một số khung giờ bạn chọn đã bị người khác chiếm mất')

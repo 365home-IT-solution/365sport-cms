@@ -19,19 +19,23 @@
         return m ? decodeURIComponent(m[1]) : '';
     }
 
-    // Field kiểu Int trong SearchFiltersInput (xem app/GraphQL/SearchSchema.php) — GraphQL ép kiểu
-    // chặt, string "2" bị từ chối (khác REST tự nới lỏng), nên phải Number() trước khi gửi.
-    var INT_FILTER_KEYS = ['adults', 'month', 'year', 'ward_code', 'province_id', 'page', 'per_page'];
+    // Field kiểu Int/Float trong SearchFiltersInput (xem app/GraphQL/SearchSchema.php) — GraphQL
+    // ép kiểu chặt, string "2" bị từ chối (khác REST tự nới lỏng), nên phải Number() trước khi
+    // gửi (Number() dùng chung được cho cả Int lẫn Float — GraphQL chỉ cần đúng KIỂU JS number).
+    var NUMERIC_FILTER_KEYS = ['adults', 'month', 'year', 'ward_code', 'province_id', 'page', 'per_page', 'lat', 'lng', 'radius'];
 
     function buildSearchFilters() {
         var params = new URLSearchParams(window.location.search);
         var filters = {};
         var location = parseLocationFromPath();
         if (location) filters.province = location;
-        ['type', 'buoi', 'overnight', 'checkin', 'checkout', 'time_type', 'date', 'time_from', 'time_to', 'adults'].forEach(function (key) {
+        // ward_code (lọc theo Phường/Xã) + lat/lng/radius (tìm gần vị trí hiện tại) — cả 2 backend
+        // đã hỗ trợ sẵn (RoomSearchService::search()/SearchSchema.php), chỉ mới nối lên UI ở popup
+        // lọc (components/home/search-bar.blade.php).
+        ['type', 'buoi', 'overnight', 'checkin', 'checkout', 'time_type', 'date', 'time_from', 'time_to', 'adults', 'ward_code', 'lat', 'lng', 'radius'].forEach(function (key) {
             var v = params.get(key);
             if (!v) return;
-            filters[key] = INT_FILTER_KEYS.indexOf(key) !== -1 ? parseInt(v, 10) : v;
+            filters[key] = NUMERIC_FILTER_KEYS.indexOf(key) !== -1 ? Number(v) : v;
         });
         // per_page=100 (tối đa API cho phép) — trang tìm kiếm không phân trang, hiển thị hết
         // sân phù hợp trong 1 tỉnh/chi nhánh giống trải nghiệm cũ.

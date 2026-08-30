@@ -17,6 +17,13 @@ class ProductResource extends Resource
 {
     protected static ?string $model = Product::class;
 
+    // Sân bị khoá theo gói dịch vụ đối tác (Partner::hasFeature('products')) — chỉ THÊM điều
+    // kiện, vẫn giữ nguyên check quyền Shield gốc qua parent::canViewAny() (policy tự sinh).
+    public static function canViewAny(): bool
+    {
+        return parent::canViewAny() && (auth()->user()?->partnerHasFeature('products') ?? false);
+    }
+
     public static function getNavigationIcon(): string
     {
         return __('product::product.resource.navigation_icon');

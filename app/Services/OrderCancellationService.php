@@ -59,6 +59,7 @@ class OrderCancellationService
         // Order::broadcastSlotsReleasedByProduct()).
         $itemsByProduct = $order->items->whereNotNull('product_id')->groupBy('product_id');
         Order::broadcastSlotsReleasedByProduct($itemsByProduct);
+        Order::notifyWaitlistByProduct($itemsByProduct);
 
         // Báo cho bất kỳ ai đang mở trang tra cứu đơn (booking-detail.blade.php) — admin đang xem
         // cùng lúc, hoặc chính khách mở 2 tab.

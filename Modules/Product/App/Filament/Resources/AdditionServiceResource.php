@@ -25,6 +25,11 @@ class AdditionServiceResource extends Resource
 {
     protected static ?string $model = AdditionService::class;
 
+    public static function canViewAny(): bool
+    {
+        return parent::canViewAny() && (auth()->user()?->partnerHasFeature('addition_services') ?? false);
+    }
+
     public static function getNavigationIcon(): string
     {
         return 'heroicon-o-puzzle-piece';

@@ -136,7 +136,10 @@
         </div>
     
 
-        {{-- Số lượng khách (gọn, ngay dưới số điện thoại) --}}
+        {{-- Số lượng khách (gọn, ngay dưới số điện thoại) — CHỈ có ý nghĩa với phòng nghỉ qua đêm
+             (style=2, sức chứa/phụ thu khách thêm — xem ProductDetail::confirmBooking()); sân đặt
+             theo giờ (style=1) không tính theo số khách nên ẩn hẳn, đỡ rối giao diện. --}}
+        @if ($bookingStyle == 2)
         <div class="space-y-1.5">
             <label class="block text-[10px] font-semibold tracking-wider uppercase text-[#717171]">Số lượng
                 khách</label>
@@ -194,6 +197,7 @@
                 @endif
             </div>
         </div>
+        @endif
 
         <!-- MÃ GIẢM GIÁ (cho phép áp nhiều mã cùng lúc — xem ProductDetail::applyCoupon /
              calculateCouponDiscounts) -->
@@ -338,6 +342,15 @@
                     <div class="flex items-center justify-between gap-3 border border-[#DDDDDD] rounded-xl p-3">
                         <div class="min-w-0">
                             <p class="text-sm font-semibold text-[#222222] truncate">{{ $plan->name }}</p>
+                            {{-- Phạm vi gói — quan trọng để khách không hiểu nhầm mua gói "cả chi
+                                 nhánh" chỉ dùng được đúng sân đang xem, hoặc ngược lại. --}}
+                            <p class="text-[11px] font-medium mt-0.5 {{ $plan->isBranchWide() ? 'text-blue-600' : 'text-[#9CA3AF]' }}">
+                                @if ($plan->isBranchWide())
+                                    Dùng cho mọi sân tại {{ $plan->category?->name }}
+                                @else
+                                    Chỉ dùng cho sân {{ $plan->product?->name }}
+                                @endif
+                            </p>
                             <p class="text-xs text-[#717171] mt-0.5">
                                 {{ $plan->sessions_count }} buổi — {{ number_format($plan->price, 0, ',', '.') }}đ
                                 @if ($plan->savingsPercent() > 0)
@@ -375,6 +388,9 @@
                     </p>
                     <p class="text-xs text-emerald-600 mt-0.5">
                         Mỗi khung giờ đã chọn trừ đúng 1 buổi trong gói, không cần thanh toán thêm.
+                        @if ($availablePackage->category_id)
+                            Áp dụng cho mọi sân tại {{ $availablePackage->category?->name }}.
+                        @endif
                         @if ($availablePackage->expires_at)
                             Hết hạn {{ $availablePackage->expires_at->format('d/m/Y') }}.
                         @endif
@@ -630,8 +646,31 @@
         @endif
         @endif {{-- /$cccdRequired --}}
 
+        {{-- Ghi chú — với sân đặt theo giờ (style=1), khách nhập ghi chú ở trang xác nhận gọn
+             riêng sau khi chọn khung giờ (components/product-detail/booking-checkout.blade.php,
+             cùng bind wire:model="note"), nên ẩn ở đây đỡ trùng lặp; phòng nghỉ qua đêm (style=2)
+             không có trang xác nhận riêng đó nên vẫn giữ ô này. --}}
+        @if ($bookingStyle == 2)
         <textarea id="note" wire:model="note" placeholder="Ghi chú cho 365Home" rows="3"
             class="w-full px-4 py-3 border border-[#DDDDDD] rounded-lg focus:ring-2 focus:ring-primary focus:border-primary focus:outline-none resize-none text-base"></textarea>
+        @endif
+
+        {{-- Chọn phương thức thanh toán — chỉ hiện lựa chọn "Chuyển khoản ngân hàng" khi ĐÚNG đối
+             tác của sân này đã cấu hình đủ ngân hàng (Partner::hasBankTransferInfo(), tab "Tài
+             chính" của PartnerResource). Mặc định vẫn 'PayOS' (giữ nguyên hành vi cũ khi đối tác
+             chưa cấu hình ngân hàng — không đổi gì cho các đối tác hiện có). --}}
+        {{-- Phương thức thanh toán KHÔNG cho khách tự chọn nữa — do ADMIN quyết định qua
+             Partner::effectivePaymentMethod() (field "Phương thức thanh toán ưu tiên" khi đối tác
+             có CẢ 2 PayOS riêng + chuyển khoản; chỉ 1 trong 2 thì tự dùng đúng cái đó). Chỉ hiện
+             thông báo khi kết quả là chuyển khoản — PayOS thì khách bấm "Đặt sân" là hiểu ngay
+             (chuyển sang trang quét QR PayOS như trước giờ), không cần giải thích thêm. --}}
+        @php $bookingEffectiveMethod = $this->product->partner?->effectivePaymentMethod() ?? 'payos'; @endphp
+        @if ($bookingEffectiveMethod === 'bank_transfer')
+        <div class="rounded-xl border border-primary/30 bg-primary/5 p-4 flex items-start gap-2.5">
+            <svg class="w-4 h-4 text-primary shrink-0 mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 8h6m-5 4h4m1 8H8a2 2 0 01-2-2V6a2 2 0 012-2h5.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V18a2 2 0 01-2 2z" /></svg>
+            <p class="text-sm text-[#222222]">Thanh toán bằng <span class="font-semibold">chuyển khoản ngân hàng</span> — bạn sẽ nhận mã QR sau khi đặt sân.</p>
+        </div>
+        @endif
 
         <div class="rounded-xl border border-[#DDDDDD] p-4" x-data="{}">
             <label class="flex items-start gap-2.5 cursor-pointer select-none">

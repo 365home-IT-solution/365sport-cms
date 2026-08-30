@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Modules\Employee\Entities;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Department extends Model
 {
@@ -18,4 +19,9 @@ class Department extends Model
     protected $casts = [
         'status' => 'boolean',
     ];
+
+    public function employees(): HasMany
+    {
+        return $this->hasMany(Employee::class);
+    }
 }

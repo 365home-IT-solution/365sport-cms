@@ -2,6 +2,8 @@
 
 namespace Modules\BladeThemeV1\Services\Payment;
 
+use App\Models\Partner;
+use App\Services\PayOSCredentialResolver;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Log;
 use PayOS\PayOS;
@@ -20,11 +22,22 @@ class PaymentService
         $this->initializePayOS();
     }
 
-    protected function initializePayOS()
+    // Chuyển sang bộ khoá PayOS RIÊNG của 1 đối tác cụ thể (nếu đã cấu hình) trước khi tạo link
+    // thanh toán — gọi trước createRoomBookingPaymentData()/createPaymentLink() cho MỖI đơn hàng
+    // (xem ProductDetail::processPayOSPayment()), vì PaymentService là injected singleton dùng
+    // chung cho mọi request, không được "nhớ" bộ khoá của lần gọi trước. Không gọi hàm này thì vẫn
+    // dùng bộ khoá CHUNG của nền tảng như trước (initializePayOS() ở constructor).
+    public function usePartnerCredentials(?Partner $partner): void
     {
-        $clientId = Config::get('payos.client_id');
-        $apiKey = Config::get('payos.api_key');
-        $checksumKey = Config::get('payos.checksum_key');
+        $creds = PayOSCredentialResolver::resolve($partner);
+        $this->initializePayOS($creds['client_id'], $creds['api_key'], $creds['checksum_key']);
+    }
+
+    protected function initializePayOS(?string $clientId = null, ?string $apiKey = null, ?string $checksumKey = null)
+    {
+        $clientId ??= Config::get('payos.client_id');
+        $apiKey ??= Config::get('payos.api_key');
+        $checksumKey ??= Config::get('payos.checksum_key');
 
         // Kiểm tra xem các thông tin cấu hình có tồn tại không
         if (empty($clientId) || empty($apiKey) || empty($checksumKey)) {

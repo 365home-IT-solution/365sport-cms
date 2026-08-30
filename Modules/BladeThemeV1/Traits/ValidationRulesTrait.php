@@ -10,21 +10,29 @@ trait ValidationRulesTrait
         $hasBack      = $this->isAuthUser && !empty($this->authCccdBack);
         $hasOvernight = $this->hasOvernightSlotSelected();
 
+        // CCCD tạm KHÔNG bắt buộc (xem const CCCD_REQUIRED trong ProductDetail.php — đặt sân hiện
+        // tại không cần khai báo lưu trú). Trước đây hằng số này chỉ được tôn trọng ở nhánh kiểm
+        // tra thủ công trong confirmBooking(), còn validate() qua rules() ở đây vẫn luôn bắt buộc
+        // cccd_front/cccd_back — bug đã gặp: bấm "Xác nhận & thanh toán" vẫn bị chặn báo lỗi thiếu
+        // CCCD dù CCCD_REQUIRED đã tắt. File ảnh vẫn được validate (mimes/max) NẾU khách có chọn
+        // upload — chỉ bỏ ép buộc phải có.
+        $cccdRequired = self::CCCD_REQUIRED;
+
         $rules = [
             'buyerName'          => 'required|min:2|max:50',
             'buyerPhone'         => ['required', 'regex:/^0[35789][0-9]{8}$/'],
             'buyerEmail'         => 'nullable|email',
             'guests'             => 'required|integer|min:1',
-            'cccd_front'         => $hasFront ? 'nullable' : 'required|file|mimes:jpg,jpeg,png,webp|max:5120',
-            'cccd_back'          => $hasBack  ? 'nullable' : 'required|file|mimes:jpg,jpeg,png,webp|max:5120',
+            'cccd_front'         => ($cccdRequired && !$hasFront) ? 'required|file|mimes:jpg,jpeg,png,webp|max:5120' : 'nullable|file|mimes:jpg,jpeg,png,webp|max:5120',
+            'cccd_back'          => ($cccdRequired && !$hasBack)  ? 'required|file|mimes:jpg,jpeg,png,webp|max:5120' : 'nullable|file|mimes:jpg,jpeg,png,webp|max:5120',
             'accept1'            => 'accepted',
             'accept2'            => 'accepted',
             'acceptRefundPolicy' => 'accepted',
         ];
 
         // CCCD người đi cùng — 1 cặp ảnh bắt buộc cho mỗi khách từ #2 trở đi khi có khung giờ
-        // qua đêm được chọn (số lượng = guests - 1).
-        if ($hasOvernight) {
+        // qua đêm được chọn (số lượng = guests - 1). Cũng chỉ bắt buộc khi CCCD_REQUIRED bật.
+        if ($cccdRequired && $hasOvernight) {
             $companionCount = max(0, (int) $this->guests - 1);
             for ($i = 0; $i < $companionCount; $i++) {
                 $rules["cccdFrontExtra.$i"] = 'required|file|mimes:jpg,jpeg,png,webp|max:5120';

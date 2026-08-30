@@ -3,7 +3,8 @@
 <x-bladethemev1::seo :seoData="$seoData" />
 
 @section('content')
-    @livewire('bladethemev1::header')
+    <x-bladethemev1::home.top-bar />
+    <x-bladethemev1::home.search-bar />
     @livewire('bladethemev1::drawer-menu')
 
     <script>
@@ -242,18 +243,28 @@
 
             /* Danh sách sân: carousel ngang (mobile) -> lưới 2 cột (desktop, khớp cột đã thu
                hẹp ở trên) kiểu ảnh trên/chữ dưới, lấy theo đúng kiểu thẻ sân của trang kết quả
-               tìm kiếm (.branch-grid/.branch-card ở search.blade.php). */
+               tìm kiếm (.branch-grid/.branch-card ở search.blade.php).
+
+               min-width:0 trên CẢ track VÀ từng .home-card — mặc định trình duyệt tính min-width
+               của 1 grid item là "auto" (co giãn theo nội dung bên trong — ảnh + tên sân dài, KHÔNG
+               theo track 1fr đã cấp), dù đã ép "width:100%" ở dưới. .home-card gốc còn có sẵn
+               "width: 240px" cố định (dùng cho carousel trang chủ, xem rule @media(min-width:768px)
+               phía trên) càng dễ khiến item 2 giữ nguyên intrinsic 240px thay vì co theo track, đẩy
+               card lệch/tràn/cắt chữ (bug đã gặp — card 2 hẹp hơn card 1, tên sân bị cắt dở). Cùng
+               nguyên nhân/cách sửa đã áp dụng cho .branch-grid ở search.blade.php. */
             #branch-rooms-root [x-ref="track"] {
                 display: grid !important;
-                grid-template-columns: repeat(2, 1fr) !important;
+                grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
                 gap: 20px 14px !important;
                 overflow: visible !important;
                 scroll-snap-type: none !important;
+                min-width: 0 !important;
             }
             #branch-rooms-root .home-card {
                 width: 100% !important;
                 max-width: 100% !important;
                 flex: none !important;
+                min-width: 0 !important;
             }
             #branch-rooms-root .branch-carousel-nav { display: none !important; }
         }

@@ -29,6 +29,13 @@ class CreateOrder extends CreateRecord
 
     protected ?string $payosCheckoutUrl = null;
 
+    // Đơn tạo tay với payment_method='bank_transfer' — KHÔNG có checkout URL bên ngoài như PayOS
+    // (VietQR chỉ là 1 ảnh QR tĩnh, không qua cổng thanh toán nào), nên redirect admin sang thẳng
+    // trang "Tra cứu đặt sân" công khai (booking.detail) — trang đó đã tự vẽ ĐÚNG QR + luồng
+    // SePay-tự-động/upload-ảnh-thủ-công theo Partner::bankTransferMode() (xem
+    // booking-detail.blade.php), khỏi phải viết lại y hệt UI đó riêng trong admin.
+    protected ?string $bankTransferRedirectUrl = null;
+
     // Mở trang tạo đơn từ menu thao tác nhanh trên thẻ sân (Dashboard) với
     // ?product_id=... — tự chọn sẵn ĐÚNG chi nhánh + sân đó thay vì để trống, tránh admin phải
     // tìm lại từ đầu (chi nhánh PHẢI set trước product_id vì Select 'product_id' trong Repeater
@@ -365,6 +372,15 @@ class CreateOrder extends CreateRecord
             return;
         }
 
+        // Chuyển khoản ngân hàng — chỉ cần dẫn admin sang trang tra cứu công khai để lấy QR chia
+        // sẻ cho khách, KHÔNG đổi status (admin có thể đang ghi nhận 1 giao dịch đã chuyển xong
+        // luôn — nếu status đã là 'paid' thì không cần QR nữa, giữ nguyên luồng bình thường bên
+        // dưới thay vì ép redirect).
+        if ($record->payment_method === 'bank_transfer' && $record->status !== 'paid') {
+            $this->bankTransferRedirectUrl = route('booking.detail', ['code' => $record->order_code]);
+            return;
+        }
+
         // Tiền mặt hoặc amount < 2000 → luồng bình thường
         if ($record->status !== 'paid') {
             return;
@@ -406,11 +422,11 @@ class CreateOrder extends CreateRecord
     private function createAdminPayosLink(\Modules\Payment\Entities\Order $record): void
     {
         try {
-            $clientId    = Config::get('payos.client_id');
-            $apiKey      = Config::get('payos.api_key');
-            $checksumKey = Config::get('payos.checksum_key');
+            // Đúng bộ khoá PayOS của đối tác sở hữu đơn này nếu đã cấu hình riêng, không thì PayOS
+            // chung nền tảng như cũ — xem App\Services\PayOSCredentialResolver.
+            $creds = \App\Services\PayOSCredentialResolver::resolve($record->partner);
 
-            if (! $clientId || ! $apiKey || ! $checksumKey) {
+            if (! $creds['client_id'] || ! $creds['api_key'] || ! $creds['checksum_key']) {
                 Notification::make()
                     ->title('PayOS chưa được cấu hình')
                     ->body('Đơn đã lưu. Vui lòng liên hệ admin để thanh toán.')
@@ -419,7 +435,7 @@ class CreateOrder extends CreateRecord
                 return;
             }
 
-            $payOS   = new PayOS($clientId, $apiKey, $checksumKey);
+            $payOS   = \App\Services\PayOSCredentialResolver::client($record->partner);
             $editUrl = static::getResource()::getUrl('edit', ['record' => $record->id]);
             $dueNow  = $record->depositDueAmount();
 
@@ -478,6 +494,10 @@ class CreateOrder extends CreateRecord
     {
         if ($this->payosCheckoutUrl) {
             return $this->payosCheckoutUrl;
+        }
+
+        if ($this->bankTransferRedirectUrl) {
+            return $this->bankTransferRedirectUrl;
         }
 
         return static::getResource()::getUrl('index');

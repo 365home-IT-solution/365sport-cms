@@ -8,6 +8,7 @@ use App\Settings\GeneralSettings;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\View\View;
 use Laravel\Sanctum\PersonalAccessToken;
+use Livewire\Attributes\On;
 use Livewire\Component;
 use Modules\Category\Entities\Category;
 use Modules\Payment\Entities\Order;
@@ -52,6 +53,25 @@ class AccountPage extends Component
     // Voucher của khách hàng
     public array $discountCodes = [];
 
+    // Gói nhiều buổi khách đã mua — trang riêng "Gói của tôi" (page: 'packages'), xem
+    // App\Models\CustomerPackage.
+    public array $packages = [];
+
+    // Quỹ nhóm góp tiền đặt sân — trang riêng "Nhóm của tôi" (page: 'funds'), xem
+    // App\Models\BookingFund. Chỉ liệt kê tóm tắt ở đây (đang làm trưởng nhóm + đã tham gia) —
+    // duyệt thành viên/khoản góp làm ở trang chi tiết riêng /quy-nhom/{code} (FundDetail.php).
+    public array $ledFunds     = [];
+    public array $joinedFunds  = [];
+
+    // Trạng thái con của khu "Nhóm của tôi" — 'list' (danh sách) | 'detail' (xem/quản lý 1 quỹ) |
+    // 'create' (tạo quỹ mới). Trước đây "Xem quỹ"/"Tạo quỹ" điều hướng ra trang riêng /quy-nhom/*
+    // (khách bị đẩy ra khỏi trang tài khoản) — theo yêu cầu, nhúng thẳng vào khung bên phải này,
+    // dùng CHUNG component Livewire với trang riêng /quy-nhom/* (Modules/BladeThemeV1/Livewire/
+    // BookingFund/*, cờ $embedded=true đổi layout) — route /quy-nhom/* VẪN GIỮ NGUYÊN cho link mời
+    // chia sẻ ra ngoài app (Zalo...), không xoá.
+    public string $fundsView       = 'list';
+    public string $viewingFundCode = '';
+
     // Pagination
     public ?string $customerId = null; // UUID của customer đã xác thực
     public string $phone84     = '';   // dạng 84xxx để query
@@ -71,10 +91,10 @@ class AccountPage extends Component
     {
         $settings = new GeneralSettings();
 
-        if (! (bool) ($settings->auth_header['enabled'] ?? false)) {
-            $this->redirect('/', navigate: true);
-            return;
-        }
+        // Trước đây trang này redirect về "/" nếu tắt "auth_header.enabled" (cờ cũ, chỉ dùng để
+        // ẩn/hiện nút Đăng nhập/Đăng ký trên HEADER CŨ). Từ khi đổi giao diện, top-bar/search-bar
+        // mới (components/home/top-bar.blade.php) luôn hiển thị Đăng nhập/Đăng ký KHÔNG phụ thuộc
+        // cờ này nữa, nên giữ redirect ở đây sẽ chặn nhầm trang tài khoản dù cờ cũ đang tắt — bỏ.
 
         $this->primaryHex = $settings->site_theme['primary'] ?? '#FBCB1C';
 
@@ -195,6 +215,8 @@ class AccountPage extends Component
         // ── Bước 3: Load đơn hàng + voucher (nếu lỗi → giữ isLoggedIn = true, dữ liệu rỗng) ──
         try {
             $this->loadDiscountCodes($customer);
+            $this->loadPackages();
+            $this->loadFunds($customer);
 
             $phoneQ = $this->phoneQuery();
 
@@ -263,6 +285,113 @@ class AccountPage extends Component
             ->toArray();
     }
 
+    // ── Load gói nhiều buổi của khách hàng (trang riêng "Gói của tôi", page: 'packages') ────────
+    // Tra theo SỐ ĐIỆN THOẠI (cùng cách CustomerPackage::findValidForPhoneAndProduct() tra cứu lúc
+    // đặt sân) — dự án này gần như không có khách đăng ký tài khoản nên buyer_phone là định danh
+    // thật, không phải customer_id. Kèm sẵn số lượt đã dùng (redemptions) để hiện lịch sử.
+    private function loadPackages(): void
+    {
+        $this->packages = \App\Models\CustomerPackage::where(function ($q) {
+                $q->where('buyer_phone', $this->phone)
+                  ->orWhere('buyer_phone', $this->phone84);
+            })
+            ->with(['product', 'category', 'redemptions.orderItem'])
+            ->orderByDesc('purchased_at')
+            ->get()
+            ->map(function ($pkg) {
+                $isExpired = $pkg->expires_at && $pkg->expires_at->isPast();
+                $isUsedUp  = $pkg->sessions_remaining <= 0;
+
+                return [
+                    'id'                 => $pkg->id,
+                    'name'               => $pkg->name,
+                    'scope_label'        => $pkg->category_id
+                        ? 'Mọi sân tại ' . ($pkg->category?->name ?? 'chi nhánh')
+                        : ($pkg->product?->name ?? 'Sân đã xoá'),
+                    'sessions_total'     => $pkg->sessions_total,
+                    'sessions_remaining' => $pkg->sessions_remaining,
+                    'purchased_at'       => $pkg->purchased_at?->format('d/m/Y'),
+                    'expires_at'         => $pkg->expires_at?->format('d/m/Y'),
+                    'is_valid'           => $pkg->isValid(),
+                    'status_label'       => $isUsedUp ? 'Đã dùng hết' : ($isExpired ? 'Hết hạn' : 'Còn dùng được'),
+                    'status_class'       => $isUsedUp || $isExpired
+                        ? 'bg-gray-100 text-gray-500 border-gray-200'
+                        : 'bg-emerald-50 text-emerald-600 border-emerald-200',
+                    'redemptions'        => $pkg->redemptions->map(fn ($r) => [
+                        'redeemed_at' => $r->redeemed_at?->format('d/m/Y H:i'),
+                        'room_name'   => $r->orderItem?->name,
+                    ])->values()->toArray(),
+                ];
+            })
+            ->toArray();
+    }
+
+    // ── Load quỹ nhóm góp tiền đặt sân của khách (trang riêng "Nhóm của tôi", page: 'funds') ──
+    private function loadFunds(Customer $customer): void
+    {
+        $this->ledFunds = \App\Models\BookingFund::where('leader_customer_id', $customer->id)
+            ->orderByDesc('created_at')
+            ->get()
+            ->map(fn ($f) => $this->mapFundSummary($f, true))
+            ->toArray();
+
+        $this->joinedFunds = \App\Models\BookingFundMember::where('customer_id', $customer->id)
+            ->where('status', 'approved')
+            ->with('fund')
+            ->get()
+            ->pluck('fund')
+            ->filter()
+            ->map(fn ($f) => $this->mapFundSummary($f, false))
+            ->values()
+            ->toArray();
+    }
+
+    private function mapFundSummary(\App\Models\BookingFund $fund, bool $isLeader): array
+    {
+        return [
+            'invite_code'   => $fund->invite_code,
+            'title'         => $fund->title,
+            'slot_label'    => $fund->slotLabel(),
+            'target_amount' => $fund->target_amount,
+            'collected'     => $fund->collectedAmount(),
+            'progress'      => $fund->progressPercent(),
+            'status'        => $fund->status,
+            'is_leader'     => $isLeader,
+        ];
+    }
+
+    // ── Điều hướng con trong khu "Nhóm của tôi" (nhúng, không rời trang tài khoản) ────────────
+    public function viewFund(string $code): void
+    {
+        $this->viewingFundCode = strtoupper($code);
+        $this->fundsView       = 'detail';
+    }
+
+    public function startCreateFund(): void
+    {
+        $this->fundsView = 'create';
+    }
+
+    public function backToFundsList(): void
+    {
+        $this->fundsView       = 'list';
+        $this->viewingFundCode = '';
+
+        // Danh sách có thể đổi (vừa tạo quỹ mới/tiến độ góp vừa cập nhật) — nạp lại cho đúng.
+        $customer = Customer::find($this->customerId);
+        if ($customer) {
+            $this->loadFunds($customer);
+        }
+    }
+
+    // CreateFund (embedded=true) bắn event này thay vì redirect() — xem ghi chú
+    // CreateFund::create(). Chuyển thẳng sang xem quỹ vừa tạo, vẫn trong cùng khung.
+    #[On('fund-created')]
+    public function onFundCreated(string $code): void
+    {
+        $this->viewFund($code);
+    }
+
     // ── Chuyển trang ──────────────────────────────────────────────────────────
     public function goToPage(int $page): void
     {
@@ -316,7 +445,7 @@ class AccountPage extends Component
     private function fetchPage(): void
     {
         $rows = $this->baseQuery()
-            ->with(['items.product'])
+            ->with(['items.product.categories'])
             ->orderByDesc('created_at')
             ->offset(($this->currentPage - 1) * $this->perPage)
             ->limit($this->perPage)
@@ -331,14 +460,24 @@ class AccountPage extends Component
                 $thumbnail = $product->getFirstMediaUrl('Ảnh bìa');
             }
 
+            // "Đơn ngày" (đặt trong ngày, over_night=false) vs "Đơn đêm" (qua đêm) — theo mẫu
+            // ribbon tag của trang tài khoản tham khảo.
+            $isOvernight = (bool) ($item?->over_night ?? false);
+
             return [
                 'id'                   => $order->id,
                 'order_code'           => $order->order_code,
                 'amount'               => (int) $order->amount,
                 'status'               => $order->status ?? 'pending',
                 'room_name'            => $item?->name ?? 'Sân',
+                'venue_name'           => $product?->categories->first()->name ?? ($item?->name ?? 'Sân'),
+                'court_name'           => $item?->name ?? 'Sân',
+                'time_label'           => $item?->slot_label,
+                'address'              => $product?->address,
                 'checkin_date'         => $item?->checkin_date?->format('d/m/Y H:i'),
                 'checkout_date'        => $item?->checkout_date?->format('d/m/Y H:i'),
+                'date_label'           => $item?->checkin_date?->format('d/m/Y'),
+                'order_type_label'     => $isOvernight ? 'Đơn đêm' : 'Đơn ngày',
                 'thumbnail'            => $thumbnail,
                 'created_at'           => $order->created_at?->format('d/m/Y'),
                 // Khách tự huỷ đơn/xin hoàn tiền — xem Order::canBeCancelledByCustomer()/
@@ -406,6 +545,11 @@ class AccountPage extends Component
         $this->nextTierName          = null;
         $this->amountToNextTier      = null;
         $this->discountCodes     = [];
+        $this->packages          = [];
+        $this->ledFunds          = [];
+        $this->joinedFunds       = [];
+        $this->fundsView         = 'list';
+        $this->viewingFundCode   = '';
         $this->totalOrders       = 0;
         $this->paidOrders        = 0;
         $this->pendingOrders     = 0;

@@ -35,6 +35,11 @@ class ManualLockPasswordResource extends Resource
 {
     protected static ?string $model = ManualLockPassword::class;
 
+    public static function canViewAny(): bool
+    {
+        return parent::canViewAny() && (auth()->user()?->partnerHasFeature('lock_passwords') ?? false);
+    }
+
     protected static ?string $navigationIcon = 'heroicon-o-key';
 
     protected static ?string $navigationGroup = 'Quản lý';

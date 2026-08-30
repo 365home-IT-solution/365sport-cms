@@ -1,6 +1,15 @@
 <?php
 
+use App\Http\Controllers\Api\Auth\ZaloOtpController;
 use Illuminate\Support\Facades\Route;
+
+// Đăng nhập Google cho KHÁCH HÀNG (storefront) — điều hướng cả trang (không phải gọi API qua
+// fetch) nên phải đặt ở routes/web.php (có session cho Socialite), KHÔNG đặt trong routes/api.php.
+// KHÔNG áp dụng cho đăng nhập admin. Xem ZaloOtpController::googleRedirect()/googleCallback().
+Route::middleware('web')->prefix('auth/google')->name('auth.google.')->group(function () {
+    Route::get('redirect', [ZaloOtpController::class, 'googleRedirect'])->name('redirect');
+    Route::get('callback', [ZaloOtpController::class, 'googleCallback'])->name('callback');
+});
 
 // Admin: unread notification count (for tab-title polling)
 // Cached per-user for 2s — supports many concurrent admins without hammering the DB

@@ -333,7 +333,7 @@ class OrderObserver
         if ($order->order_code) {
             app(OrderRealtimeService::class)->broadcastOrderDeleted(
                 $order->order_code,
-                $order->customer_id ? (int) $order->customer_id : null,
+                $order->customer_id,
             );
         }
 

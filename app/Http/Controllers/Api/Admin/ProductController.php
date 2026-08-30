@@ -781,9 +781,11 @@ class ProductController extends Controller
             'latitude'            => $product->latitude,
             'longitude'           => $product->longitude,
             // Cột map_url đã bị xoá khỏi bảng products (thay bằng latitude/longitude) — tự dựng lại
-            // link Google Maps từ toạ độ thay vì đọc cột không còn tồn tại.
+            // link Google Maps từ toạ độ thay vì đọc cột không còn tồn tại. Dạng "dir" (api=1) để
+            // app Maps mở thẳng vào chế độ chỉ đường thay vì chỉ ghim vị trí (đồng bộ với public API
+            // — RoomController::buildRoomDetail(), SearchController::branches() — và website).
             'map_url'             => ($product->latitude !== null && $product->longitude !== null)
-                ? "https://www.google.com/maps?q={$product->latitude},{$product->longitude}"
+                ? "https://www.google.com/maps/dir/?api=1&destination={$product->latitude},{$product->longitude}"
                 : null,
             'hotline'             => $product->hotline,
             'styles'              => (int) $product->styles,

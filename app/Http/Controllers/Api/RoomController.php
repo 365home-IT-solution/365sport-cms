@@ -311,6 +311,13 @@ class RoomController extends Controller
             'address'           => $room->address,
             'latitude'          => $room->latitude,
             'longitude'         => $room->longitude,
+            // Cột map_url đã bị xoá khỏi bảng products (thay bằng latitude/longitude) — tự dựng link
+            // Google Maps từ toạ độ (ưu tiên, đúng vị trí hơn) hoặc từ địa chỉ text nếu thiếu toạ độ,
+            // cùng logic với website (product-detail.blade.php) và Admin API (Admin/ProductController).
+            // Dạng "dir" (api=1) để app Maps mở thẳng vào chế độ chỉ đường thay vì chỉ ghim vị trí.
+            'map_url'           => $room->latitude && $room->longitude
+                ? "https://www.google.com/maps/dir/?api=1&destination={$room->latitude},{$room->longitude}"
+                : ($room->address ? 'https://www.google.com/maps/dir/?api=1&destination=' . urlencode($room->address) : null),
             'main'              => $this->buildMainImages($room),
             'gallery'           => $this->buildGallery($room),
             'wishlist_status'   => $wishlistStatus,

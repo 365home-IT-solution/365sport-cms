@@ -3,7 +3,8 @@
 <x-bladethemev1::seo :seoData="$seoData" />
 
 @section('content')
-    @livewire('bladethemev1::header')
+    <x-bladethemev1::home.top-bar />
+    <x-bladethemev1::home.search-bar />
     @livewire('bladethemev1::drawer-menu')
 
     <div class="min-h-screen bg-gray-50 px-4 py-6 sm:px-6 lg:px-8">

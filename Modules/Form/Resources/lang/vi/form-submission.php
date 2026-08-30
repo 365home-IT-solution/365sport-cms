@@ -3,7 +3,7 @@
 return [
     'resource' => [
         'navigation_icon' => 'heroicon-o-envelope-open',
-        'navigation_group' => 'Biểu mẫu',
+        'navigation_group' => 'Quản lý',
         'navigation_label' => 'Biểu mẫu đến',
         'model_label' => 'Biểu mẫu đến',
         'plural_model_label' => 'Biểu mẫu đến',

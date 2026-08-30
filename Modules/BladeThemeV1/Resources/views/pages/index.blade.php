@@ -4,14 +4,20 @@
 
 @section('content')
 
-    @livewire('bladethemev1::header')
+    {{-- Top-bar xanh (giao diện mẫu ALO Booking) thay cho header cũ trên MỌI trang — header.blade.php
+         (bladethemev1::header) không còn được include ở đây; header.blade.php tự render
+         location-modal nên thêm lại ở đây (áp dụng chung cho mọi trang, không riêng trang chủ). --}}
+    <x-bladethemev1::home.top-bar />
+    <x-bladethemev1::home.search-bar />
     @livewire('bladethemev1::drawer-menu')
+    @livewire('bladethemev1::location-modal')
 
     @if (request()->path() === '/')
-        {{-- Trang chủ: chỉ render hero-section + các section tùy chỉnh --}}
-        @livewire('bladethemev1::hero-section')
-        @livewire('bladethemev1::flash-sale')
-        @livewire('bladethemev1::voucher')
+        {{-- Trang chủ: giao diện theo mẫu tham khảo ALO Booking (datlich.alobo.vn) — xem plan
+             "Đổi giao diện public site theo mẫu ALO Booking". --}}
+        <x-bladethemev1::home.promo-banner />
+
+        @livewire('bladethemev1::venue-grid')
 
     @else
         {{-- Các trang khác: render CMS components bình thường --}}

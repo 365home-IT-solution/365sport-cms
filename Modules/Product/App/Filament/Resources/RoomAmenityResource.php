@@ -52,7 +52,9 @@ class RoomAmenityResource extends Resource
     // view_any_room::amenity), khiến tick/bỏ tick quyền này ở Roles & Permissions vô tác dụng.
     public static function canViewAny(): bool
     {
-        return auth()->user()?->can('view_any_room::amenity') ?? false;
+        $user = auth()->user();
+
+        return ($user?->can('view_any_room::amenity') ?? false) && ($user?->partnerHasFeature('room_amenities') ?? false);
     }
 
     public static function form(Form $form): Form

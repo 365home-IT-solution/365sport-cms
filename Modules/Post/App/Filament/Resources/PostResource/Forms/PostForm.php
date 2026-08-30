@@ -97,7 +97,15 @@ class PostForm
 
     private static function SEOSuggetions(): Livewire
     {
-        return Livewire::make(SEO::class)->visibleOn(['create', 'edit']);
+        // ->lazy(): SEO là component Livewire LỒNG BÊN TRONG form Livewire của trang tạo/sửa bài
+        // viết — mặc định Filament mount + render nó ĐỒNG BỘ, NGAY TRONG cùng lệnh gọi render()
+        // của trang cha. Đây là bug đã gặp: trang /admin/posts/create lỗi 500 "Undefined array key
+        // 0" tại Illuminate\View\Concerns\ManagesComponents.php ngay khi mở trang (chưa cần gõ gì)
+        // — log thật cho thấy Livewire tự gọi lại render() của CHÍNH trang CreatePost lồng vào
+        // nhau nhiều lớp (trackInRenderStack lặp lại), làm hỏng bộ đếm component-stack nội bộ của
+        // Blade. ->lazy() tách việc mount SEO ra thành 1 lượt gọi AJAX RIÊNG sau khi trang cha đã
+        // render xong hẳn, không còn lồng đồng bộ trong cùng ngăn xếp gọi hàm nữa.
+        return Livewire::make(SEO::class)->visibleOn(['create', 'edit'])->lazy();
     }
 
     private static function titleField(): TextInput

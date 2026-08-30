@@ -65,7 +65,9 @@ class RoomServiceResource extends Resource
     // view_any_room::service), khiến tick/bỏ tick quyền này ở Roles & Permissions vô tác dụng.
     public static function canViewAny(): bool
     {
-        return auth()->user()?->can('view_any_room::service') ?? false;
+        $user = auth()->user();
+
+        return ($user?->can('view_any_room::service') ?? false) && ($user?->partnerHasFeature('room_services') ?? false);
     }
 
     public static function form(Form $form): Form

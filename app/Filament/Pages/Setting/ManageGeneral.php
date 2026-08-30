@@ -953,6 +953,93 @@ class ManageGeneral extends SettingsPage
                                     ->columnSpanFull(),
                             ]),
 
+                        // TAB GIẢM GIÁ KHÁCH QUEN — cấu hình chương trình tự động giảm giá cho khách
+                        // đặt lại (theo SĐT, đếm đơn đã 'paid'/'completed'), xem
+                        // ProductDetail::getLoyaltyDiscountRate(). Đây là cài đặt MẶC ĐỊNH cho toàn
+                        // hệ thống — từng đối tác có thể tự ghi đè riêng (bật/tắt/đổi tỷ lệ) ở tab
+                        // "Giảm giá khách quen" trong trang Đối tác > Xác minh đối tác, xem
+                        // Partner::effectiveLoyaltyDiscountEnabled()/Rate2ndOrder()/Rate3rdPlus().
+                        Forms\Components\Tabs\Tab::make('Giảm giá khách quen')
+                            ->icon('heroicon-o-gift')
+                            ->schema([
+                                Forms\Components\Section::make('Chương trình giảm giá khách quen')
+                                    ->description('Tự động giảm giá cho khách đặt sân LẠI (tính theo số điện thoại đã có đơn thanh toán thành công trước đó). Đây là cài đặt mặc định — từng đối tác có thể tự ghi đè riêng.')
+                                    ->schema([
+                                        Forms\Components\Toggle::make('loyalty_discount_enabled')
+                                            ->label('Kích hoạt giảm giá khách quen')
+                                            ->helperText('Tắt = không giảm giá cho bất kỳ đơn nào, dù khách đã đặt nhiều lần.')
+                                            ->default(true)
+                                            ->reactive()
+                                            ->columnSpanFull(),
+
+                                        Forms\Components\TextInput::make('loyalty_discount_rate_2nd_order')
+                                            ->label('% giảm cho đơn đã thanh toán thứ 2')
+                                            ->numeric()
+                                            ->suffix('%')
+                                            ->minValue(0)
+                                            ->maxValue(100)
+                                            ->required()
+                                            ->visible(fn (callable $get) => $get('loyalty_discount_enabled')),
+
+                                        Forms\Components\TextInput::make('loyalty_discount_rate_3rd_plus')
+                                            ->label('% giảm cho đơn đã thanh toán thứ 3 trở đi')
+                                            ->numeric()
+                                            ->suffix('%')
+                                            ->minValue(0)
+                                            ->maxValue(100)
+                                            ->required()
+                                            ->visible(fn (callable $get) => $get('loyalty_discount_enabled')),
+                                    ])
+                                    ->columns(2),
+                            ]),
+
+                        // TAB GIỚI THIỆU BẠN BÈ — khách đăng ký kèm mã giới thiệu (referral_code
+                        // của người khác) nhận coupon cá nhân ngay; người giới thiệu nhận coupon
+                        // SAU KHI người được giới thiệu có đơn đầu tiên thanh toán thành công, xem
+                        // ZaloOtpController::register()/referral() và Order::rewardReferrerIfEligible().
+                        Forms\Components\Tabs\Tab::make('Giới thiệu bạn bè')
+                            ->icon('heroicon-o-user-plus')
+                            ->schema([
+                                Forms\Components\Section::make('Chương trình giới thiệu bạn bè')
+                                    ->description('Khách đăng ký kèm mã giới thiệu nhận ưu đãi ngay; người giới thiệu nhận thưởng sau khi bạn được giới thiệu đặt sân thành công lần đầu.')
+                                    ->schema([
+                                        Forms\Components\Toggle::make('referral_enabled')
+                                            ->label('Kích hoạt chương trình giới thiệu bạn bè')
+                                            ->default(false)
+                                            ->reactive()
+                                            ->columnSpanFull(),
+
+                                        Forms\Components\TextInput::make('referral_reward_referee_percent')
+                                            ->label('% giảm giá cho người ĐƯỢC giới thiệu')
+                                            ->helperText('Cấp ngay lúc đăng ký thành công kèm mã giới thiệu hợp lệ.')
+                                            ->numeric()
+                                            ->suffix('%')
+                                            ->minValue(0)
+                                            ->maxValue(100)
+                                            ->required()
+                                            ->visible(fn (callable $get) => $get('referral_enabled')),
+
+                                        Forms\Components\TextInput::make('referral_reward_referrer_percent')
+                                            ->label('% giảm giá cho người giới thiệu')
+                                            ->helperText('Chỉ cấp sau khi bạn được giới thiệu có đơn đầu tiên thanh toán thành công.')
+                                            ->numeric()
+                                            ->suffix('%')
+                                            ->minValue(0)
+                                            ->maxValue(100)
+                                            ->required()
+                                            ->visible(fn (callable $get) => $get('referral_enabled')),
+
+                                        Forms\Components\TextInput::make('referral_reward_expiry_days')
+                                            ->label('Số ngày hiệu lực coupon giới thiệu')
+                                            ->numeric()
+                                            ->suffix('ngày')
+                                            ->minValue(1)
+                                            ->required()
+                                            ->visible(fn (callable $get) => $get('referral_enabled')),
+                                    ])
+                                    ->columns(2),
+                            ]),
+
                         // TAB ĐĂNG NHẬP / ĐĂNG KÝ
                         Forms\Components\Tabs\Tab::make('Đăng nhập')
                             ->icon('heroicon-o-user-circle')

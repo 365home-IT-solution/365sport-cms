@@ -22,11 +22,15 @@ class OrderRealtimeService
     /**
      * Broadcast cập nhật đơn hàng (guest_count, services) đến client đang xem đơn.
      *
-     * @param  string     $orderCode
-     * @param  array      $order     Payload gửi cho client (summary của thay đổi)
-     * @param  int|null   $customerId  Nếu biết customer_id (logged-in), push thêm qua kênh cá nhân
+     * @param  string        $orderCode
+     * @param  array         $order     Payload gửi cho client (summary của thay đổi)
+     * @param  string|null   $customerId  Nếu biết customer_id (logged-in), push thêm qua kênh cá nhân.
+     *   Customer.id/User.id đều là UUID (string), KHÔNG phải int — trước đây khai ?int khiến mọi
+     *   lệnh gọi truyền customer_id thật (UUID) từ file có declare(strict_types=1) văng TypeError
+     *   ngay lập tức (vd OrderCancellationService::cancelByCustomer() — khách tự huỷ đơn báo lỗi
+     *   dù đơn đã huỷ+ghi hoàn tiền thành công trong DB, gây lệch trạng thái).
      */
-    public function broadcastOrderUpdate(string $orderCode, array $order, ?int $customerId = null): void
+    public function broadcastOrderUpdate(string $orderCode, array $order, ?string $customerId = null): void
     {
         $url = $this->wsUrl();
         if (empty($url)) {
@@ -52,7 +56,7 @@ class OrderRealtimeService
     /**
      * Broadcast thông báo đơn hàng bị xóa (admin xóa) → app ẩn đơn ngay.
      */
-    public function broadcastOrderDeleted(string $orderCode, ?int $customerId = null): void
+    public function broadcastOrderDeleted(string $orderCode, ?string $customerId = null): void
     {
         $url = $this->wsUrl();
         if (empty($url)) {

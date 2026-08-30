@@ -609,15 +609,13 @@ trait BuildsRoomBooking
     private function createPayOSLink(Order $order, string $itemName, ?string $returnUrl = null, ?string $cancelUrl = null): void
     {
         try {
-            $clientId    = Config::get('payos.client_id');
-            $apiKey      = Config::get('payos.api_key');
-            $checksumKey = Config::get('payos.checksum_key');
+            $creds = \App\Services\PayOSCredentialResolver::resolve($order->partner);
 
-            if (! $clientId || ! $apiKey || ! $checksumKey) {
+            if (! $creds['client_id'] || ! $creds['api_key'] || ! $creds['checksum_key']) {
                 return;
             }
 
-            $payOS     = new PayOS($clientId, $apiKey, $checksumKey);
+            $payOS     = \App\Services\PayOSCredentialResolver::client($order->partner);
             $expiredAt = now()->addMinutes(15);
             $dueNow    = $order->depositDueAmount();
 

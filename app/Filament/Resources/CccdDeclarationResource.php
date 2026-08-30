@@ -43,6 +43,15 @@ class CccdDeclarationResource extends Resource
     protected static ?string $pluralModelLabel = 'Khai báo lưu trú';
     protected static ?int    $navigationSort   = 30;
 
+    // Ẩn khỏi menu Admin theo yêu cầu người dùng — tính năng khai báo lưu trú (dành cho
+    // homestay/lưu trú qua đêm) không liên quan tới nghiệp vụ đặt sân thể thao theo giờ của hệ
+    // thống này. Chỉ ẩn điều hướng (route/dữ liệu vẫn còn nguyên, không xoá) — giữ nguyên logic
+    // canViewAny() bên dưới nếu sau này cần bật lại.
+    public static function shouldRegisterNavigation(): bool
+    {
+        return false;
+    }
+
     // Trước đây hardcode chỉ super_admin mới xem được — Filament Shield vẫn tự sinh + hiện đầy đủ
     // permission 'view_any_cccd::declaration' (và create/update/delete...) trên trang Roles &
     // Permissions, khiến admin tick "bật hết Lưu trú" cho 1 role nhưng KHÔNG có tác dụng gì, vì

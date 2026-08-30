@@ -101,6 +101,17 @@ return [
         'key' => env('GOOGLE_MAPS_API_KEY'),
     ],
 
+    // Đăng nhập Google cho KHÁCH HÀNG (storefront) — client_id/client_secret KHÔNG cấu hình qua
+    // .env, nhập ở admin (App\Filament\Pages\GoogleLoginSettings), nạp vào đây lúc boot() bằng
+    // App\Models\GoogleOauthConfiguration (xem App\Providers\AppServiceProvider::boot()). KHÔNG
+    // dùng cho đăng nhập admin (Filament) — chỉ dùng ở luồng ZaloOtpController::googleRedirect()/
+    // googleCallback().
+    'google' => [
+        'client_id'     => null,
+        'client_secret' => null,
+        'redirect'      => env('APP_URL') . '/auth/google/callback',
+    ],
+
     'websocket' => [
         'url'          => env('WS_SERVER_URL', 'http://localhost:3001'),
         'public_url'   => env('WS_PUBLIC_URL', env('WS_SERVER_URL', 'http://localhost:3001')),

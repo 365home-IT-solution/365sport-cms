@@ -8,6 +8,7 @@ use App\Models\RoomRating;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
+use Modules\Payment\Entities\Order;
 use Modules\Product\App\Models\Product;
 
 class RatingController extends Controller
@@ -85,13 +86,26 @@ class RatingController extends Controller
 
         $user = auth('sanctum')->user();
 
+        // Chỉ cho đánh giá nếu khách THẬT SỰ có đơn đã hoàn thành cho đúng sân này — trước đây chỉ
+        // yêu cầu đăng nhập, ai cũng review được kể cả chưa từng đặt sân. Cùng danh sách trạng thái
+        // "đã hoàn thành" dùng ở ProductDetail::getLoyaltyDiscountRate() (['paid', 'completed']).
+        $completedOrder = Order::where('customer_id', $user->id)
+            ->whereIn('status', ['paid', 'completed'])
+            ->whereHas('items', fn ($q) => $q->where('product_id', $roomId))
+            ->latest('id')
+            ->first();
+
+        if (! $completedOrder) {
+            return response()->json(['message' => 'Bạn cần có đơn đặt sân đã hoàn thành mới có thể đánh giá.'], 403);
+        }
+
         $existed = RoomRating::where('customer_id', $user->id)
             ->where('room_id', $roomId)
             ->exists();
 
         $rating = RoomRating::updateOrCreate(
             ['customer_id' => $user->id, 'room_id' => $roomId],
-            ['star' => $data['star'], 'comment' => $data['comment'] ?? null],
+            ['star' => $data['star'], 'comment' => $data['comment'] ?? null, 'order_id' => $completedOrder->id],
         );
 
         $this->recalcRatingScore($roomId);

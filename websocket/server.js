@@ -97,6 +97,21 @@ io.on('connection', (socket) => {
         socket.leave('chat:admin');
     });
 
+    // Subscribe to a booking-fund group chat (trưởng nhóm + thành viên đã duyệt đang xem trang
+    // quỹ) — kênh RIÊNG "fundchat:" (không dùng chung "chat:" của support chat 1-1 để tránh lẫn
+    // sự kiện giữa 2 tính năng khác nhau, dù về mặt kỹ thuật ID không trùng nhau được).
+    socket.on('subscribe:fund-chat', ({ fund_id }) => {
+        if (fund_id) {
+            socket.join(`fundchat:${fund_id}`);
+        }
+    });
+
+    socket.on('unsubscribe:fund-chat', ({ fund_id }) => {
+        if (fund_id) {
+            socket.leave(`fundchat:${fund_id}`);
+        }
+    });
+
     socket.on('disconnect', () => {
         if (customerId) {
             const sockets = connections.get(customerId);
@@ -286,6 +301,25 @@ app.post('/internal/chat-message', (req, res) => {
     const channel = `chat:${conversation_id}`;
     io.to(channel).emit('chat.message', { conversation_id, message });
     console.log(`[WS] Chat message: conv=${conversation_id} sender=${message.sender_type} → ${channel}`);
+
+    return res.json({ ok: true });
+});
+
+// ── Booking-fund group chat — broadcast đến mọi người đang xem trang quỹ đó ──
+app.post('/internal/fund-chat-message', (req, res) => {
+    const key = req.headers['x-internal-key'];
+    if (key !== INTERNAL_KEY) {
+        return res.status(403).json({ error: 'Forbidden' });
+    }
+
+    const { fund_id, message } = req.body;
+    if (!fund_id || !message) {
+        return res.status(422).json({ error: 'Missing fund_id or message' });
+    }
+
+    const channel = `fundchat:${fund_id}`;
+    io.to(channel).emit('fundchat.message', { fund_id, message });
+    console.log(`[WS] Fund chat message: fund=${fund_id} → ${channel}`);
 
     return res.json({ ok: true });
 });

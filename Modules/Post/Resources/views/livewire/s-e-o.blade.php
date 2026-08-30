@@ -1,9 +1,20 @@
 <div>
     @php
-        $manifest = json_decode(file_get_contents(public_path('build-post/manifest.json')), true);
-        $cssFile = $manifest['poss.css']['file'] ?? 'assets/poss.6cc9d075.css';
+        // Trước đây gọi file_get_contents() thẳng không kiểm tra tồn tại — nếu module Post chưa
+        // từng chạy "npm run build" (thư mục public/build-post trống), hàm này ném ErrorException,
+        // làm hỏng luôn component-stack của Blade và kéo theo lỗi "Undefined array key 0" ở NHIỀU
+        // TẦNG component lồng bên trên (bug đã gặp — lỗi 500 khi mở trang tạo/sửa bài viết). Kiểm
+        // tra file tồn tại trước, nếu thiếu thì bỏ qua CSS custom thay vì crash cả trang.
+        $manifestPath = public_path('build-post/manifest.json');
+        $cssFile = null;
+        if (is_file($manifestPath)) {
+            $manifest = json_decode(file_get_contents($manifestPath), true);
+            $cssFile = $manifest['poss.css']['file'] ?? null;
+        }
     @endphp
-    <link rel="stylesheet" href="{{ asset('build-post/' . $cssFile) }}">
+    @if ($cssFile)
+        <link rel="stylesheet" href="{{ asset('build-post/' . $cssFile) }}">
+    @endif
     <div class="v-w-full">
 
         <div class="v-mb-6">

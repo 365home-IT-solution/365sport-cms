@@ -115,6 +115,14 @@ Route::prefix('/order')->group(function () {
 Route::post('/webhook/payos', [PaymentController::class, 'handlePayOSWebhook'])
      ->name('webhook.payos');
 
+// Webhook "biến động số dư" từ SePay — 1 tài khoản SePay chung quản lý nhiều ngân hàng của nhiều
+// đối tác, tự động xác nhận đơn "chuyển khoản thủ công" thay vì chờ admin duyệt ảnh biên lai (xem
+// App\Http\Controllers\Api\SePayWebhookController). Xác thực bằng Authorization header (không
+// phải CSRF token — request đến từ server SePay, không phải form trình duyệt), nên phải loại khỏi
+// VerifyCsrfToken::$except giống hệt webhook/payos ở trên.
+Route::post('/webhook/sepay', [\App\Http\Controllers\Api\SePayWebhookController::class, 'handle'])
+     ->name('webhook.sepay');
+
 // Tạo link PayOS cho phần tiền còn lại (sau khi đã đặt cọc)
 Route::post('/dat-phong/tao-thanh-toan-con-lai/{code}', [PaymentController::class, 'createRemainingPayment'])
      ->name('payment.remaining.create');

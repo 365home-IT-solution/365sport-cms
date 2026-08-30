@@ -16,7 +16,12 @@ use Modules\Post\Entities\Post;
 class PostResource extends Resource
 {
     protected static ?string $model = Post::class;
-    
+
+    public static function canViewAny(): bool
+    {
+        return parent::canViewAny() && (auth()->user()?->partnerHasFeature('posts') ?? false);
+    }
+
     public static function getNavigationIcon(): string
     {
         return __('post::post.resource.navigation_icon');

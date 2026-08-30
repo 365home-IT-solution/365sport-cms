@@ -3,7 +3,8 @@
 @section('title', 'Tài khoản của tôi')
 
 @section('content')
-    @livewire('bladethemev1::header')
+    <x-bladethemev1::home.top-bar />
+    <x-bladethemev1::home.search-bar />
     @livewire('bladethemev1::drawer-menu')
 
     <div class="min-h-screen bg-gray-50" style="padding-top: 0;">

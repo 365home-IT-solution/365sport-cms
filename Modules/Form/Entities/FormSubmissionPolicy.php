@@ -15,7 +15,7 @@ class FormSubmissionPolicy
      */
     public function viewAny(User $user): bool
     {
-        return $user->can('view_any_form::submission');
+        return $user->can('view_any_partner::lead');
     }
 
     /**
@@ -23,7 +23,7 @@ class FormSubmissionPolicy
      */
     public function view(User $user, FormSubmission $formSubmission): bool
     {
-        return $user->can('view_form::submission');
+        return $user->can('view_partner::lead');
     }
 
     /**
@@ -31,7 +31,7 @@ class FormSubmissionPolicy
      */
     public function create(User $user): bool
     {
-        return $user->can('create_form::submission');
+        return $user->can('create_partner::lead');
     }
 
     /**
@@ -39,7 +39,7 @@ class FormSubmissionPolicy
      */
     public function update(User $user, FormSubmission $formSubmission): bool
     {
-        return $user->can('update_form::submission');
+        return $user->can('update_partner::lead');
     }
 
     /**
@@ -47,7 +47,7 @@ class FormSubmissionPolicy
      */
     public function delete(User $user, FormSubmission $formSubmission): bool
     {
-        return $user->can('delete_form::submission');
+        return $user->can('delete_partner::lead');
     }
 
     /**
@@ -55,7 +55,7 @@ class FormSubmissionPolicy
      */
     public function deleteAny(User $user): bool
     {
-        return $user->can('delete_any_form::submission');
+        return $user->can('delete_any_partner::lead');
     }
 
     /**
@@ -63,7 +63,7 @@ class FormSubmissionPolicy
      */
     public function forceDelete(User $user, FormSubmission $formSubmission): bool
     {
-        return $user->can('force_delete_form::submission');
+        return $user->can('force_delete_partner::lead');
     }
 
     /**
@@ -71,7 +71,7 @@ class FormSubmissionPolicy
      */
     public function forceDeleteAny(User $user): bool
     {
-        return $user->can('force_delete_any_form::submission');
+        return $user->can('force_delete_any_partner::lead');
     }
 
     /**
@@ -79,7 +79,7 @@ class FormSubmissionPolicy
      */
     public function restore(User $user, FormSubmission $formSubmission): bool
     {
-        return $user->can('restore_form::submission');
+        return $user->can('restore_partner::lead');
     }
 
     /**
@@ -87,7 +87,7 @@ class FormSubmissionPolicy
      */
     public function restoreAny(User $user): bool
     {
-        return $user->can('restore_any_form::submission');
+        return $user->can('restore_any_partner::lead');
     }
 
     /**
@@ -95,7 +95,7 @@ class FormSubmissionPolicy
      */
     public function replicate(User $user, FormSubmission $formSubmission): bool
     {
-        return $user->can('replicate_form::submission');
+        return $user->can('replicate_partner::lead');
     }
 
     /**
@@ -103,6 +103,6 @@ class FormSubmissionPolicy
      */
     public function reorder(User $user): bool
     {
-        return $user->can('reorder_form::submission');
+        return $user->can('reorder_partner::lead');
     }
 }

@@ -224,6 +224,37 @@ class BladeThemeV1Controller extends Controller
             ->with('cancel_success', $result['refund_amount']);
     }
 
+    // Khách upload ảnh biên lai chuyển khoản thủ công (payment_method='bank_transfer') — xem
+    // pages/booking-detail.blade.php. Đơn KHÔNG tự chuyển 'paid' ở đây — chỉ đánh dấu
+    // bank_transfer_status='pending' để admin đối tác vào duyệt thủ công (xem OrderTable's action
+    // "Xác nhận chuyển khoản"), đúng luồng đã thống nhất: "khách gửi ảnh, admin xác nhận".
+    public function uploadPaymentProof(Request $request, string $code)
+    {
+        $order = Order::where('order_code', $code)->firstOrFail();
+
+        if ($order->payment_method !== 'bank_transfer' || $order->isCancelled() || in_array($order->status, ['paid', 'refunded'], true)) {
+            abort(404);
+        }
+
+        $request->validate([
+            'payment_proof' => ['required', 'image', 'max:8192'],
+        ]);
+
+        $path = $request->file('payment_proof')->store('payment-proofs', 'public');
+
+        $order->update([
+            'payment_proof' => $path,
+            'bank_transfer_status' => 'pending',
+            // Gia hạn thêm thời gian giữ chỗ ngay khi khách vừa upload — tránh đơn hết hạn ngay
+            // lúc admin đang xem xét duyệt (vd admin bận, xử lý sau vài chục phút).
+            'expired_at' => now()->addHours(2),
+        ]);
+
+        return redirect()
+            ->route('booking.detail', ['code' => $order->order_code])
+            ->with('bank_transfer_uploaded', true);
+    }
+
 //    public function categoryDetail($slug)
 //    {
 //
@@ -295,7 +326,7 @@ class BladeThemeV1Controller extends Controller
         $seoData = [
             'seo_title' => 'Yêu thích',
             'seo_description' => 'Danh sách sân đã lưu',
-            'seo_keywords' => 'yêu thích, sân nghỉ, 365 home',
+            'seo_keywords' => 'yêu thích, sân đã lưu, ' . config('app.name'),
             'og_type' => 'website',
         ];
 
@@ -313,7 +344,7 @@ class BladeThemeV1Controller extends Controller
         $seoData = [
             'seo_title' => 'Tin tức',
             'seo_description' => 'Tin tức và bài viết mới nhất',
-            'seo_keywords' => 'tin tức, bài viết, 365 home',
+            'seo_keywords' => 'tin tức, bài viết, ' . config('app.name'),
             'og_type' => 'website',
         ];
 
@@ -344,8 +375,8 @@ class BladeThemeV1Controller extends Controller
     {
         $seoData = [
             'seo_title' => 'Đăng nhập',
-            'seo_description' => 'Đăng nhập tài khoản 365 Home để đặt sân nhanh hơn và nhận ưu đãi dành riêng cho thành viên.',
-            'seo_keywords' => 'đăng nhập, 365 home',
+            'seo_description' => 'Đăng nhập tài khoản ' . config('app.name') . ' để đặt sân nhanh hơn và nhận ưu đãi dành riêng cho thành viên.',
+            'seo_keywords' => 'đăng nhập, ' . config('app.name'),
             'og_type' => 'website',
         ];
 
@@ -359,6 +390,331 @@ class BladeThemeV1Controller extends Controller
         ]);
     }
 
+    public function registerPage()
+    {
+        $seoData = [
+            'seo_title' => 'Đăng ký',
+            'seo_description' => 'Tạo tài khoản để đặt sân nhanh hơn và nhận ưu đãi dành riêng cho thành viên.',
+            'seo_keywords' => 'đăng ký, tạo tài khoản',
+            'og_type' => 'website',
+        ];
+
+        return view('bladethemev1::pages.register', [
+            'seoData' => $seoData,
+            'primaryColor' => $this->primaryColor,
+            'primaryColorRgb' => $this->primaryColorRgb,
+            'heavyPrimaryColor' => $this->heavyPrimaryColor,
+            'lightPrimaryColor' => $this->lightPrimaryColor,
+            'textOnPrimary' => $this->textOnPrimaryColor(),
+        ]);
+    }
+
+    public function mapPage()
+    {
+        $seoData = [
+            'seo_title' => 'Bản đồ sân thể thao',
+            'seo_description' => 'Tìm sân thể thao gần bạn trên bản đồ.',
+            'og_type' => 'website',
+        ];
+
+        return view('bladethemev1::pages.map', [
+            'seoData' => $seoData,
+            'primaryColor' => $this->primaryColor,
+            'primaryColorRgb' => $this->primaryColorRgb,
+            'heavyPrimaryColor' => $this->heavyPrimaryColor,
+            'lightPrimaryColor' => $this->lightPrimaryColor,
+        ]);
+    }
+
+    public function explorePage()
+    {
+        $seoData = [
+            'seo_title' => 'Khám phá',
+            'seo_description' => 'Tin tức, ưu đãi và sự kiện mới nhất.',
+            'og_type' => 'website',
+        ];
+
+        return view('bladethemev1::pages.explore', [
+            'seoData' => $seoData,
+            'primaryColor' => $this->primaryColor,
+            'primaryColorRgb' => $this->primaryColorRgb,
+            'heavyPrimaryColor' => $this->heavyPrimaryColor,
+            'lightPrimaryColor' => $this->lightPrimaryColor,
+        ]);
+    }
+
+    public function partnerPage()
+    {
+        $seoData = [
+            'seo_title' => 'Làm đối tác cùng ' . config('app.name'),
+            'seo_description' => 'Đăng ký trở thành đối tác ' . config('app.name') . ' — đưa sân thể thao của bạn lên nền tảng đặt lịch trực tuyến, tiếp cận thêm khách hàng, quản lý lịch đặt và doanh thu dễ dàng.',
+            'og_type' => 'website',
+        ];
+
+        // Form "Đăng ký làm đối tác" (Modules\Form) — tạo sẵn qua tinker, dùng chung component
+        // render/submit có sẵn @livewire('bladethemev1::form-contact', ...) đang phục vụ trang
+        // Liên hệ (Contact.php) — không viết lại logic validate/lưu submission/gửi mail. Tra theo
+        // tên thay vì hardcode ID để không vỡ nếu re-seed dữ liệu.
+        $partnerForm = \Modules\Form\Entities\Form::with('formFields')
+            ->where('name', 'Đăng ký làm đối tác')
+            ->first();
+
+        // Bảng giá lấy THẲNG từ dữ liệu admin đã cấu hình (App\Models\PartnerPlan, trang "Gói đối
+        // tác"/"Tính năng theo gói") — trước đây là mảng PHP viết cứng ngay trong view, không đồng
+        // bộ với gói thật trong DB (bug đã gặp: sửa gói ở admin không phản ánh ra trang quảng cáo).
+        $partnerPlans = \App\Models\PartnerPlan::where('is_active', true)
+            ->orderBy('sort_order')
+            ->get();
+
+        return view('bladethemev1::pages.partner', [
+            'seoData' => $seoData,
+            'partnerForm' => $partnerForm,
+            'partnerPlans' => $partnerPlans,
+            'primaryColor' => $this->primaryColor,
+            'primaryColorRgb' => $this->primaryColorRgb,
+            'heavyPrimaryColor' => $this->heavyPrimaryColor,
+            'lightPrimaryColor' => $this->lightPrimaryColor,
+        ]);
+    }
+
+    // Trang landing page RIÊNG cho 1 đối tác, phục vụ theo subdomain (vd mamble.365sport-cms.test)
+    // — xem route domain-group ở Routes/web.php. DÙNG CHUNG 1 giao diện duy nhất
+    // (pages/partner-landing.blade.php) cho MỌI đối tác, chỉ khác nhau ở DỮ LIỆU truyền vào (tên,
+    // logo, danh sách chi nhánh của ĐÚNG đối tác đó) — không nhân bản toàn bộ trang chủ/luồng đặt
+    // sân sang subdomain (phạm vi đã chốt với người dùng: "không phải toàn bộ trang client, chỉ 1
+    // landing page chung"). Nút "Đặt lịch" trên trang này trỏ THẲNG về route('branch.booking') ở
+    // domain CHÍNH (không lặp lại luồng đặt sân dưới subdomain) — tránh phải xử lý session/auth
+    // dùng chung giữa domain gốc và subdomain (2 origin khác nhau, cookie không tự chia sẻ).
+    public function partnerLandingPage(string $partnerSlug)
+    {
+        $partner = \App\Models\Partner::where('slug', $partnerSlug)
+            ->where('status', true)
+            ->first();
+
+        // 2 điều kiện ĐỘC LẬP đều phải đúng thì trang mới hiển thị: (1) GÓI của đối tác cho phép
+        // dùng tính năng này (hasFeature — admin cấu hình ở "Tính năng theo gói"), VÀ (2) chính đối
+        // tác/admin đang BẬT công tắc landing_page_enabled riêng (mặc định true, cho phép tạm ẩn
+        // trang mà không cần xoá subdomain — vd đang chỉnh sửa nội dung, hoặc gói bị hạ xuống không
+        // còn tính năng này nữa). Không có slug khớp / đối tác bị khoá → cùng 404, không lộ thông
+        // tin đối tác không được phép hiển thị trang riêng.
+        if (! $partner || ! $partner->landing_page_enabled || ! $partner->hasFeature('landing_page')) {
+            abort(404);
+        }
+
+        // route('branch.booking', ...) mặc định sinh URL theo HOST CỦA REQUEST HIỆN TẠI (Laravel
+        // chỉ ép domain cố định cho route có ->domain() tường minh — route này thì không), nên nếu
+        // gọi thẳng route() ở đây, link "Đặt lịch" trên trang landing sẽ VẪN Ở LẠI subdomain
+        // (vd mamble.365sport-cms.test/branch/...) thay vì sang domain chính như đã định — kéo theo
+        // cả trang đặt sân đầy đủ (top-bar/search-bar/menu) hiện SAI màu (dùng
+        // GeneralSettings->site_theme của toàn site, không phải landing_primary_color của riêng
+        // trang landing — 2 khái niệm màu tách biệt, không đồng bộ được vì luồng đặt sân là 1 trang
+        // DÙNG CHUNG cho mọi đối tác/khách hàng, không thể tô theo từng đối tác) (bug đã gặp: "sao
+        // không dùng màu chủ đạo cho các trang này, mà lại là màu trang chính"). Fix bằng cách GHÉP
+        // THỦ CÔNG base URL của domain chính (APP_URL) với path tương đối của route — ép tuyệt đối
+        // sang đúng domain chính bất kể đang đứng ở subdomain nào.
+        $mainSiteBaseUrl = rtrim((string) config('app.url'), '/');
+
+        // Cùng cấu trúc mảng $venue với VenueGrid::loadVenues() (trang chủ) để tái dùng NGUYÊN VẸN
+        // component <x-bladethemev1::venues.card> — chỉ khác điều kiện lọc: theo ĐÚNG partner_id
+        // này thay vì toàn bộ hệ thống.
+        // KHÔNG dùng ->limit(1) trong closure eager-load 'products' — Category::get() ở đây trả về
+        // NHIỀU chi nhánh cùng lúc, limit() trong 1 quan hệ hasMany/belongsToMany áp cho TOÀN BỘ
+        // câu query gộp (WHERE category_id IN (...) LIMIT 1), không phải riêng từng chi nhánh, nên
+        // chỉ 1 chi nhánh DUY NHẤT nhận được product (xem giải thích đầy đủ ở MapPage.php và
+        // VenueGrid.php — bug đã gặp nhiều lần trong dự án này). Lấy full rồi ->first() trong PHP.
+        $venues = Category::where('partner_id', $partner->id)
+            ->where('category_type', 'product')
+            ->where('status', true)
+            ->with('products')
+            ->orderBy('sort_order')
+            ->get()
+            ->map(function ($category) use ($mainSiteBaseUrl) {
+                $product = $category->products->first();
+
+                return [
+                    'name'       => $category->name,
+                    'url'        => $mainSiteBaseUrl . route('branch.booking', ['slug' => $category->slug], false),
+                    'image_url'  => $category->image
+                        ? \Illuminate\Support\Facades\Storage::disk('public')->url($category->image)
+                        : ($product?->getFirstMediaUrl('Ảnh bìa') ?: null),
+                    'address'    => $product->address ?? null,
+                    'lat'        => $product->latitude ?? null,
+                    'lng'        => $product->longitude ?? null,
+                    'rating'     => $product && $product->rating_score > 0 ? number_format((float) $product->rating_score, 1) : null,
+                    'hours'      => $this->formatBranchHours($category->checkin_time, $category->checkout_time),
+                    'product_id' => $product->id ?? null,
+                ];
+            })
+            ->values();
+
+        $seoData = [
+            'seo_title' => $partner->name . ' — Đặt sân trực tuyến',
+            'seo_description' => 'Danh sách chi nhánh và sân thể thao của ' . $partner->name . ' — đặt lịch trực tuyến nhanh chóng.',
+            'og_type' => 'website',
+        ];
+
+        // Màu chủ đạo RIÊNG của trang landing (admin cấu hình ở tab "Doanh nghiệp" của
+        // PartnerResource, ColorPicker 'landing_primary_color') — mặc định xanh lá thương hiệu nếu
+        // đối tác chưa tự chọn màu. Dùng lại HandleColorTrait (đã có sẵn ở constructor cho màu
+        // TOÀN SITE) để tính thêm 2 sắc độ cho gradient hero/hover, tách biệt hoàn toàn khỏi
+        // $this->primaryColor (đó là màu toàn site, không liên quan tới trang landing này).
+        $landingColor      = $partner->landing_primary_color ?: '#0B6B3A';
+        $landingColorHeavy = $this->lightenColor($landingColor, 60) ?: '#128A4A';
+        $landingColorLight = $this->darkenColor($landingColor, 20) ?: '#1AA859';
+
+        // Nội dung linh hoạt kiểu "sườn sẵn giống WP" (Repeater trong PartnerForm) — đối tác chưa tự
+        // cấu hình thì dùng bộ mặc định ở đây để trang KHÔNG BAO GIỜ trống trơn ngay khi mới bật
+        // tính năng, admin có thể ghi đè từng mục bất kỳ lúc nào qua tab "Trang landing".
+        $defaults = $this->defaultLandingSections();
+
+        $pricingPlans = collect($partner->landing_pricing_plans ?: $defaults['pricing_plans'])
+            ->map(function ($plan) {
+                // Repeater lưu "features" dạng textarea nhiều dòng (string) — bộ mặc định đã sẵn
+                // mảng PHP nên chỉ cần explode() khi giá trị thật là string (từ admin nhập).
+                $plan['features'] = is_array($plan['features'] ?? null)
+                    ? $plan['features']
+                    : array_filter(array_map('trim', explode("\n", (string) ($plan['features'] ?? ''))));
+
+                return $plan;
+            });
+
+        // 4 mẫu giao diện landing page khác nhau (đối tác/admin tự chọn qua tab "Trang landing",
+        // PartnerForm) — dùng CHUNG NGUYÊN VẸN toàn bộ dữ liệu bên dưới, chỉ khác file view/CSS
+        // hiển thị. Giá trị lạ/rỗng (dữ liệu cũ trước khi có field này) tự rơi về 'bento' (mẫu gốc),
+        // không lỗi trang trắng.
+        $templateViews = [
+            'bento'     => 'bladethemev1::pages.partner-landing',
+            'editorial' => 'bladethemev1::pages.partner-landing-editorial',
+            'minimal'   => 'bladethemev1::pages.partner-landing-minimal',
+            'split'     => 'bladethemev1::pages.partner-landing-split',
+            'neon'      => 'bladethemev1::pages.partner-landing-neon',
+            'classic'   => 'bladethemev1::pages.partner-landing-classic',
+            'playful'   => 'bladethemev1::pages.partner-landing-playful',
+        ];
+        $templateView = $templateViews[$partner->landing_template] ?? $templateViews['bento'];
+
+        return view($templateView, [
+            'seoData' => $seoData,
+            'partner' => $partner,
+            'partnerLogoUrl' => $partner->getFirstMediaUrl('landing_logo') ?: null,
+            'heroImageUrl' => $partner->getFirstMediaUrl('landing_hero_image') ?: null,
+            'heroSecondaryImageUrl' => $partner->getFirstMediaUrl('landing_hero_secondary') ?: null,
+            'faqImageUrl' => $partner->getFirstMediaUrl('landing_faq_image') ?: null,
+            'heroYoutubeId' => $this->extractYoutubeId($partner->landing_hero_video_url),
+            // Điểm đánh giá TRUNG BÌNH THẬT tính từ chính các chi nhánh của đối tác (không phải số
+            // giả trang trí) — hiển thị ở thẻ đánh giá trong banner bento (tham khảo mẫu Mona
+            // Pickleball). null nếu chưa chi nhánh nào có rating_score > 0.
+            'avgRating' => $venues->pluck('rating')->filter()->map(fn ($r) => (float) $r)->avg(),
+            'venues' => $venues,
+            'tagline' => $partner->landing_tagline ?: 'Đặt sân thể thao trực tuyến nhanh chóng, tiện lợi.',
+            'description' => $partner->landing_description,
+            'facebookUrl' => $partner->landing_facebook_url,
+            'features' => $partner->landing_features ?: $defaults['features'],
+            'services' => $this->resolveUploadImages($partner->landing_services ?: $defaults['services']),
+            'stats' => $partner->landing_stats ?: $defaults['stats'],
+            'testimonials' => $this->resolveUploadImages($partner->landing_testimonials ?: []),
+            'pricingPlans' => $pricingPlans,
+            'faqs' => $partner->landing_faqs ?: $defaults['faqs'],
+            'news' => $this->resolveUploadImages($partner->landing_news ?: []),
+            'landingColor' => $landingColor,
+            'landingColorHeavy' => $landingColorHeavy,
+            'landingColorLight' => $landingColorLight,
+            // layouts/master.blade.php luôn cần 4 biến này (dùng cho --color-primary TOÀN SITE ở
+            // <head>, không phải màu riêng của trang landing) — mọi controller render qua layout
+            // này đều phải truyền, không riêng gì trang landing (xem constructor: đã tính sẵn từ
+            // GeneralSettings->site_theme).
+            'primaryColor' => $this->primaryColor,
+            'primaryColorRgb' => $this->primaryColorRgb,
+            'heavyPrimaryColor' => $this->heavyPrimaryColor,
+            'lightPrimaryColor' => $this->lightPrimaryColor,
+        ]);
+    }
+
+    // Y hệt VenueGrid::formatHours() (trang chủ) — chuỗi "HH:MM - HH:MM" hiển thị trên thẻ chi
+    // nhánh ở trang landing, ẩn nếu chi nhánh thiếu 1 trong 2 mốc giờ.
+    private function formatBranchHours(?string $checkin, ?string $checkout): ?string
+    {
+        if (! $checkin || ! $checkout) {
+            return null;
+        }
+
+        try {
+            return substr($checkin, 0, 5) . ' - ' . substr($checkout, 0, 5);
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
+    // Tách ID video từ link YouTube dạng bất kỳ (watch?v=, youtu.be/, embed/, shorts/) để nhúng
+    // TRỰC TIẾP bằng <iframe> ngay trên trang landing (yêu cầu người dùng: "hiển thị video youtube
+    // trực tiếp luôn" — trước đây chỉ là link mở tab mới, không phải khung phát trực tiếp).
+    private function extractYoutubeId(?string $url): ?string
+    {
+        if (! $url) {
+            return null;
+        }
+
+        if (preg_match('/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/))([a-zA-Z0-9_-]{11})/', $url, $m)) {
+            return $m[1];
+        }
+
+        return null;
+    }
+
+    // Chuyển 'image' của mỗi phần tử Repeater (landing_services/testimonials/news) từ ĐƯỜNG DẪN
+    // TƯƠNG ĐỐI (Forms\Components\FileUpload thường lưu path trên disk 'public', không phải
+    // SpatieMediaLibraryFileUpload nên KHÔNG có sẵn accessor URL) sang URL đầy đủ. Bộ nội dung mặc
+    // định (defaultLandingSections()) không có ảnh (image => null) nên hàm này AN TOÀN bỏ qua,
+    // không lỗi khi thiếu key.
+    private function resolveUploadImages(array $items): array
+    {
+        return collect($items)->map(function ($item) {
+            $path = $item['image'] ?? null;
+
+            if ($path && ! str_starts_with($path, 'http://') && ! str_starts_with($path, 'https://')) {
+                $item['image'] = \Illuminate\Support\Facades\Storage::disk('public')->url($path);
+            }
+
+            return $item;
+        })->all();
+    }
+
+    // Nội dung MẶC ĐỊNH cho các khối linh hoạt của trang landing — dùng khi đối tác CHƯA tự cấu
+    // hình (landing_features/services/stats/faqs rỗng), để trang không bao giờ trống trơn ngay khi
+    // mới bật tính năng (kiểu "sườn sẵn giống WP" có demo content, admin chỉnh sửa dần sau).
+    // Testimonials/news/pricing_plans KHÔNG có bộ mặc định (rỗng thì ẩn hẳn mục đó) vì đây là nội
+    // dung mang tính "bằng chứng xã hội"/giá bán THẬT của riêng từng đối tác — hiển thị nội dung
+    // giả khi chưa cấu hình dễ gây hiểu nhầm hơn là chỉ đơn giản ẩn mục đi.
+    private function defaultLandingSections(): array
+    {
+        return [
+            'features' => [
+                ['icon' => 'heroicon-o-bolt', 'title' => 'Đặt lịch nhanh chóng', 'description' => 'Xem lịch trống theo thời gian thực, chọn khung giờ và đặt sân chỉ trong vài giây.'],
+                ['icon' => 'heroicon-o-shield-check', 'title' => 'Thanh toán an toàn', 'description' => 'Hỗ trợ nhiều phương thức thanh toán, xác nhận đơn tức thì, không lo sai lịch.'],
+                ['icon' => 'heroicon-o-map-pin', 'title' => 'Nhiều chi nhánh', 'description' => 'Dễ dàng tìm và chọn chi nhánh gần bạn nhất.'],
+                ['icon' => 'heroicon-o-clock', 'title' => 'Linh hoạt thời gian', 'description' => 'Mở cửa từ sáng sớm tới tối muộn, chủ động sắp xếp lịch chơi.'],
+            ],
+            'services' => [
+                ['image' => null, 'title' => 'Thuê sân theo giờ', 'description' => 'Đặt sân linh hoạt theo từng khung giờ phù hợp với lịch của bạn.'],
+                ['image' => null, 'title' => 'Gói thuê sân theo tuần/tháng', 'description' => 'Tiết kiệm hơn khi đăng ký thuê sân dài hạn, cố định khung giờ yêu thích.'],
+                ['image' => null, 'title' => 'Sân cho đội/nhóm', 'description' => 'Không gian rộng rãi, phù hợp tổ chức buổi tập cho cả đội.'],
+                ['image' => null, 'title' => 'Cho thuê thiết bị', 'description' => 'Đầy đủ dụng cụ thi đấu cho thuê ngay tại sân, không cần mang theo.'],
+                ['image' => null, 'title' => 'Tổ chức giải đấu', 'description' => 'Hỗ trợ tổ chức giải đấu phong trào, sự kiện thể thao quy mô nhỏ và vừa.'],
+            ],
+            'stats' => [
+                ['number' => '20+', 'label' => 'Năm kinh nghiệm'],
+                ['number' => '20+', 'label' => 'Chương trình đào tạo'],
+                ['number' => '2K+', 'label' => 'Khách hàng'],
+                ['number' => '80+', 'label' => 'Huấn luyện viên'],
+            ],
+            'faqs' => [
+                ['question' => 'Tôi có thể đặt sân trước bao lâu?', 'answer' => 'Bạn có thể đặt sân trực tuyến bất cứ lúc nào, xem lịch trống theo thời gian thực ngay trên trang.'],
+                ['question' => 'Có thể huỷ hoặc đổi lịch đặt sân không?', 'answer' => 'Vui lòng liên hệ trực tiếp qua số điện thoại hoặc Facebook để được hỗ trợ huỷ/đổi lịch.'],
+                ['question' => 'Có hỗ trợ cho thuê thiết bị không?', 'answer' => 'Một số chi nhánh có hỗ trợ cho thuê thiết bị thi đấu — vui lòng liên hệ trước khi tới sân.'],
+            ],
+            'pricing_plans' => [],
+        ];
+    }
 
     public function productDetail($slug)
     {
@@ -498,7 +854,7 @@ class BladeThemeV1Controller extends Controller
         $seoData = [
             'seo_title'       => config('app.name', '365Sport'),
             'seo_description' => 'Đặt sân thể thao theo giờ chất lượng tại 365Sport',
-            'seo_keywords'    => '365 home, đặt sân, sân theo giờ, coworking',
+            'seo_keywords'    => config('app.name') . ', đặt sân thể thao, đặt sân theo giờ, sân pickleball, sân cầu lông, sân bóng đá mini, sân tennis',
             'og_type'         => 'website',
         ];
 
@@ -535,7 +891,7 @@ class BladeThemeV1Controller extends Controller
         $seoData = [
             'seo_title'       => 'Tìm kiếm sân' . ($province ? ' tại ' . $province->name : '') . ' | 365Sport',
             'seo_description' => 'Tìm kiếm sân thể thao theo giờ chất lượng tại 365Sport.',
-            'seo_keywords'    => 'tìm kiếm sân, đặt sân, sân theo giờ, 365 home',
+            'seo_keywords'    => 'tìm kiếm sân, đặt sân, sân theo giờ, ' . config('app.name'),
             'og_type'         => 'website',
         ];
 
@@ -593,6 +949,31 @@ class BladeThemeV1Controller extends Controller
     public function accountPage()
     {
         return view('bladethemev1::pages.account.index', [
+            'primaryColor' => $this->primaryColor,
+            'primaryColorRgb' => $this->primaryColorRgb,
+            'heavyPrimaryColor' => $this->heavyPrimaryColor,
+            'lightPrimaryColor' => $this->lightPrimaryColor,
+        ]);
+    }
+
+    // Quỹ nhóm góp tiền đặt sân — xem Modules/BladeThemeV1/Livewire/BookingFund/*. Layout gốc
+    // (layouts/master.blade.php) BẮT BUỘC có $primaryColor/$primaryColorRgb — mọi page controller
+    // khác trong file này đều truyền 2 biến này, thiếu sẽ vỡ trang (bug đã gặp: 500 "Undefined
+    // variable $primaryColor" ngay lần test đầu).
+    public function bookingFundCreatePage()
+    {
+        return view('bladethemev1::pages.booking-fund.create', [
+            'primaryColor' => $this->primaryColor,
+            'primaryColorRgb' => $this->primaryColorRgb,
+            'heavyPrimaryColor' => $this->heavyPrimaryColor,
+            'lightPrimaryColor' => $this->lightPrimaryColor,
+        ]);
+    }
+
+    public function bookingFundDetailPage(string $code)
+    {
+        return view('bladethemev1::pages.booking-fund.detail', [
+            'code' => $code,
             'primaryColor' => $this->primaryColor,
             'primaryColorRgb' => $this->primaryColorRgb,
             'heavyPrimaryColor' => $this->heavyPrimaryColor,

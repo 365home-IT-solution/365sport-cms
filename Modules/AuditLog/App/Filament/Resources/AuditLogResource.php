@@ -60,9 +60,13 @@ class AuditLogResource extends Resource
     {
         $user = auth()->user();
 
-        return $user?->hasRole(config('filament-shield.super_admin.name'))
-            || $user?->can('view_audit_logs')
-            || $user?->can('view_any_audit::log');
+        if ($user?->hasRole(config('filament-shield.super_admin.name'))) {
+            return true;
+        }
+
+        $hasPermission = $user?->can('view_audit_logs') || $user?->can('view_any_audit::log');
+
+        return $hasPermission && ($user?->partnerHasFeature('audit_logs') ?? false);
     }
 
     /** Hiển thị trong navigation */

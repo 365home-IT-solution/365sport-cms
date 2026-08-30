@@ -38,6 +38,34 @@ class GeneralSettings extends Settings
     public ?array $auth_header = null; // Lưu cài đặt Đăng nhập/Đăng ký header
 
     /**
+     * Giảm giá khách quen (theo số điện thoại người mua có đơn 'paid'/'completed' trước đó) — xem
+     * ProductDetail::getLoyaltyDiscountRate(). Trước đây hard-code const trong code, giờ chỉnh
+     * được ở admin > Cấu hình web > Cài đặt chung > tab "Giảm giá khách quen".
+     *
+     * @var bool $loyalty_discount_enabled Bật/tắt tính năng.
+     * @var float $loyalty_discount_rate_2nd_order % giảm cho đơn PAID thứ 2 của cùng 1 SĐT.
+     * @var float $loyalty_discount_rate_3rd_plus % giảm cho đơn PAID thứ 3 trở đi.
+     */
+    public bool $loyalty_discount_enabled = true;
+    public float $loyalty_discount_rate_2nd_order = 10;
+    public float $loyalty_discount_rate_3rd_plus = 5;
+
+    /**
+     * Chương trình giới thiệu bạn bè — xem ZaloOtpController::register() (gán referral) và
+     * Order::booted() (phát coupon cho người giới thiệu sau đơn đầu tiên của người được giới
+     * thiệu). Chỉnh ở admin > Cấu hình web > Cài đặt chung > tab "Giới thiệu bạn bè".
+     *
+     * @var bool $referral_enabled Bật/tắt chương trình.
+     * @var float $referral_reward_referee_percent % giảm giá coupon cho người ĐƯỢC giới thiệu (cấp ngay khi đăng ký).
+     * @var float $referral_reward_referrer_percent % giảm giá coupon cho người giới thiệu (cấp sau đơn đầu tiên của người được giới thiệu).
+     * @var int $referral_reward_expiry_days Số ngày hiệu lực của coupon giới thiệu kể từ lúc cấp.
+     */
+    public bool $referral_enabled = false;
+    public float $referral_reward_referee_percent = 10;
+    public float $referral_reward_referrer_percent = 10;
+    public int $referral_reward_expiry_days = 30;
+
+    /**
      * Script injection properties
      *
      * @var ?string $header_scripts Scripts to inject into the header.

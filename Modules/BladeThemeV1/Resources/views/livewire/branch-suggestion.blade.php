@@ -28,7 +28,11 @@
                             </button>
                         </div>
                     </div>
-                    <a href="{{ $this->viewAllUrl ?? route('product.search') }}" style="display:inline-flex; align-items:center; gap:4px; margin-top:6px; font-size:13px; font-weight:600; color:#1f2937; text-decoration:underline; text-underline-offset:3px;">
+                    {{-- $this->viewAllUrl không được định nghĩa ở đâu trong BranchSuggestion.php
+                         nên luôn rơi về nhánh fallback — đổi thẳng route('map.page') (toàn bộ lọc/
+                         duyệt sân đã gộp về trang bản đồ, xem comment đầu
+                         components/home/search-bar.blade.php). --}}
+                    <a href="{{ $this->viewAllUrl ?? route('map.page') }}" style="display:inline-flex; align-items:center; gap:4px; margin-top:6px; font-size:13px; font-weight:600; color:#1f2937; text-decoration:underline; text-underline-offset:3px;">
                         Xem tất cả
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" style="width:14px; height:14px;">
                           <path fill-rule="evenodd" d="M16.72 7.72a.75.75 0 0 1 1.06 0l3.75 3.75a.75.75 0 0 1 0 1.06l-3.75 3.75a.75.75 0 1 1-1.06-1.06l2.47-2.47H3a.75.75 0 0 1 0-1.5h16.19l-2.47-2.47a.75.75 0 0 1 0-1.06Z" clip-rule="evenodd" />

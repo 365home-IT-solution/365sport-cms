@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use App\Mail\OrderNotificationMail;
 use App\Services\TelegramService;
+use App\Services\PayOSCredentialResolver;
 use Modules\BladeThemeV1\Services\AccessCode\AccessCodeService;
 use Modules\BladeThemeV1\Services\Zns\ZaloZnsService;
 use Modules\Payment\Entities\Order;
@@ -159,7 +160,7 @@ private function buildTelegramMessage(Order $order, string $status): string
             // tự kiểm tra idempotent qua status).
             if ($order->order_type === 'package_purchase') {
                 if ($order->status !== 'paid') {
-                    $payOS    = new PayOS($this->payOSClientId, $this->payOSApiKey, $this->payOSChecksumKey);
+                    $payOS    = PayOSCredentialResolver::client($order->partner);
                     $response = $payOS->getPaymentLinkInformation((int) $order->order_code);
                     if (($response['status'] ?? null) === 'PAID') {
                         $this->handlePackagePurchasePaid($order);
@@ -185,7 +186,7 @@ private function buildTelegramMessage(Order $order, string $status): string
                 );
 
             if ($isRemainingPayment) {
-                $payOS    = new PayOS($this->payOSClientId, $this->payOSApiKey, $this->payOSChecksumKey);
+                $payOS    = PayOSCredentialResolver::client($order->partner);
                 $response = $payOS->getPaymentLinkInformation((int) $order->remaining_payos_code);
                 $status   = $response['status'] ?? 'PENDING';
 
@@ -209,10 +210,10 @@ private function buildTelegramMessage(Order $order, string $status): string
                 && ($hintCode === null || (string)$hintCode === (string)$order->deposit_retry_payos_code);
 
             if ($isDepositRetry) {
-                $payOS     = new PayOS($this->payOSClientId, $this->payOSApiKey, $this->payOSChecksumKey);
+                $payOS     = PayOSCredentialResolver::client($order->partner);
                 $orderCode = (int) $order->deposit_retry_payos_code;
             } else {
-                $payOS     = new PayOS($this->payOSClientId, $this->payOSApiKey, $this->payOSChecksumKey);
+                $payOS     = PayOSCredentialResolver::client($order->partner);
                 $orderCode = (int) $order->order_code;
             }
 
@@ -306,9 +307,19 @@ private function buildTelegramMessage(Order $order, string $status): string
 
             $product = $firstItem?->product;
 
-            $this->accessCodeService->assignCodeToOrder(
-                $order->id, $categoryId, $checkinDate, $checkoutDate, $product
-            );
+            // Chặn cấp mã trùng — webhook thanh toán CÓ THỂ gọi lại nhiều lần cho cùng 1 giao dịch
+            // (PayOS/cổng thanh toán tự retry khi không nhận được response 200 kịp thời), và
+            // processWebhookStatus() không lock DB khi đọc order.status nên 2 webhook gần như đồng
+            // thời vẫn có thể cùng lọt qua bước kiểm tra "status === paid" trước khi bên nào commit
+            // xong. Nơi khác gọi assignCodeToOrder() (BankTransferConfirmationService,
+            // OrderController, OrderPaymentController) đều đã tự kiểm tra hasAccessCode() trước khi
+            // gọi — hàm này trước đây là chỗ duy nhất thiếu, có thể cấp 2 mã TTLock/tốn 2 mã nhập
+            // tay cho cùng 1 đơn.
+            if (! $order->hasAccessCode()) {
+                $this->accessCodeService->assignCodeToOrder(
+                    $order->id, $categoryId, $checkinDate, $checkoutDate, $product
+                );
+            }
 
             // FCM + WS theo loại khóa của sân
             try {
@@ -358,7 +369,7 @@ private function buildTelegramMessage(Order $order, string $status): string
                     app(\App\Services\OrderRealtimeService::class)->broadcastOrderUpdate(
                         (string) $order->order_code,
                         $wsPayload,
-                        $order->customer_id ? (int) $order->customer_id : null,
+                        $order->customer_id,
                     );
                 }
             } catch (\Throwable $e) {
@@ -388,6 +399,15 @@ private function buildTelegramMessage(Order $order, string $status): string
     private function handleRemainingPayment(Order $order): bool
     {
         try {
+            // Chặn xử lý trùng — webhook cổng thanh toán CÓ THỂ gọi lại nhiều lần cho cùng 1 giao
+            // dịch thanh toán phần còn lại (retry khi không nhận response 200 kịp thời). Trước đây
+            // hàm này không kiểm tra gì trước khi update — 2 lần gọi trùng sẽ cộng thêm tiền/gửi
+            // lại thông báo/broadcast 2 lần cho cùng 1 lần thanh toán thật.
+            if (! is_null($order->remaining_paid_at)) {
+                Log::info('handleRemainingPayment: already processed, skip', ['order_id' => $order->id]);
+                return true;
+            }
+
             // full_amount CỐ ĐỊNH = tổng giá thật từ lúc tạo đơn (không tính ngược từ tiền cọc
             // nữa). extra_charge_amount = khoản phát sinh cộng thêm vào tổng thực thu cuối cùng.
             $extraCharge = (int) ($order->extra_charge_amount ?? 0);
@@ -428,7 +448,7 @@ private function buildTelegramMessage(Order $order, string $status): string
                 app(\App\Services\OrderRealtimeService::class)->broadcastOrderUpdate(
                     (string) $order->order_code,
                     ['status' => 'paid', 'remaining_paid_at' => now()->toISOString()],
-                    $order->customer_id ? (int) $order->customer_id : null,
+                    $order->customer_id,
                 );
             } catch (\Throwable $e) {
                 Log::warning('handleRemainingPayment: broadcastOrderUpdate failed', ['order_id' => $order->id, 'error' => $e->getMessage()]);
@@ -469,15 +489,19 @@ private function buildTelegramMessage(Order $order, string $status): string
             ]);
 
             $webhookData = $request->all();
+            $data        = $webhookData['data'] ?? $webhookData;
+            $orderCode   = $data['orderCode'] ?? null;
+            $status      = $data['status'] ?? null;
 
-            if (!$this->verifyWebhookSignature($request)) {
+            // Tra ĐÚNG checksum key để xác minh chữ ký — nếu đơn/mã webhook này thuộc về đối tác đã
+            // tự cấu hình PayOS riêng (Partner::hasPayosConfigured()) thì PHẢI dùng checksum của
+            // CHÍNH đối tác đó (PayOS ký bằng checksum của tài khoản merchant đã tạo link thanh
+            // toán, không phải checksum chung của nền tảng) — không tìm được đơn (mã lạ/test) thì
+            // coi như dùng checksum CHUNG như hành vi cũ.
+            if (!$this->verifyWebhookSignature($request, $this->resolveWebhookChecksumKey($orderCode))) {
                 Log::error('PayOS Webhook signature verification failed');
                 return response()->json(['error' => 'Invalid signature'], 401);
             }
-
-            $data      = $webhookData['data'] ?? $webhookData;
-            $orderCode = $data['orderCode'] ?? null;
-            $status    = $data['status'] ?? null;
 
             if (!$orderCode) {
                 Log::error('PayOS Webhook: No orderCode provided', ['data' => $webhookData]);
@@ -620,7 +644,7 @@ private function buildTelegramMessage(Order $order, string $status): string
     // VERIFY WEBHOOK SIGNATURE
     // =========================================================
 
-    private function verifyWebhookSignature(Request $request): bool
+    private function verifyWebhookSignature(Request $request, ?string $checksumKey = null): bool
     {
         try {
             $receivedSignature = $request->input('signature');
@@ -639,17 +663,52 @@ private function buildTelegramMessage(Order $order, string $status): string
             }
             $hashStr = rtrim($hashStr, '&');
 
-            // Thử với key chính trước, sau đó thử key cọc (deposit PayOS có checksum khác)
-            $expectedMain    = hash_hmac('sha256', $hashStr, $this->payOSChecksumKey);
-            $expectedDeposit = hash_hmac('sha256', $hashStr, $this->payOSChecksumKey);
+            $key = $checksumKey ?? $this->payOSChecksumKey;
 
-            return hash_equals($expectedMain, $receivedSignature)
-                || hash_equals($expectedDeposit, $receivedSignature);
+            // KHÔNG được tính hash với key rỗng — nếu cấu hình PayOS (bảng payment_configs) chưa
+            // được tạo/điền, $key có thể là null/rỗng, khi đó hash_hmac('sha256', $hashStr, '')
+            // cho ra 1 kết quả CỐ ĐỊNH mà bất kỳ ai cũng tự tính lại được (không cần biết bí mật
+            // nào) — kẻ tấn công có thể tự ký request rồi POST giả webhook để đánh dấu đơn "đã
+            // thanh toán" miễn phí. So sánh khác SePayWebhookController::isAuthentic() (đã có sẵn
+            // guard này) — thêm cho khớp, phòng vệ theo chiều sâu dù bình thường $key luôn được
+            // seed sẵn.
+            if (! $key) {
+                Log::warning('PayOS Webhook: checksum key rỗng/chưa cấu hình — từ chối webhook (an toàn hơn tiện lợi)');
+                return false;
+            }
+
+            $expected = hash_hmac('sha256', $hashStr, $key);
+
+            return hash_equals($expected, $receivedSignature);
 
         } catch (\Exception $e) {
             Log::error('Signature verification error', ['error' => $e->getMessage()]);
             return false;
         }
+    }
+
+    // Tìm checksum key ĐÚNG đối tác cho 1 mã webhook — thử LẦN LƯỢT tất cả cột mã PayOS có thể
+    // khớp (giống hệt thứ tự dò tìm đơn hàng ở handlePayOSWebhook() bên trên, chỉ để xác định
+    // PARTNER trước khi verify chữ ký, không xử lý nghiệp vụ). Không tìm được đơn nào (mã lạ/test
+    // webhook) → null, verifyWebhookSignature() tự dùng checksum CHUNG của nền tảng như cũ.
+    private function resolveWebhookChecksumKey(?string $orderCode): ?string
+    {
+        if (!$orderCode) {
+            return null;
+        }
+
+        $order = Order::where('order_code', $orderCode)
+            ->orWhere('current_payos_code', $orderCode)
+            ->orWhere('remaining_payos_code', $orderCode)
+            ->orWhere('deposit_retry_payos_code', $orderCode)
+            ->orWhere('extra_charge_payos_code', $orderCode)
+            ->first();
+
+        if (!$order || !$order->partner || !$order->partner->hasPayosConfigured()) {
+            return null;
+        }
+
+        return PayOSCredentialResolver::resolve($order->partner)['checksum_key'];
     }
 
     // =========================================================
@@ -774,31 +833,19 @@ private function buildTelegramMessage(Order $order, string $status): string
 
         $order->update(['status' => 'paid']);
 
-        $plan = \App\Models\PackagePlan::find($order->package_plan_id);
-        if (! $plan) {
+        // Logic tạo CustomerPackage DÙNG CHUNG với đường chuyển khoản ngân hàng (xem
+        // App\Models\CustomerPackage::activateFromOrder() — trước đây chỉ nằm ở đây, tách ra dùng
+        // chung khi thêm phương thức chuyển khoản cho mua gói).
+        $package = \App\Models\CustomerPackage::activateFromOrder($order);
+        if (! $package) {
             Log::error('handlePackagePurchasePaid: package plan not found', [
                 'order_id' => $order->id, 'package_plan_id' => $order->package_plan_id,
             ]);
             return true; // Đơn vẫn đánh dấu paid (đã thu tiền thật) — admin xử lý thủ công nếu plan bị xoá giữa chừng.
         }
 
-        \App\Models\CustomerPackage::create([
-            'package_plan_id'    => $plan->id,
-            'buyer_phone'        => $order->buyer_phone,
-            'buyer_name'         => $order->buyer_name,
-            'product_id'         => $plan->product_id,
-            'name'               => $plan->name,
-            'sessions_total'     => $plan->sessions_count,
-            'sessions_remaining' => $plan->sessions_count,
-            'price_paid'         => (int) $order->amount,
-            'purchased_at'       => now(),
-            'expires_at'         => $plan->validity_days ? now()->addDays($plan->validity_days) : null,
-            'sale_channel'       => 'online',
-            'order_id'           => $order->id,
-        ]);
-
         Log::info('Package purchase activated', [
-            'order_id' => $order->id, 'package_plan_id' => $plan->id, 'buyer_phone' => $order->buyer_phone,
+            'order_id' => $order->id, 'package_plan_id' => $package->package_plan_id, 'buyer_phone' => $order->buyer_phone,
         ]);
 
         return true;
@@ -952,7 +999,7 @@ private function buildTelegramMessage(Order $order, string $status): string
             $remainingCode = (int) (intval(substr(strval(microtime(true) * 10000), -6)) . rand(10, 99));
 
             // Dùng PayOS thứ 2 cho thanh toán tiền còn lại (fallback về PayOS chính nếu chưa cấu hình)
-            $payOS = new PayOS($this->payOSClientId, $this->payOSApiKey, $this->payOSChecksumKey);
+            $payOS = PayOSCredentialResolver::client($order->partner);
 
             $expiredAt = now()->addMinutes(30)->timestamp;
 

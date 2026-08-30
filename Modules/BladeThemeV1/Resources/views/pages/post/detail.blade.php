@@ -3,7 +3,8 @@
 <x-bladethemev1::seo :seoData="$seoData"/>
 
 @section('content')
-    @livewire('bladethemev1::header')
+    <x-bladethemev1::home.top-bar />
+    <x-bladethemev1::home.search-bar />
     @livewire('bladethemev1::drawer-menu')
     @livewire('bladethemev1::breadcrumb', ['slug' => $slug, 'name' => $name])
     @livewire('bladethemev1::post-detail', ['slug' => $slug])

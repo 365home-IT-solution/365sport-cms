@@ -58,6 +58,13 @@ class Handler extends ExceptionHandler
         $this->reportable(function (Throwable $e) {
             if ($this->shouldReport($e)) {
                 FilamentExceptions::report($e);
+
+                // Theo dõi lỗi ra ngoài (Sentry) — chỉ gửi khi đã cấu hình SENTRY_LARAVEL_DSN
+                // trong .env (chưa có DSN thì bỏ qua, không lỗi gì cả). Trước đây lỗi chỉ nằm
+                // trong log file/FilamentExceptions, không ai được cảnh báo chủ động.
+                if (config('sentry.dsn') && app()->bound('sentry')) {
+                    app('sentry')->captureException($e);
+                }
             }
         });
     }

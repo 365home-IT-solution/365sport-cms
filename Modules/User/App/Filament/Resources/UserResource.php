@@ -26,6 +26,13 @@ class UserResource extends Resource
 
     protected static ?string $recordTitleAttribute = 'name';
 
+    // Tài khoản nhân viên bị khoá theo gói dịch vụ đối tác — không ảnh hưởng super_admin (luôn
+    // true, xem User::partnerHasFeature()) nên super_admin vẫn quản lý User bình thường.
+    public static function canViewAny(): bool
+    {
+        return parent::canViewAny() && (auth()->user()?->partnerHasFeature('staff_accounts') ?? false);
+    }
+
     public static function getNavigationIcon(): string
     {
         return __('user::user.resource.navigation_icon');

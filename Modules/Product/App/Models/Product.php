@@ -99,6 +99,11 @@ class Product extends Model implements HasMedia, Resourceable
         return $this->morphToMany(Category::class, 'categorizable');
     }
 
+    public function partner()
+    {
+        return $this->belongsTo(\App\Models\Partner::class);
+    }
+
     public function comments()
     {
         return $this->morphMany(Comment::class, 'commentable');

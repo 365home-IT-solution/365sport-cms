@@ -15,7 +15,10 @@
                     </h2>
                     {{-- <span style="font-size:12px; color:#9ca3af;">({{ $section['count'] }} sân)</span> --}}
                 </div>
-                <a href="{{ route('product.search') }}?type={{ $section['slug'] ?? '' }}"
+                {{-- route('map.page') — toàn bộ lọc/duyệt sân đã gộp về trang bản đồ, xem comment
+                     đầu components/home/search-bar.blade.php. type= vẫn được MapPage::mount() đọc
+                     và lọc đúng như trước. --}}
+                <a href="{{ route('map.page') }}?type={{ $section['slug'] ?? '' }}"
                     style="font-size:13px; font-weight:600; color:#0f766e; text-decoration:none; display:flex; align-items:center; gap:3px; white-space:nowrap; flex-shrink:0;">
                     Xem tất cả
                     <svg style="width:14px;height:14px;" fill="none" stroke="currentColor" viewBox="0 0 24 24">

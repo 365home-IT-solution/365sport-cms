@@ -52,6 +52,25 @@ function createRoutes(array $pages, string $prefix = ''): void
 }
 } // end if !function_exists('createRoutes')
 
+// Landing page RIÊNG theo subdomain đối tác (vd mamble.365sport-cms.test) — 1 giao diện DUY NHẤT
+// dùng chung cho mọi đối tác, chỉ đổi DỮ LIỆU theo {partnerSlug} (xem
+// BladeThemeV1Controller::partnerLandingPage()). Domain tính động từ APP_URL (không hardcode
+// ".test") để hoạt động đúng khi lên domain thật — production cần DNS wildcard (*.example.com) +
+// SSL wildcard trỏ về ĐÚNG server này (xem ghi chú triển khai đã trao đổi với người dùng). Route
+// domain() chỉ khớp khi URL CÓ subdomain — request vào domain gốc (không có {partnerSlug}) tự
+// động rơi xuống các route bên dưới như bình thường, không xung đột.
+$publicSiteHost = parse_url((string) config('app.url'), PHP_URL_HOST) ?: request()->getHost();
+
+// Loại trừ "www" khỏi {partnerSlug} — nginx vhost hiện tại coi www.365sport-cms.test là 1 cách gọi
+// hợp lệ khác của domain CHÍNH (xem server_name), không phải subdomain đối tác. Không loại trừ thì
+// www sẽ bị route này "cướp" mất (khớp {partnerSlug}='www', 404 vì không có đối tác nào slug
+// 'www'), thay vì rơi xuống route trang chủ bình thường bên dưới.
+Route::domain('{partnerSlug}.' . $publicSiteHost)
+    ->where(['partnerSlug' => '(?!www$)[a-z0-9-]+'])
+    ->group(function () {
+        Route::get('/', [BladeThemeV1Controller::class, 'partnerLandingPage'])->name('partner.landing');
+    });
+
 $menus = ThemeCache::menuForRoutes();
 
 if ($menus->isNotEmpty()) {
@@ -96,10 +115,21 @@ Route::get('/thong-tin-dat-phong/{code}', [BladeThemeV1Controller::class, 'booki
 // wire:click; account-page.blade.php (Livewire) gọi thẳng AccountPage::cancelOrder() không qua
 // route này.
 Route::post('/thong-tin-dat-phong/{code}/huy', [BladeThemeV1Controller::class, 'cancelBooking'])->name('booking.cancel');
+// Upload ảnh biên lai chuyển khoản thủ công — xem BladeThemeV1Controller::uploadPaymentProof(),
+// pages/booking-detail.blade.php (form POST thường, cùng pattern với booking.cancel ở trên).
+Route::post('/thong-tin-dat-phong/{code}/xac-nhan-chuyen-khoan', [BladeThemeV1Controller::class, 'uploadPaymentProof'])->name('booking.upload-payment-proof');
 Route::get('/tai-khoan', [BladeThemeV1Controller::class, 'accountPage'])->name('account.page');
+// Quỹ nhóm góp tiền đặt sân — /quy-nhom/tao-moi TRƯỚC /quy-nhom/{code} (route cụ thể hơn phải khai
+// báo trước, nếu không "tao-moi" sẽ bị route {code} nuốt mất do khớp trước).
+Route::get('/quy-nhom/tao-moi', [BladeThemeV1Controller::class, 'bookingFundCreatePage'])->name('booking-fund.create');
+Route::get('/quy-nhom/{code}', [BladeThemeV1Controller::class, 'bookingFundDetailPage'])->name('booking-fund.detail');
 Route::get('/yeu-thich', [BladeThemeV1Controller::class, 'favoritesPage'])->name('favorites.page');
 Route::get('/dang-nhap', [BladeThemeV1Controller::class, 'loginPage'])->name('login.page');
+Route::get('/dang-ky', [BladeThemeV1Controller::class, 'registerPage'])->name('register.page');
+Route::get('/ban-do', [BladeThemeV1Controller::class, 'mapPage'])->name('map.page');
+Route::get('/kham-pha', [BladeThemeV1Controller::class, 'explorePage'])->name('explore.page');
 Route::get('/tin-tuc', [BladeThemeV1Controller::class, 'postsPage'])->name('posts.page');
+Route::get('/lam-doi-tac', [BladeThemeV1Controller::class, 'partnerPage'])->name('partner.page');
 // routes/web.php
 Route::get('/theme.css', function () {
     $theme = ThemeCache::generalSettings()->site_theme;

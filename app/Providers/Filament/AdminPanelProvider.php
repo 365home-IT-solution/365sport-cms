@@ -45,8 +45,10 @@ use Modules\Page\App\Filament\PagePlugin;
 use Modules\Post\App\Filament\PostPlugin;
 use Modules\Product\App\Filament\ProductPlugin;
 use Modules\Tag\App\Filament\TagPlugin;
+use Modules\Employee\App\Filament\EmployeePlugin;
 use Modules\ThemeSetting\App\Filament\ThemePlugin;
 use Modules\User\App\Filament\UserPlugin;
+use Modules\Warehouse\App\Filament\WarehousePlugin;
 use TomatoPHP\FilamentMediaManager\FilamentMediaManagerPlugin;
 use App\Filament\Pages\Auth\Login;
 use App\Filament\Pages\Auth\RequestPasswordReset;
@@ -167,6 +169,8 @@ class AdminPanelProvider extends PanelProvider
                 AppPagePlugin::make(),
                 AuditLogPlugin::make(),
                 TTLockPlugin::make(),
+                WarehousePlugin::make(),
+                EmployeePlugin::make(),
             ])
             // ->spa()
             ->maxContentWidth('full')

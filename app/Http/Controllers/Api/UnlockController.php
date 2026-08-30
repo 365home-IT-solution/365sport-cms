@@ -208,13 +208,13 @@ class UnlockController extends Controller
                 $order->order_code,
                 $isCheckin ? 'checkin' : 'checkout',
                 $checkedInAt,
-                $order->customer_id ? (int) $order->customer_id : null,
+                $order->customer_id,
             );
 
             $this->realtime->broadcastOrderUpdate(
                 $order->order_code,
                 ['order_status' => $order->order_status, 'payment_status' => $order->payment_status],
-                $order->customer_id ? (int) $order->customer_id : null,
+                $order->customer_id,
             );
 
             $this->notifyUnlock($order, $product, $item, $accessCode, $isCheckin);
