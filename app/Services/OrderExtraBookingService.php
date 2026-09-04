@@ -251,7 +251,8 @@ class OrderExtraBookingService
 
         $order->refresh();
 
-        $diff = $this->extraCharge->calculateDiff($order, $oldGuestCount, $oldServicesTotal) + $roomAddedFinalPrice;
+        // calculateDiff() already includes the order items created above.
+        $diff = $this->extraCharge->calculateDiff($order);
 
         if ($roomAddition) {
             if ($roomAddedType === 'slot') {

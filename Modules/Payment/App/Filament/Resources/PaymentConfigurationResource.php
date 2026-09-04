@@ -20,7 +20,12 @@ class PaymentConfigurationResource extends Resource
     }
     public static function getNavigationGroup(): ?string
     {
-        return __('payment::payment-configuration.resource.navigation_group');
+        return 'Cấu hình web';
+    }
+
+    public static function getNavigationSort(): ?int
+    {
+        return 4;
     }
 
     public static function getNavigationLabel(): string

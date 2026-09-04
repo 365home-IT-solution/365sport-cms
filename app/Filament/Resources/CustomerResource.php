@@ -48,7 +48,7 @@ class CustomerResource extends Resource
     protected static ?string $navigationLabel  = 'Khách hàng';
     protected static ?string $modelLabel       = 'Khách hàng';
     protected static ?string $pluralModelLabel = 'Khách hàng';
-    protected static ?int    $navigationSort   = 20;
+    protected static ?int    $navigationSort   = 1;
 
     // Trước đây hardcode isSuperAdmin() — bỏ qua CustomerPolicy (đã đúng, kiểm tra
     // view_any_customer), khiến tick/bỏ tick quyền này ở Roles & Permissions vô tác dụng.
@@ -152,6 +152,13 @@ class CustomerResource extends Resource
                             ->label('Tổng chi tiêu')
                             ->numeric()
                             ->suffix('VNĐ'),
+
+                        // Chỉ hiển thị, không sửa tay ở form — số này chỉ tăng tự động qua
+                        // Order::markNoShow() (action "Đánh dấu không đến" ở OrderTable.php).
+                        Placeholder::make('no_show_count_display')
+                            ->label('Số lần không đến nhận sân')
+                            ->content(fn (?Customer $record) => $record ? (string) $record->no_show_count . ' lần' : '—')
+                            ->hiddenOn('create'),
 
                         Placeholder::make('personal_coupons_display')
                             ->label('Mã giảm giá thành viên')
@@ -348,6 +355,15 @@ class CustomerResource extends Resource
                 TextColumn::make('total_spending')
                     ->label('Chi tiêu')
                     ->money('VND')
+                    ->sortable(),
+
+                // Số lần bị đánh dấu "không đến" (Order::markNoShow()) — xem migration
+                // 2026_09_03_000003_add_no_show_count_to_customers_table. Chỉ hiển thị tham khảo,
+                // KHÔNG tự động hạn chế/khoá gì dù số này cao (chưa xây, xem ghi chú trong migration).
+                TextColumn::make('no_show_count')
+                    ->label('Không đến')
+                    ->badge()
+                    ->color(fn (int $state) => $state > 0 ? 'danger' : 'gray')
                     ->sortable(),
 
                 TextColumn::make('created_at')

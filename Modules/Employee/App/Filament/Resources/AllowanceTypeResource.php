@@ -22,11 +22,19 @@ class AllowanceTypeResource extends Resource
 
     protected static ?string $navigationGroup = 'Quản lý';
 
+    protected static ?int $navigationSort = 5;
+
     protected static ?string $navigationLabel = 'Loại phụ cấp';
 
     protected static ?string $modelLabel = 'Loại phụ cấp';
 
     protected static ?string $pluralModelLabel = 'Loại phụ cấp';
+
+    // Ẩn khỏi menu theo yêu cầu — vẫn tạo/sửa được qua nút "+" trong tab "Lương" của form Nhân viên.
+    public static function shouldRegisterNavigation(): bool
+    {
+        return false;
+    }
 
     public static function form(Form $form): Form
     {

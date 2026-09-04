@@ -23,7 +23,12 @@ class AppPageResource extends Resource
 
     public static function getNavigationGroup(): ?string
     {
-        return 'Quản lý API';
+        return 'Cấu hình web';
+    }
+
+    public static function getNavigationSort(): ?int
+    {
+        return 6;
     }
 
     public static function getNavigationLabel(): string

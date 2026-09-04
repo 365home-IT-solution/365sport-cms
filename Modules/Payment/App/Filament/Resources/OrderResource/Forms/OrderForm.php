@@ -75,55 +75,6 @@ class OrderForm
                                         Grid::make(1)
                                             ->columnSpan(1)
                                             ->schema([
-                                                // Không bọc Section riêng nữa (bỏ khung/tiêu đề "Mã cổng") — nội dung
-                                                // access-code-info.blade.php đã tự có khung gradient riêng, bọc thêm
-                                                // Section chỉ tạo ra khung lồng khung không cần thiết.
-                                                Placeholder::make('access_code_info')
-                                                    ->label('')
-                                                    ->visible(fn($record) => self::hasAccessCodeSection($record))
-                                                    ->content(function ($record) {
-                                                        if (!$record) {
-                                                            return 'Chưa có mã cổng';
-                                                        }
-
-                                                        $product = $record->items->sortBy('checkin_date')->first()?->product;
-
-                                                        // Sân khóa THỦ CÔNG — chi nhánh không có TTLock nên KHÔNG tra
-                                                        // accessCodes (bảng đó luôn rỗng cho case này), thay thế bằng
-                                                        // ManualLockPassword::getForProductAndDate(). Mốc $referenceDate
-                                                        // PHẢI là thời điểm đơn được CHỐT (paid_at/deposit_paid_at/
-                                                        // created_at) — CÙNG mốc dùng ở assignAccessCode action
-                                                        // (EditOrder.php) — KHÔNG dùng checkin_date/now(), nếu không mật
-                                                        // khẩu hiển thị sẽ đổi qua ngày khác mỗi lần admin mở lại đơn
-                                                        // (xem docblock ManualLockPassword::getForProductAndDate()).
-                                                        if ($product && $product->has_manual_lock) {
-                                                            $pwdAnchorDate = $record->paid_at ?? $record->deposit_paid_at ?? $record->created_at;
-                                                            $manualPwd = \Modules\Product\App\Models\ManualLockPassword::getForProductAndDate($product, $pwdAnchorDate);
-
-                                                            return view('payment::components.manual-lock-info', [
-                                                                'manualPwd' => $manualPwd,
-                                                                'order' => $record,
-                                                            ]);
-                                                        }
-
-                                                        $record->load('accessCodes');
-
-                                                        $code = $record->accessCodes->first();
-                                                        if (!$code) {
-                                                            return new \Illuminate\Support\HtmlString(
-                                                                '<div class="flex items-center gap-2 text-warning-600 font-medium">'
-                                                                . '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M12 3a9 9 0 100 18A9 9 0 0012 3z"/></svg>'
-                                                                . 'Chưa có mã cổng — Nhấn nút <strong>Gán mã cổng</strong> ở đầu trang để gán.'
-                                                                . '</div>'
-                                                            );
-                                                        }
-
-                                                        return view('payment::components.access-code-info', [
-                                                            'code' => $code,
-                                                            'order' => $record,
-                                                        ]);
-                                                    }),
-
                                                 self::buildPaymentTimelineSection(),
                                             ]),
 
@@ -226,6 +177,14 @@ class OrderForm
                                                                 'required' => 'Vui lòng nhập số điện thoại',
                                                                 'regex' => 'Số điện thoại không đúng định dạng (10-11 số)'
                                                             ]),
+
+                                                        // Tên đội/nhóm — tuỳ chọn, dùng khi khách đặt sân theo dạng đội/nhóm
+                                                        // (vd giải đấu nội bộ, CLB) thay vì chỉ 1 khách lẻ.
+                                                        TextInput::make('team_name')
+                                                            ->label('Tên đội/nhóm')
+                                                            ->placeholder('VD: Đội bóng ABC (không bắt buộc)')
+                                                            ->nullable()
+                                                            ->maxLength(255),
 
                                                         Textarea::make('description')
                                                             ->label(__('payment::order.form.label.description'))
@@ -331,36 +290,6 @@ class OrderForm
                                                                                 'Đơn #' . $record->order_code
                                                                             );
 
-                                                                            if ($state === 'paid' && !$record->hasAccessCode()) {
-                                                                                try {
-                                                                                    $record->load('items');
-                                                                                    $firstItem = $record->items->sortBy('checkin_date')->first();
-                                                                                    $checkinDate  = $record->items->min('checkin_date');
-                                                                                    $checkoutDate = $record->items->max('checkout_date');
-                                                                                    $product      = $firstItem?->product;
-
-                                                                                    /** @var \Modules\BladeThemeV1\Services\AccessCode\AccessCodeService $service */
-                                                                                    $service = app(\Modules\BladeThemeV1\Services\AccessCode\AccessCodeService::class);
-                                                                                    $service->assignCodeToOrder(
-                                                                                        $record->id,
-                                                                                        $record->category_id,
-                                                                                        $checkinDate,
-                                                                                        $checkoutDate,
-                                                                                        $product,
-                                                                                    );
-
-                                                                                    \Filament\Notifications\Notification::make()
-                                                                                        ->title('Đã gán mã cổng thành công')
-                                                                                        ->success()
-                                                                                        ->send();
-                                                                                } catch (\Exception $e) {
-                                                                                    \Filament\Notifications\Notification::make()
-                                                                                        ->title('Không thể gán mã cổng')
-                                                                                        ->body($e->getMessage())
-                                                                                        ->warning()
-                                                                                        ->send();
-                                                                                }
-                                                                            }
                                                                         }
                                                                     }),
 
@@ -1370,7 +1299,7 @@ class OrderForm
                                                 ->icon('heroicon-o-banknotes')
                                                 ->requiresConfirmation()
                                                 ->modalHeading('Xác nhận thu tiền mặt')
-                                                ->modalDescription('Xác nhận đã thu tiền mặt phần còn lại. Đơn sẽ được cập nhật "Đã thanh toán đầy đủ" và cấp mã truy cập cho khách.')
+                                                ->modalDescription('Xác nhận đã thu tiền mặt phần còn lại. Đơn sẽ được cập nhật "Đã thanh toán đầy đủ".')
                                                 ->modalSubmitActionLabel('Xác nhận')
                                                 ->action(function ($record) {
                                                     if (! $record) return;
@@ -1385,17 +1314,6 @@ class OrderForm
                                                             'remaining_payment_method' => 'cash',
                                                         ]);
 
-                                                        $record->load('items.product');
-                                                        $firstItem    = $record->items->sortBy('checkin_date')->first();
-                                                        $checkinDate  = $record->items->min('checkin_date');
-                                                        $checkoutDate = $record->items->max('checkout_date');
-                                                        $product      = $firstItem?->product;
-
-                                                        if (! $record->hasAccessCode()) {
-                                                            app(\Modules\BladeThemeV1\Services\AccessCode\AccessCodeService::class)
-                                                                ->assignCodeToOrder($record->id, $record->category_id, $checkinDate, $checkoutDate, $product);
-                                                        }
-
                                                         AuditLogger::log(
                                                             'update', 'Order', $record,
                                                             ['status' => 'deposit', 'remaining_payment_method' => null],
@@ -1405,7 +1323,7 @@ class OrderForm
 
                                                         Notification::make()
                                                             ->success()
-                                                            ->title('Đã xác nhận thanh toán và cấp mã truy cập')
+                                                            ->title('Đã xác nhận thanh toán')
                                                             ->send();
 
                                                     } catch (\Throwable $e) {
@@ -1419,7 +1337,7 @@ class OrderForm
                                                 ->icon('heroicon-o-credit-card')
                                                 ->requiresConfirmation()
                                                 ->modalHeading('Xác nhận đã chuyển khoản')
-                                                ->modalDescription('Xác nhận khách đã chuyển khoản thành công phần còn lại. Đơn sẽ được cập nhật "Đã thanh toán đầy đủ" và cấp mã truy cập cho khách.')
+                                                ->modalDescription('Xác nhận khách đã chuyển khoản thành công phần còn lại. Đơn sẽ được cập nhật "Đã thanh toán đầy đủ".')
                                                 ->modalSubmitActionLabel('Xác nhận')
                                                 ->action(function ($record) {
                                                     if (! $record) return;
@@ -1432,17 +1350,6 @@ class OrderForm
                                                             'remaining_payment_method' => 'bank_transfer',
                                                         ]);
 
-                                                        $record->load('items.product');
-                                                        $firstItem    = $record->items->sortBy('checkin_date')->first();
-                                                        $checkinDate  = $record->items->min('checkin_date');
-                                                        $checkoutDate = $record->items->max('checkout_date');
-                                                        $product      = $firstItem?->product;
-
-                                                        if (! $record->hasAccessCode()) {
-                                                            app(\Modules\BladeThemeV1\Services\AccessCode\AccessCodeService::class)
-                                                                ->assignCodeToOrder($record->id, $record->category_id, $checkinDate, $checkoutDate, $product);
-                                                        }
-
                                                         AuditLogger::log(
                                                             'update', 'Order', $record,
                                                             ['status' => 'deposit', 'remaining_payment_method' => null],
@@ -1452,7 +1359,7 @@ class OrderForm
 
                                                         Notification::make()
                                                             ->success()
-                                                            ->title('Đã xác nhận chuyển khoản và cấp mã truy cập')
+                                                            ->title('Đã xác nhận chuyển khoản')
                                                             ->send();
 
                                                     } catch (\Throwable $e) {
@@ -3006,34 +2913,6 @@ class OrderForm
 
                         return new \Illuminate\Support\HtmlString($html);
                     });
-    }
-
-    // "Mã cổng" chỉ hiện khi đơn đã 'paid' VÀ sân không dùng khóa thủ công VÀ chi nhánh của sân
-    // đó CÒN tài khoản TTLock đang hoạt động (không có ttlock thì không thể cấp/hiện mã cổng thật sự
-    // nào). Khi false, cột mã cổng không còn trống hẳn nữa — vẫn còn Lịch sử thanh toán ở đó (xem
-    // buildPaymentTimelineSection()), nên "Thông tin khách hàng" cạnh nó giữ nguyên columnSpan(4).
-    private static function hasAccessCodeSection($record): bool
-    {
-        if (! $record || $record->status !== 'paid') {
-            return false;
-        }
-
-        $product = $record->items->sortBy('checkin_date')->first()?->product;
-
-        if (! $product) {
-            return false;
-        }
-
-        // Sân khóa THỦ CÔNG (has_manual_lock) — chi nhánh không có tài khoản TTLock nên
-        // KHÔNG có gì để tra ở bảng access_codes/TTLockService, thay vào đó luôn hiện khung này
-        // để hiển thị mật khẩu thủ công (xem manual-lock-info.blade.php bên dưới) — trước đây
-        // return false luôn cho case này, khiến cả khung "Mã cổng" biến mất hoàn toàn, không có
-        // gì thay thế cho khách/nhân viên xem lại mật khẩu.
-        if ($product->has_manual_lock) {
-            return true;
-        }
-
-        return \App\Services\TTLockService::hasAccountForCategory($record->category_id);
     }
 
     // super_admin và nhân viên đối tác NỀN TẢNG (vd 365home) đặt sân hộ mọi đối tác — cần chọn

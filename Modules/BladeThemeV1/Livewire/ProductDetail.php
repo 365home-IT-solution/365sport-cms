@@ -632,17 +632,24 @@ class ProductDetail extends Component
             return collect();
         }
 
-        $categoryIds = $this->product->categories->pluck('id');
+        $categoryIds = $this->product->categories->pluck('id')->all();
+        $productId   = $this->product->id;
 
+        // Lấy trước tập ỨNG VIÊN rộng bằng SQL rồi lọc lại chính xác qua
+        // PackagePlan::appliesToProduct() — cùng lý do/cách làm với Book::getAvailablePackagePlans()
+        // (nhánh "category_id khớp nhưng product_ids thu hẹp về 1 số sân cụ thể" không lọc gọn được
+        // trong 1 câu SQL, xem migration add_product_ids_to_package_tables).
         return \App\Models\PackagePlan::where('is_active', true)
-            ->where(function ($q) use ($categoryIds) {
-                $q->where('product_id', $this->product->id);
-                if ($categoryIds->isNotEmpty()) {
+            ->where(function ($q) use ($productId, $categoryIds) {
+                $q->where('product_id', $productId);
+                if (! empty($categoryIds)) {
                     $q->orWhereIn('category_id', $categoryIds);
                 }
             })
             ->orderBy('sessions_count')
-            ->get();
+            ->get()
+            ->filter(fn (\App\Models\PackagePlan $plan) => $plan->appliesToProduct($productId, $categoryIds))
+            ->values();
     }
 
     /**
@@ -656,14 +663,11 @@ class ProductDetail extends Component
     public function buyPackage(int $planId)
     {
         $plan = \App\Models\PackagePlan::find($planId);
-        // Hợp lệ nếu ĐÚNG sân đang xem (product_id khớp) HOẶC gói cả chi nhánh mà sân đang xem
-        // thuộc về (category_id khớp 1 trong các chi nhánh của sân — xem
-        // getAvailablePackagePlans()) — chặn khách sửa tay planId để mua gói của sân/chi nhánh
-        // khác qua trang này.
-        $matchesScope = $plan && $this->product && (
-            $plan->product_id === $this->product->id
-            || ($plan->category_id && $this->product->categories->pluck('id')->contains($plan->category_id))
-        );
+        // Hợp lệ nếu ĐÚNG sân đang xem thuộc phạm vi gói (1 sân cụ thể / một số sân trong chi
+        // nhánh / cả chi nhánh — xem PackagePlan::appliesToProduct()) — chặn khách sửa tay planId
+        // để mua gói của sân/chi nhánh khác qua trang này.
+        $matchesScope = $plan && $this->product
+            && $plan->appliesToProduct($this->product->id, $this->product->categories->pluck('id')->all());
         if (! $plan || ! $plan->is_active || ! $matchesScope) {
             $this->dispatch('notify', ['message' => 'Gói không còn tồn tại hoặc đã ngừng bán.', 'type' => 'error']);
             return;

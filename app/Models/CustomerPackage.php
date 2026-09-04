@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Models\Concerns\BelongsToPartner;
+use App\Models\Concerns\LogsAuditTrail;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\DB;
 use Modules\Category\Entities\Category;
 use Modules\Payment\Entities\Order;
 use Modules\Payment\Entities\OrderItem;
@@ -19,7 +21,7 @@ use Modules\Product\App\Models\Product;
 // sân thuộc 1 chi nhánh) — xem migration add_category_scope_to_package_tables.
 class CustomerPackage extends Model
 {
-    use BelongsToPartner;
+    use BelongsToPartner, LogsAuditTrail;
 
     protected $fillable = [
         'package_plan_id',
@@ -29,6 +31,7 @@ class CustomerPackage extends Model
         'buyer_name',
         'product_id',
         'category_id',
+        'product_ids',
         'name',
         'sessions_total',
         'sessions_remaining',
@@ -43,6 +46,7 @@ class CustomerPackage extends Model
     protected $casts = [
         'purchased_at' => 'datetime',
         'expires_at'   => 'datetime',
+        'product_ids'  => 'array',
     ];
 
     public function packagePlan()
@@ -114,6 +118,9 @@ class CustomerPackage extends Model
             'buyer_name'         => $order->buyer_name,
             'product_id'         => $plan->product_id,
             'category_id'        => $plan->category_id,
+            // Snapshot NGUYÊN VẸN tập sân được phép dùng tại THỜI ĐIỂM MUA — nếu sau này admin sửa
+            // lại PackagePlan (thêm/bớt sân), gói khách ĐÃ MUA không bị đổi phạm vi theo sau lưng.
+            'product_ids'        => $plan->product_ids,
             'name'               => $plan->name,
             'sessions_total'     => $plan->sessions_count,
             'sessions_remaining' => $plan->sessions_count,
@@ -142,8 +149,22 @@ class CustomerPackage extends Model
             ->where(fn ($q) => $q->whereNull('expires_at')->orWhere('expires_at', '>', now()))
             ->where(function ($q) use ($productId, $categoryIds) {
                 $q->where('product_id', $productId);
+
                 if (! empty($categoryIds)) {
-                    $q->orWhereIn('category_id', $categoryIds);
+                    // Gói cả chi nhánh khớp category_id — NHƯNG nếu gói bị thu hẹp lại chỉ áp dụng
+                    // cho MỘT SỐ sân cụ thể (product_ids snapshot lúc mua, xem migration
+                    // add_product_ids_to_package_tables), phải khớp ĐÚNG sân đang xét, không được
+                    // coi là dùng được cho MỌI sân trong chi nhánh nữa (bug thật cần tránh: gói chỉ
+                    // bán cho sân 1+3 lại dùng lấn sang được cả sân 2 nếu không lọc thêm điều kiện
+                    // này).
+                    $q->orWhere(function ($q2) use ($productId, $categoryIds) {
+                        $q2->whereIn('category_id', $categoryIds)
+                            ->where(function ($q3) use ($productId) {
+                                $q3->whereNull('product_ids')
+                                    ->orWhereJsonLength('product_ids', 0)
+                                    ->orWhereJsonContains('product_ids', $productId);
+                            });
+                    });
                 }
             })
             ->orderByRaw('expires_at IS NULL, expires_at ASC')
@@ -177,22 +198,25 @@ class CustomerPackage extends Model
      */
     public static function refundRedemptionsForOrder(Order $order): int
     {
-        $redemptions = PackageRedemption::where('order_id', $order->id)
-            ->whereNull('refunded_at')
-            ->get();
+        return DB::transaction(function () use ($order): int {
+            $redemptions = PackageRedemption::where('order_id', $order->id)
+                ->whereNull('refunded_at')
+                ->lockForUpdate()
+                ->get();
 
-        $count = 0;
-        foreach ($redemptions as $redemption) {
-            $package = $redemption->customerPackage;
-            if (! $package) {
-                continue;
+            $count = 0;
+            foreach ($redemptions as $redemption) {
+                $package = self::query()->lockForUpdate()->find($redemption->customer_package_id);
+                if (! $package) {
+                    continue;
+                }
+
+                $package->increment('sessions_remaining');
+                $redemption->update(['refunded_at' => now()]);
+                $count++;
             }
 
-            $package->increment('sessions_remaining');
-            $redemption->update(['refunded_at' => now()]);
-            $count++;
-        }
-
-        return $count;
+            return $count;
+        });
     }
 }

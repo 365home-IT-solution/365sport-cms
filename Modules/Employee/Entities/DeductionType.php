@@ -5,11 +5,12 @@ declare(strict_types=1);
 namespace Modules\Employee\Entities;
 
 use App\Models\Concerns\BelongsToPartner;
+use App\Models\Concerns\LogsAuditTrail;
 use Illuminate\Database\Eloquent\Model;
 
 class DeductionType extends Model
 {
-    use BelongsToPartner;
+    use BelongsToPartner, LogsAuditTrail;
 
     protected $fillable = [
         'partner_id',

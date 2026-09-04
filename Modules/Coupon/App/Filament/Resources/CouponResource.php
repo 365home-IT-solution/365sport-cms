@@ -21,6 +21,7 @@ class CouponResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-qr-code';
     protected static ?string $navigationGroup = 'Quản lý';
+    protected static ?int $navigationSort = 4;
 
     public static function getNavigationLabel(): string
     {
@@ -49,18 +50,21 @@ class CouponResource extends Resource
         $query = parent::getEloquentQuery();
         $user  = auth()->user();
 
-        if (! $user || $user->isSuperAdmin()) {
+        if (! $user) {
             return $query;
         }
 
-        // allowedCategoryIds() = root branch IDs + toàn bộ danh mục con (đệ quy)
-        $allowedCategoryIds = $user->allowedCategoryIds();
-        $allowedBranchIds   = $user->allowedBranchIds();
+        // Coupon KHÔNG có quan hệ categories() trực tiếp (morphToMany categorizables) như Product
+        // nên KHÔNG dùng trait BelongsToActiveBranchCategories — gắn chi nhánh GIÁN TIẾP qua
+        // room_id -> Product::categories(). Luôn tôn trọng "Chuyển đổi chi nhánh" ở header
+        // (App\Livewire\BranchSwitcher), KỂ CẢ super_admin — đổi từ allowedCategoryIds()/
+        // allowedBranchIds() (toàn bộ quyền được CẤP, không quan tâm switcher) sang
+        // effectiveBranchIds()/visibleProductCategoryIds() (chi nhánh ĐANG CHỌN).
+        $allowedBranchIds   = $user->effectiveBranchIds();
+        $allowedCategoryIds = empty($allowedBranchIds) ? [] : $user->visibleProductCategoryIds($allowedBranchIds);
 
-        // Coupon đã lọc theo partner_id qua BelongsToPartner; chưa gán quyền chi nhánh cụ thể thì
-        // không thu hẹp thêm (tránh chặn nhầm toàn bộ coupon của đối tác mình).
-        if (empty($allowedCategoryIds) && empty($allowedBranchIds)) {
-            return $query;
+        if (empty($allowedBranchIds)) {
+            return $user->isSuperAdmin() ? $query : $query->whereRaw('1 = 0');
         }
 
         // Room IDs thuộc các chi nhánh (bao gồm cả danh mục con)

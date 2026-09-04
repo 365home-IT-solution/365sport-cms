@@ -115,7 +115,7 @@
                         <path stroke-linecap="round" stroke-linejoin="round"
                             d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
-                    <span class="text-xs text-green-700 font-semibold">Thanh toán 100% — nhận mã cổng
+                    <span class="text-xs text-green-700 font-semibold">Thanh toán 100% — xác nhận đặt sân
                         ngay</span>
                 </div>
             @endif
@@ -329,18 +329,12 @@
                         Còn lại {{ number_format($remaining, 0, ',', '.') }}đ thanh toán khi nhận sân
                     </p>
                 </div>
-                <p class="text-[11px] text-gray-400 italic text-center">
-                    Mã cổng được gửi sau khi thanh toán đủ
-                </p>
             @else
                 <div class="flex items-center justify-between">
                     <span class="text-sm font-bold text-gray-700">Tổng thanh toán:</span>
                     <span class="text-xl font-extrabold"
                         style="color:#4e6b4c">{{ number_format($totalAmount, 0, ',', '.') }}đ</span>
                 </div>
-                <p class="text-[11px] text-gray-400 italic text-center mt-1">
-                    Mã cổng được gửi ngay sau khi thanh toán đủ
-                </p>
             @endif
         @else
             @php

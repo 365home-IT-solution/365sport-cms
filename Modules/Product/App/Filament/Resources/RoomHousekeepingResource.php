@@ -22,7 +22,7 @@ class RoomHousekeepingResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-sparkles';
 
-    protected static ?string $navigationGroup = 'Quản lý API';
+    protected static ?string $navigationGroup = 'Quản lý';
 
     protected static ?string $navigationLabel = 'Kiểm tra dọn sân';
 
@@ -36,7 +36,7 @@ class RoomHousekeepingResource extends Resource
 
     protected static ?string $slug = 'room-housekeeping';
 
-    protected static ?int $navigationSort = 6;
+    protected static ?int $navigationSort = 8;
 
     public static function getNavigationBadge(): ?string
     {

@@ -11,7 +11,6 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Log;
-use Modules\BladeThemeV1\Services\AccessCode\AccessCodeService;
 use Modules\Payment\Entities\Order;
 use PayOS\PayOS;
 
@@ -179,35 +178,11 @@ class OrderPaymentController extends Controller
                 'remaining_payment_method' => 'cod',
             ]);
 
-            // Đơn cọc KHÔNG được gán mã cổng lúc mới cọc (xem PaymentController::handlePaidStatus())
-            // — chỉ gán khi thanh toán phần còn lại xong (status vừa chuyển "paid" ở trên). Với QR
-            // PayOS (nhánh bên dưới), việc gán mã đã được webhook thanh toán chung xử lý tự động khi
-            // khách quét & trả tiền — CHỈ nhánh tiền mặt ở đây mới cần tự gọi tay vì không qua webhook.
-            // assignCodeToOrder() tự quyết định TTLock hay mã thủ công theo đúng cấu hình chi nhánh —
-            // không gán gì cả nếu chi nhánh chưa đăng ký TTLock lẫn không có mã thủ công khả dụng.
-            try {
-                if (! $order->hasAccessCode()) {
-                    $firstItem    = $order->items->sortBy('checkin_date')->first();
-                    $checkinDate  = $order->items->min('checkin_date');
-                    $checkoutDate = $order->items->max('checkout_date');
-                    $product      = $firstItem?->product;
-
-                    app(AccessCodeService::class)
-                        ->assignCodeToOrder($order->id, $order->category_id, $checkinDate, $checkoutDate, $product);
-                }
-            } catch (\Throwable $codeErr) {
-                Log::warning('Admin API: gán mã cổng sau khi xác nhận tiền mặt phần còn lại thất bại', [
-                    'order_code' => $order->order_code,
-                    'error'      => $codeErr->getMessage(),
-                ]);
-            }
-
             return response()->json([
                 'message'     => 'Đã xác nhận thu tiền mặt phần còn lại.',
                 'order_code'  => $order->order_code,
                 'amount'      => $remaining,
                 'status'      => $order->status,
-                'access_code' => $order->refresh()->accessCode?->code,
             ]);
         }
 

@@ -2,19 +2,18 @@
 
 namespace Modules\Zns\App\Models;
 
+use App\Models\Concerns\LogsAuditTrail;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\SoftDeletes;
-use Modules\AccessCode\Entities\AccessCode;
 use Modules\Payment\Entities\Order;
 
 class ZnsNotification extends Model
 {
-    use HasFactory, SoftDeletes;
+    use HasFactory, SoftDeletes, LogsAuditTrail;
 
     protected $fillable = [
         'order_id',
-        'access_code_id',
         'phone_number',
         'recipient_name',
         'template_id',
@@ -59,11 +58,6 @@ class ZnsNotification extends Model
     public function order()
     {
         return $this->belongsTo(Order::class);
-    }
-
-    public function accessCode()
-    {
-        return $this->belongsTo(AccessCode::class);
     }
 
     /**

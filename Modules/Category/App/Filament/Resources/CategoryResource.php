@@ -42,12 +42,12 @@ class CategoryResource extends Resource implements HasKnowledgeBase
 
     public static function getNavigationGroup(): ?string
     {
-        return __('category::category.resource.navigation_group');
+        return 'Quản lý';
     }
 
     public static function getNavigationSort(): ?int
     {
-        return 2;
+        return 1;
     }
 
     public static function getNavigationLabel(): string
@@ -70,66 +70,40 @@ class CategoryResource extends Resource implements HasKnowledgeBase
         return (string) static::getEloquentQuery()->count();
     }
 
+    // Resource này chỉ còn quản lý chi nhánh/khu vực (category_type=product) — danh mục bài viết
+    // (category_type=post) đã tách sang PostCategoryResource riêng, không còn lẫn ở đây nữa.
     public static function getEloquentQuery(): Builder
     {
-        $query = parent::getEloquentQuery();
+        $query = parent::getEloquentQuery()->where('category_type', 'product');
         $user  = auth()->user();
 
-        if (! $user || $user->isSuperAdmin()) {
+        if (! $user) {
             return $query;
         }
 
-        $allowedProductCategoryIds = $user->allowedCategoryIds();
-        $allowedPostCategoryIds    = $user->allowedPostCategoryIds();
-        $visibleProductIds         = static::visibleProductCategoryIds($user, $allowedProductCategoryIds);
+        // Luôn tôn trọng "Chuyển đổi chi nhánh" ở header (App\Livewire\BranchSwitcher), KỂ CẢ
+        // super_admin — cùng tinh thần OrderResource::getEloquentQuery(). Trước đây dùng
+        // allowedCategoryIds() (toàn bộ quyền được CẤP, không quan tâm switcher) qua 1 method
+        // riêng trùng lặp logic User::rootProductCategoryIds(); đổi sang effectiveBranchIds()
+        // (chi nhánh GỐC đang hiệu lực) rồi User::visibleProductCategoryIds() để mở rộng đúng
+        // cây con — nguồn dữ liệu này đã bao gồm sẵn chính chi nhánh GỐC (không chỉ con), nên
+        // không lo mất category CHA của các category con đang hiển thị.
+        $branchIds = $user->effectiveBranchIds();
 
-        return $query->where(function (Builder $q) use ($visibleProductIds, $allowedPostCategoryIds) {
-            // Chi nhánh (category_type='product') + khu vực con: mặc định thấy TOÀN BỘ chi nhánh
-            // của đối tác mình — không còn bắt buộc phải được cấp quyền chi nhánh cụ thể qua
-            // user_branch_permissions như trước (đó là nguyên nhân đối tác mới tạo không thấy
-            // chi nhánh/sân nào). Nếu user được gán quyền chi nhánh cụ thể thì thu hẹp thêm
-            // theo đó (dùng để giới hạn 1 nhân viên chỉ thấy 1/vài chi nhánh trong số của đối tác).
-            $q->where('category_type', 'product')->whereIn('id', $visibleProductIds);
-
-            // Category loại 'post' vẫn dùng chung, giữ nguyên yêu cầu quyền chi nhánh cụ thể
-            // như trước (không liên quan tới partner_id).
-            if (! empty($allowedPostCategoryIds)) {
-                $q->orWhereIn('id', $allowedPostCategoryIds);
+        if (empty($branchIds)) {
+            // effectiveBranchIds() rỗng với super_admin là cực hiếm (hệ thống chưa có chi nhánh
+            // gốc nào) — coi như không giới hạn thêm.
+            if ($user->isSuperAdmin()) {
+                return $query;
             }
-        });
-    }
 
-    /**
-     * Id chi nhánh (partner_id đáng tin cậy — luôn set đúng lúc tạo/sửa chi nhánh) + toàn bộ khu
-     * vực con (mọi cấp, đệ quy theo parent_id). KHÔNG lọc khu vực con bằng cột partner_id của
-     * chính nó — cột đó có thể lệch/null với dữ liệu tạo trước khi CategoryObserver cascade
-     * partner_id xuống tới cấp con (xem CategoryObserver::saved()), lọc trực tiếp sẽ ẩn mất khu
-     * vực con của 1 chi nhánh hợp lệ (chi nhánh cha hiện đúng nhưng danh sách con trống/thiếu).
-     */
-    private static function visibleProductCategoryIds($user, array $allowedProductCategoryIds): array
-    {
-        $branchIds = Category::whereNull('parent_id')
-            ->where('category_type', 'product')
-            ->where('partner_id', $user->partner_id)
-            ->pluck('id')
-            ->toArray();
-
-        if (! empty($allowedProductCategoryIds)) {
-            $branchIds = array_values(array_intersect($branchIds, $allowedProductCategoryIds));
+            // Không có chi nhánh 'product' nào hợp lệ (vd chọn switcher ra ngoài phạm vi quyền).
+            return $query->whereRaw('1 = 0');
         }
 
-        $visibleIds   = $branchIds;
-        $currentLevel = $branchIds;
-        while (! empty($currentLevel)) {
-            $children = Category::whereIn('parent_id', $currentLevel)->pluck('id')->toArray();
-            if (empty($children)) {
-                break;
-            }
-            $visibleIds   = array_merge($visibleIds, $children);
-            $currentLevel = $children;
-        }
+        $visibleProductIds = $user->visibleProductCategoryIds($branchIds);
 
-        return array_unique($visibleIds);
+        return $query->whereIn('id', $visibleProductIds);
     }
 
     public static function form(Form $form): Form

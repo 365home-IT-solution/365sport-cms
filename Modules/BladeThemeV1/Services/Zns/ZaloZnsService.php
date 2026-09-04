@@ -88,7 +88,7 @@ class ZaloZnsService
     /**
      * Gửi ZNS thông báo đặt sân thành công
      */
-    public function sendBookingSuccessNotification($order, $accessCode)
+    public function sendBookingSuccessNotification($order)
     {
         $templateId = Config::get('services.zalo.templates.booking_success');
 
@@ -106,15 +106,12 @@ class ZaloZnsService
             'room_name' => $firstItem->name ?? 'Sân',
             'checkin_date' => $firstItem->checkin_date ? $firstItem->checkin_date->format('d/m/Y H:i') : 'Chưa xác định',
             'checkout_date' => $firstItem->checkout_date ? $firstItem->checkout_date->format('d/m/Y H:i') : 'Chưa xác định',
-            'access_code' => $accessCode->code,
-            'gate_location' => $accessCode->gate_location ?? '',
             'amount' => number_format($order->amount, 0, ',', '.') . ' VNĐ',
             'order_code' => $order->order_code,
         ];
 
         return $this->sendZns(
             $order->id,
-            $accessCode->id,
             $order->buyer_phone,
             $order->buyer_name,
             $templateId,
@@ -126,7 +123,7 @@ class ZaloZnsService
     /**
      * Gửi ZNS thông báo nhắc nhở (trước khi checkin)
      */
-    public function sendBookingReminderNotification($order, $accessCode)
+    public function sendBookingReminderNotification($order)
     {
         $templateId = Config::get('services.zalo.templates.booking_reminder');
 
@@ -141,12 +138,10 @@ class ZaloZnsService
             'room_name' => $firstItem->name ?? 'Sân',
             'checkin_date' => $firstItem->checkin_date ?
                 $firstItem->checkin_date->format('d/m/Y H:i') : '',
-            'access_code' => $accessCode->code,
         ];
 
         return $this->sendZns(
             $order->id,
-            $accessCode->id,
             $order->buyer_phone,
             $order->buyer_name,
             $templateId,
@@ -175,7 +170,6 @@ class ZaloZnsService
 
         return $this->sendZns(
             $order->id,
-            null,
             $order->buyer_phone,
             $order->buyer_name,
             $templateId,
@@ -189,7 +183,6 @@ class ZaloZnsService
      */
     public function sendZns(
         $orderId,
-        $accessCodeId,
         $phoneNumber,
         $recipientName,
         $templateId,
@@ -199,7 +192,6 @@ class ZaloZnsService
         // Tạo record notification
         $notification = ZnsNotification::create([
             'order_id' => $orderId,
-            'access_code_id' => $accessCodeId,
             'phone_number' => $phoneNumber,
             'recipient_name' => $recipientName,
             'template_id' => $templateId,
@@ -311,7 +303,6 @@ class ZaloZnsService
 
             $result = $this->sendZns(
                 $notification->order_id,
-                $notification->access_code_id,
                 $notification->phone_number,
                 $notification->recipient_name,
                 $notification->template_id,

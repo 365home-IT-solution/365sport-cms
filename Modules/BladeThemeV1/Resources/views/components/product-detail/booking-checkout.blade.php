@@ -70,7 +70,11 @@
                     @foreach ($selectedSlots as $slot)
                         <p class="text-sm">
                             - {{ $slot['roomName'] ?? $product?->name }}: {{ substr($slot['startTime'], 0, 5) }} - {{ substr($slot['endTime'], 0, 5) }}
-                            | <span class="font-bold text-amber-300">{{ number_format((float) $slot['price'], 0, ',', '.') }} đ</span>
+                            @if (! $usePackage)
+                                | <span class="font-bold text-amber-300">{{ number_format((float) $slot['price'], 0, ',', '.') }} đ</span>
+                            @else
+                                | <span class="font-bold text-emerald-200">Dùng 1 buổi trong gói</span>
+                            @endif
                         </p>
                     @endforeach
                 </div>
@@ -215,7 +219,11 @@
          class="sticky bottom-0 left-0 right-0 z-20 shadow-[0_-4px_16px_rgba(0,0,0,.12)]">
         <div class="flex items-center justify-between px-4 py-2.5 sm:px-6 text-sm font-semibold text-white" style="background: linear-gradient(135deg, #0B6B3A 0%, #128A4A 100%);">
             <span>Tổng giờ: <b>{{ $totalHoursLabel }}</b></span>
-            <span>Tổng tiền: <b>{{ number_format((float) $totalAmount, 0, ',', '.') }} đ</b></span>
+            @if ($usePackage)
+                <span>Thanh toán: <b>{{ count($selectedSlots) }} buổi trong gói</b></span>
+            @else
+                <span>Tổng tiền: <b>{{ number_format((float) $totalAmount, 0, ',', '.') }} đ</b></span>
+            @endif
         </div>
         <button type="button" wire:click="confirmBooking" wire:loading.attr="disabled" wire:target="confirmBooking"
                 @if (empty($selectedSlots)) disabled @endif
@@ -224,7 +232,7 @@
                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
             </svg>
-            <span wire:loading.remove wire:target="confirmBooking">Xác nhận &amp; thanh toán</span>
+            <span wire:loading.remove wire:target="confirmBooking">{{ $usePackage ? 'Xác nhận dùng gói' : 'Xác nhận & thanh toán' }}</span>
             <span wire:loading wire:target="confirmBooking">Đang xử lý...</span>
         </button>
     </div>

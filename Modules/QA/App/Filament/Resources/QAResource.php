@@ -17,8 +17,12 @@ class QAResource extends Resource
     protected static ?string $model = QA::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-question-mark-circle';
-    
-    protected static ?string $navigationLabel = 'Quáº£n lÃ½ Q&A';
+
+    protected static ?string $navigationGroup = 'Cấu hình web';
+
+    protected static ?int $navigationSort = 11;
+
+    protected static ?string $navigationLabel = 'Quản lý Q&A';
 
     public static function getNavigationLabel(): string
     {

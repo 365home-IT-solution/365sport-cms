@@ -22,6 +22,8 @@ class ThemeResource extends Resource
 
     protected static ?string $navigationGroup = 'Cấu hình web';
 
+    protected static ?int $navigationSort = 5;
+
     public static function canViewAny(): bool
     {
         return auth()->user()?->can('view_any_theme') ?? false;

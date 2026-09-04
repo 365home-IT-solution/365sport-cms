@@ -12,24 +12,12 @@ class Kernel extends ConsoleKernel
      */
     protected function schedule(Schedule $schedule): void
     {
-        // Command cũ - giữ nguyên
-        $schedule->command('access-codes:auto-delete-expired')
-            ->dailyAt('02:00')
-            ->timezone('Asia/Ho_Chi_Minh')
-            ->withoutOverlapping();
-
         // ✅ Thêm mới - tự động hủy đơn hàng hết hạn sau 15 phút
         $schedule->command('orders:expire-pending')
             ->everyMinute()
             ->timezone('Asia/Ho_Chi_Minh')
             ->withoutOverlapping(1)
             ->appendOutputTo(storage_path('logs/expire-orders.log'));
-
-        $schedule->command('manual-lock-passwords:check-expired')
-            ->hourly()
-            ->timezone('Asia/Ho_Chi_Minh')
-            ->withoutOverlapping()
-            ->appendOutputTo(storage_path('logs/expire-manual-lock-passwords.log'));
 
         $schedule->command('notifications:send-scheduled')
             ->everyMinute()
@@ -77,6 +65,15 @@ class Kernel extends ConsoleKernel
             ->timezone('Asia/Ho_Chi_Minh')
             ->withoutOverlapping(1)
             ->appendOutputTo(storage_path('logs/sync-order-lifecycle.log'));
+
+        // Port từ 365home-cms — bắt các mốc chuyển ngày của bảng giá (Tết, khuyến mãi, đối tác...)
+        // — áp bảng đang hiệu lực hôm nay xuống products/room_time_slots, hoặc khôi phục về bảng
+        // mặc định khi hết hạn. Xem App\Services\PriceBoardSyncService.
+        $schedule->command('price-boards:sync-due')
+            ->dailyAt('00:05')
+            ->timezone('Asia/Ho_Chi_Minh')
+            ->withoutOverlapping()
+            ->appendOutputTo(storage_path('logs/price-boards-sync.log'));
 
         // Backup tự động (spatie/laravel-backup) — dump DB + file khách hàng upload
         // (storage/app/public, xem config/backup.php) hằng ngày, dọn backup cũ theo lịch riêng.

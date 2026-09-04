@@ -54,7 +54,6 @@ class DomainLookupDetail extends Component
     public function checkDomainAvailability()
     {
         $this->loading = true;
-        // $this->validateFullDomain();
         $this->initDomainData();
 
         $client = new Client();

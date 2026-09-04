@@ -29,7 +29,12 @@ class PostResource extends Resource
 
     public static function getNavigationGroup(): ?string
     {
-        return __('post::post.resource.navigation_group');
+        return 'Quản lý';
+    }
+
+    public static function getNavigationSort(): ?int
+    {
+        return 1;
     }
 
     public static function getNavigationLabel(): string

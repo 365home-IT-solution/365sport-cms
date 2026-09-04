@@ -34,7 +34,7 @@ class PartnerLeadResource extends Resource
 
     protected static ?string $slug = 'partner-leads';
 
-    protected static ?int $navigationSort = 3;
+    protected static ?int $navigationSort = 7;
 
     private const FORM_NAME = 'Đăng ký làm đối tác';
 

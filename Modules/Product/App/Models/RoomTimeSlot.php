@@ -2,13 +2,18 @@
 
 namespace Modules\Product\App\Models;
 
+use App\Models\Concerns\LogsAuditTrail;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Modules\Promotion\App\Models\Promotion;
 
 class RoomTimeSlot extends Model
 {
-    use HasFactory;
+    // Bổ sung sau khi phát hiện lúc port SettingBook::save() (bảng giá) từ 365home-cms — bản gốc
+    // gọi RoomTimeSlot::withoutAuditLog() (chỉ tồn tại nếu model dùng trait này) để tự ghi 1 dòng
+    // TÓM TẮT duy nhất thay vì hàng loạt dòng vụn mỗi lần xoá-tạo-lại khung giờ. Đây là bảng bị
+    // sửa/xoá/tạo liên tục nhất hệ thống (mọi lần đặt sân/đổi giá) — rất đáng audit.
+    use HasFactory, LogsAuditTrail;
 
     protected $fillable = [
         'room_id',
@@ -19,6 +24,10 @@ class RoomTimeSlot extends Model
         'status',
         'over_night',
         'settings',
+        // Đánh dấu dòng này đang được áp bởi bảng giá đặt tên nào (null = giá tay/gốc) — xem
+        // App\Services\PriceBoardSyncService. Thiếu field này trong $fillable khiến mass-assignment
+        // ÂM THẦM bỏ qua, không báo lỗi gì (bug thật đã gặp lúc test: cột luôn NULL dù code có set).
+        'synced_from_price_board_id',
     ];
 
     protected $casts = [
@@ -44,6 +53,17 @@ class RoomTimeSlot extends Model
     public function room()
     {
         return $this->belongsTo(Product::class, 'room_id');
+    }
+
+    // RoomTimeSlot không có field "name" nên auditLabel() mặc định của LogsAuditTrail chỉ ra được
+    // "#<id>" — không đủ để biết đang nói về khung giờ của sân nào. Ghép rõ tên sân + nhãn khung
+    // giờ (TimeSlot::label, vd "7h-9h") để trang "Lịch sử thao tác" đọc hiểu ngay không cần tra thêm.
+    protected function auditLabel(): string
+    {
+        $roomName  = $this->room?->name ?? ('#' . $this->room_id);
+        $slotLabel = $this->timeSlot?->label ?? ('#' . $this->timeslot_id);
+
+        return "Sân {$roomName} — Khung giờ {$slotLabel}";
     }
 
     public function coupons()

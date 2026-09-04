@@ -33,11 +33,11 @@ class ProvinceResource extends Resource
     protected static ?string $model = Province::class;
 
     protected static ?string $navigationIcon   = 'heroicon-o-map-pin';
-    protected static ?string $navigationGroup  = 'Quản lý API';
+    protected static ?string $navigationGroup  = 'Quản lý';
     protected static ?string $navigationLabel  = 'Tỉnh/Thành phố';
     protected static ?string $modelLabel       = 'Tỉnh/Thành phố';
     protected static ?string $pluralModelLabel = 'Tỉnh/Thành phố';
-    protected static ?int    $navigationSort   = 10;
+    protected static ?int    $navigationSort   = 9;
 
     // Trước đây hardcode isSuperAdmin() — bỏ qua ProvincePolicy (đã đúng, kiểm tra
     // view_any_province), khiến tick/bỏ tick quyền này ở Roles & Permissions vô tác dụng.

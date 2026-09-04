@@ -35,6 +35,8 @@ class SalaryReport extends Page implements HasTable
 
     protected static ?string $navigationGroup = 'Quản lý';
 
+    protected static ?int $navigationSort = 7;
+
     protected static ?string $navigationLabel = 'Thống kê lương';
 
     protected static ?string $title = 'Thống kê lương nhân viên';

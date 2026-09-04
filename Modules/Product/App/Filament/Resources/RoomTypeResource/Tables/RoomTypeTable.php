@@ -34,6 +34,25 @@ class RoomTypeTable
                     ->copyable()
                     ->color('gray'),
 
+                TextColumn::make('sport_type')
+                    ->label('Môn thể thao')
+                    ->badge()
+                    ->color('success')
+                    ->searchable()
+                    ->toggleable(),
+
+                TextColumn::make('surface_type')
+                    ->label('Loại mặt sân')
+                    ->badge()
+                    ->color('warning')
+                    ->searchable()
+                    ->toggleable(),
+
+                IconColumn::make('is_outdoor')
+                    ->label('Ngoài trời')
+                    ->boolean()
+                    ->toggleable(),
+
                 TextColumn::make('icon')
                     ->label(__('product::room_type.table.label.icon'))
                     ->badge()

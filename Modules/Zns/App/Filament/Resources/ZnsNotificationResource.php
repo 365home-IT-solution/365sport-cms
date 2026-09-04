@@ -12,11 +12,40 @@ use Filament\Forms\Form;
 use Filament\Infolists\Infolist;
 use Filament\Resources\Resource;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 use Modules\Zns\App\Models\ZnsNotification;
 
 class ZnsNotificationResource extends Resource
 {
     protected static ?string $model = ZnsNotification::class;
+
+    // ZnsNotification KHÔNG có partner_id/category_id riêng — gắn chi nhánh GIÁN TIẾP qua
+    // order_id -> Order::category_id (Order tự lọc theo BelongsToPartner + branch qua
+    // OrderResource riêng, ở đây phải tự lọc lại vì ZnsNotification không kế thừa global scope
+    // của Order). TRƯỚC ĐÂY không có getEloquentQuery() nào, lộ thông báo ZNS của MỌI đối tác.
+    public static function getEloquentQuery(): Builder
+    {
+        $query = parent::getEloquentQuery();
+        $user  = auth()->user();
+
+        if (! $user) {
+            return $query;
+        }
+
+        $branchIds = $user->effectiveBranchIds();
+
+        if (empty($branchIds)) {
+            return $user->isSuperAdmin() ? $query : $query->whereRaw('1 = 0');
+        }
+
+        $categoryIds = $user->visibleProductCategoryIds($branchIds);
+
+        if (empty($categoryIds)) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        return $query->whereHas('order', fn (Builder $q) => $q->whereIn('category_id', $categoryIds));
+    }
 
     protected static ?string $navigationIcon = 'heroicon-c-bell-snooze';
 
@@ -29,6 +58,11 @@ class ZnsNotificationResource extends Resource
     public static function getNavigationGroup(): ?string
     {
         return 'Cấu hình web';
+    }
+
+    public static function getNavigationSort(): ?int
+    {
+        return 13;
     }
 
     public static function getNavigationLabel(): string

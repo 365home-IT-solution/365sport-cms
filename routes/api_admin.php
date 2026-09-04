@@ -7,6 +7,8 @@ use App\Http\Controllers\Api\Admin\CategoryController as AdminCategoryController
 use App\Http\Controllers\Api\Admin\CccdController as AdminCccdController;
 use App\Http\Controllers\Api\Admin\ChatController as AdminChatController;
 use App\Http\Controllers\Api\Admin\AllowanceTypeController;
+use App\Http\Controllers\Api\Admin\CouponController as AdminCouponController;
+use App\Http\Controllers\Api\Admin\CorporateAccountController;
 use App\Http\Controllers\Api\Admin\CustomerCompanionController as AdminCustomerCompanionController;
 use App\Http\Controllers\Api\Admin\CustomerController as AdminCustomerController;
 use App\Http\Controllers\Api\Admin\DailyRoomHoldController as AdminDailyRoomHoldController;
@@ -15,12 +17,22 @@ use App\Http\Controllers\Api\Admin\DepartmentController;
 use App\Http\Controllers\Api\Admin\EmployeeController;
 use App\Http\Controllers\Api\Admin\OrderController;
 use App\Http\Controllers\Api\Admin\OrderPaymentController;
+use App\Http\Controllers\Api\Admin\PackageOrderController;
 use App\Http\Controllers\Api\Admin\PositionController;
+use App\Http\Controllers\Api\Admin\PriceBoardController;
+use App\Http\Controllers\Api\Admin\RecurringBookingController;
 use App\Http\Controllers\Api\Admin\ProductController as AdminProductController;
+use App\Http\Controllers\Api\Admin\PromotionController as AdminPromotionController;
+use App\Http\Controllers\Api\Admin\RoomAmenityController;
 use App\Http\Controllers\Api\Admin\RoomBlockController as AdminRoomBlockController;
 use App\Http\Controllers\Api\Admin\RoomController as AdminRoomController;
+use App\Http\Controllers\Api\Admin\RoomHousekeepingController;
+use App\Http\Controllers\Api\Admin\RoomImageController;
+use App\Http\Controllers\Api\Admin\WeatherPolicyController;
 use App\Http\Controllers\Api\Admin\RoomPricingController as AdminRoomPricingController;
 use App\Http\Controllers\Api\Admin\RoomPromotionController as AdminRoomPromotionController;
+use App\Http\Controllers\Api\Admin\RoomServiceController;
+use App\Http\Controllers\Api\Admin\RoomSpecialController;
 use App\Http\Controllers\Api\Admin\RoomTimeSlotController as AdminRoomTimeSlotController;
 use App\Http\Controllers\Api\Admin\RoomTypeController as AdminRoomTypeController;
 use App\Http\Controllers\Api\Admin\SalaryTemplateController;
@@ -29,7 +41,6 @@ use App\Http\Controllers\Api\Admin\ServiceController as AdminServiceController;
 use App\Http\Controllers\Api\Admin\TagController as AdminTagController;
 use App\Http\Controllers\Api\Admin\TimeSlotController as AdminTimeSlotController;
 use App\Http\Controllers\Api\Admin\TimeSlotHoldController as AdminTimeSlotHoldController;
-use App\Http\Controllers\Api\Admin\UnlockController as AdminUnlockController;
 use App\Http\Controllers\Api\Admin\WarehouseCategoryController;
 use App\Http\Controllers\Api\Admin\WarehouseItemController;
 use App\Http\Controllers\Api\Admin\WarehouseStockCheckController;
@@ -238,6 +249,51 @@ Route::middleware(['auth:sanctum', 'admin.api'])->prefix('admin/categories')->na
 
 /*
 |--------------------------------------------------------------------------
+| Coupons — Quản lý MÃ GIẢM GIÁ (bảng `coupons`, model Modules\Promotion\App\Models\Coupon) —
+| xem docblock App\Http\Controllers\Api\Admin\CouponController. Đây là CRUD trên chính bản ghi
+| Coupon, KHÔNG liên quan tới gán/gỡ Promotion cho khung giờ sân (đó là admin/rooms/{id}/promotions,
+| RoomPromotionController, model Promotion khác — không đổi).
+| GET    /api/admin/coupons      → ?search=&status=&per_page=
+| GET    /api/admin/coupons/{id} → chi tiết, kèm room_time_slots đã gán (nếu apply_type=specific_slot)
+| POST   /api/admin/coupons      → tạo mới
+| PUT    /api/admin/coupons/{id} → cập nhật
+| DELETE /api/admin/coupons/{id} → xoá — CHẶN nếu đã có lượt sử dụng (used_count > 0)
+|--------------------------------------------------------------------------
+*/
+Route::middleware(['auth:sanctum', 'admin.api'])->prefix('admin/coupons')->name('api.admin.coupons.')->group(function () {
+    Route::get('/',        [AdminCouponController::class, 'index'])->name('index');
+    Route::get('/{id}',    [AdminCouponController::class, 'show'])->name('show')->whereNumber('id');
+    Route::post('/',       [AdminCouponController::class, 'store'])->name('store');
+    Route::put('/{id}',    [AdminCouponController::class, 'update'])->name('update')->whereNumber('id');
+    Route::patch('/{id}',  [AdminCouponController::class, 'update'])->name('update.patch')->whereNumber('id');
+    Route::delete('/{id}', [AdminCouponController::class, 'destroy'])->name('destroy')->whereNumber('id');
+});
+
+/*
+|--------------------------------------------------------------------------
+| Promotions — Quản lý KHUYẾN MÃI (bảng `promotions`, model Modules\Promotion\App\Models\Promotion)
+| — xem docblock App\Http\Controllers\Api\Admin\PromotionController. CRUD trên chính bản ghi
+| Promotion; gán/gỡ Promotion cho khung giờ sân VẪN dùng admin/rooms/{id}/promotions
+| (RoomPromotionController, không đổi) — route dưới đây chỉ hỗ trợ thêm room_time_slot_ids[] khi
+| tạo/sửa cho tiện FE, dùng pivot mặc định (min_quantity=1, custom_value=null).
+| GET    /api/admin/promotions      → ?search=&status=&per_page=
+| GET    /api/admin/promotions/{id} → chi tiết, kèm room_time_slots đã gán
+| POST   /api/admin/promotions      → tạo mới
+| PUT    /api/admin/promotions/{id} → cập nhật
+| DELETE /api/admin/promotions/{id} → xoá — tự gỡ toàn bộ gán khung giờ trước khi xoá
+|--------------------------------------------------------------------------
+*/
+Route::middleware(['auth:sanctum', 'admin.api'])->prefix('admin/promotions')->name('api.admin.promotions.')->group(function () {
+    Route::get('/',        [AdminPromotionController::class, 'index'])->name('index');
+    Route::get('/{id}',    [AdminPromotionController::class, 'show'])->name('show')->whereNumber('id');
+    Route::post('/',       [AdminPromotionController::class, 'store'])->name('store');
+    Route::put('/{id}',    [AdminPromotionController::class, 'update'])->name('update')->whereNumber('id');
+    Route::patch('/{id}',  [AdminPromotionController::class, 'update'])->name('update.patch')->whereNumber('id');
+    Route::delete('/{id}', [AdminPromotionController::class, 'destroy'])->name('destroy')->whereNumber('id');
+});
+
+/*
+|--------------------------------------------------------------------------
 | Orders — Danh sách đơn đặt sân theo đối tác của tài khoản đang đăng nhập
 | GET /api/admin/orders      → lọc tự động theo users.partner_id (super_admin xem hết); hỗ trợ
 |                               thêm ?filter[branch_id|categories|room_id|status|payment_method|
@@ -271,19 +327,6 @@ Route::middleware(['auth:sanctum', 'admin.api'])->prefix('admin/categories')->na
 | DELETE /api/admin/orders/{order_code}/guests/{guest_index}
 |                                          → xoá CCCD 1 khách đi cùng (guest_index từ 2) — dùng khi
 |                                            giảm số khách, không tự giảm guest_count của đơn.
-| POST /api/admin/orders/{order_code}/unlock
-|                                          → mở cổng TTLock hộ khách — CHỈ áp dụng cho đơn thuộc
-|                                            chi nhánh đã đăng ký tài khoản TTLock đang hoạt động.
-|                                            Admin được BỎ QUA cửa sổ giờ nhận/trả sân (khách tự mở
-|                                            qua app thì vẫn bị chặn ngoài giờ) — vẫn cập nhật
-|                                            checked_in_at/checked_out_at + order_status như bình thường.
-| POST /api/admin/orders/{order_code}/open-gate
-|                                          → TOGGLE cờ unlock_anytime của đơn (BẬT/TẮT — gọi lại lần
-|                                            nữa để khoá lại). Khi bật, CHÍNH KHÁCH HÀNG của đơn được
-|                                            tự mở cổng qua app (POST /api/orders/{order_code}/unlock
-|                                            hoặc /api/guest/...) vào bất kỳ lúc nào, không giới hạn
-|                                            khung giờ nhận/trả sân. Cùng logic với action
-|                                            toggle_unlock_anytime ở bảng đơn hàng (Filament).
 | POST /api/admin/orders/{order_code}/remaining-payment
 |                                          → QR (hoặc xác nhận tiền mặt) cho phần còn lại của đơn
 |                                            đặt cọc — áp dụng cho cả status="deposit" LẪN "pending"
@@ -325,8 +368,6 @@ Route::middleware(['auth:sanctum', 'admin.api'])->prefix('admin/orders')->name('
     Route::delete('/{order_code}/guests/{guest_index}', [OrderController::class, 'destroyGuestCccd'])
         ->name('guests.destroy')
         ->whereNumber('guest_index');
-    Route::post('/{order_code}/unlock',            [AdminUnlockController::class, 'unlock'])->name('unlock');
-    Route::post('/{order_code}/open-gate',         [AdminUnlockController::class, 'openGate'])->name('open-gate');
     Route::post('/{order_code}/retry-payment',     [OrderPaymentController::class, 'retryPayment'])->name('retry-payment');
     Route::post('/{order_code}/remaining-payment', [OrderPaymentController::class, 'remainingPayment'])->name('remaining-payment');
     Route::post('/{order_code}/extra',             [OrderPaymentController::class, 'addExtra'])->name('extra');
@@ -336,6 +377,73 @@ Route::middleware(['auth:sanctum', 'admin.api'])->prefix('admin/orders')->name('
     // GET /{order_code}.
     Route::post('/{order_code}/approve-bank-transfer', [OrderController::class, 'approveBankTransfer'])->name('approve-bank-transfer');
     Route::post('/{order_code}/reject-bank-transfer',  [OrderController::class, 'rejectBankTransfer'])->name('reject-bank-transfer');
+    // Đánh dấu khách đã đặt sân (paid/deposit) nhưng không đến nhận sân — xem Order::markNoShow()
+    // và Modules/Payment/App/Filament/Resources/OrderResource/Tables/OrderTable.php (action
+    // 'mark_no_show') cho bản Filament tương đương.
+    Route::post('/{order_code}/mark-no-show', [OrderController::class, 'markNoShow'])->name('mark-no-show');
+    // Hoãn/hoàn tiền do THỜI TIẾT cho sân NGOÀI TRỜI (products.is_outdoor) — xem
+    // App\Services\WeatherPolicyService cho toàn bộ điều kiện áp dụng/logic nghiệp vụ.
+    Route::post('/{order_code}/weather-refund',     [WeatherPolicyController::class, 'refund'])->name('weather-refund');
+    Route::post('/{order_code}/weather-reschedule', [WeatherPolicyController::class, 'reschedule'])->name('weather-reschedule');
+});
+
+/*
+|--------------------------------------------------------------------------
+| Package Orders — Đơn MUA GÓI nhiều buổi (Order.order_type='package_purchase'), tách biệt khỏi
+| Orders ở trên ('booking') — xem docblock App\Http\Controllers\Api\Admin\PackageOrderController.
+| Đơn dạng này KHÔNG có sân/khung giờ, chỉ là phương tiện thu tiền để kích hoạt
+| App\Models\CustomerPackage. Xoá đơn / duyệt-từ chối chuyển khoản dùng LẠI đúng endpoint chung ở
+| nhóm "Orders" phía trên (DELETE/approve-bank-transfer/reject-bank-transfer /api/admin/orders/
+| {order_code}/...) — không định nghĩa lại ở đây.
+| GET  /api/admin/package-orders          → ?status=&payment_method=&search=&from=&to=
+|                                             &package_plan_id=&per_page=
+| GET  /api/admin/package-orders/{order_code}
+| PUT|POST /api/admin/package-orders/{order_code}
+|                                          → sửa buyer_name/buyer_phone/buyer_email/note_for_admin/
+|                                            package_plan_id (chỉ khi chưa 'paid')/status (KHÔNG
+|                                            nhận 'paid')/cp_sessions_remaining/cp_expires_at (gói
+|                                            đã kích hoạt)
+| POST /api/admin/package-orders/{order_code}/mark-paid
+|                                          → xác nhận thanh toán tay (mọi phương thức), kích hoạt
+|                                            CustomerPackage ngay
+|--------------------------------------------------------------------------
+*/
+Route::middleware(['auth:sanctum', 'admin.api'])->prefix('admin/package-orders')->name('api.admin.package-orders.')->group(function () {
+    Route::get('/',                     [PackageOrderController::class, 'index'])->name('index');
+    Route::get('/{order_code}',         [PackageOrderController::class, 'show'])->name('show');
+    Route::match(['put', 'post'], '/{order_code}', [PackageOrderController::class, 'update'])->name('update');
+    Route::post('/{order_code}/mark-paid', [PackageOrderController::class, 'markPaid'])->name('mark-paid');
+});
+
+/*
+|--------------------------------------------------------------------------
+| Recurring Bookings — Đặt sân ĐỊNH KỲ hàng tuần (khách quen đặt CÙNG 1 sân + CÙNG khung giờ, lặp
+| lại N tuần liên tiếp trong 1 thao tác) — xem docblock App\Http\Controllers\Api\Admin\
+| RecurringBookingController. Mỗi tuần vẫn là 1 Order RIÊNG (tạo bằng cách gọi lại đúng
+| AdminBookingController::store(), KHÔNG dồn nhiều tuần vào 1 Order), nối lại bằng
+| recurring_group_id (UUID) — 1 tuần lỗi (trùng lịch) không làm hỏng các tuần khác đã tạo thành công.
+| POST   /api/admin/recurring-bookings                        → tạo loạt đặt định kỳ. Body giống hệt
+|                                                                 POST /api/admin/orders (type='slot')
+|                                                                 nhưng thay 'date' bằng 'start_date'
+|                                                                 (ngày tuần đầu) + thêm 'weeks' (số
+|                                                                 tuần, tối đa 26). Trả về
+|                                                                 {recurring_group_id, weeks_requested,
+|                                                                 created: [{occurrence, date,
+|                                                                 order_code}], failed: [{occurrence,
+|                                                                 date, reason}]}.
+| GET    /api/admin/recurring-bookings/{recurring_group_id}   → danh sách đơn thuộc loạt, cùng shape
+|                                                                 JSON với từng phần tử của GET
+|                                                                 /api/admin/orders.
+| DELETE /api/admin/recurring-bookings/{recurring_group_id}   → huỷ (xoá hẳn) mọi đơn CHƯA DIỄN RA
+|                                                                 trong loạt; đơn đã qua (checkin_date
+|                                                                 sớm nhất đã ở quá khứ) được giữ
+|                                                                 nguyên, không đụng tới.
+|--------------------------------------------------------------------------
+*/
+Route::middleware(['auth:sanctum', 'admin.api'])->prefix('admin/recurring-bookings')->name('api.admin.recurring-bookings.')->group(function () {
+    Route::post('/',                          [RecurringBookingController::class, 'store'])->name('store');
+    Route::get('/{recurring_group_id}',       [RecurringBookingController::class, 'show'])->name('show');
+    Route::delete('/{recurring_group_id}',    [RecurringBookingController::class, 'destroy'])->name('destroy');
 });
 
 /*
@@ -414,6 +522,36 @@ Route::middleware(['auth:sanctum', 'admin.api'])->prefix('admin/customers/{custo
     Route::post('/',      [AdminCustomerCompanionController::class, 'store'])->name('store');
     Route::post('/{id}',  [AdminCustomerCompanionController::class, 'update'])->name('update')->whereNumber('id');
     Route::delete('/{id}', [AdminCustomerCompanionController::class, 'destroy'])->name('destroy')->whereNumber('id');
+});
+
+/*
+|--------------------------------------------------------------------------
+| Corporate Accounts — Tài khoản khách hàng doanh nghiệp (B2B, App\Models\CorporateAccount): 1
+| công ty được cấp hạn mức giờ sân/tháng dùng chung cho nhiều nhân viên (Customer được LIÊN KẾT vào
+| qua sub-resource "employees" bên dưới) — nhân viên đặt sân qua POST /api/admin/orders với
+| corporate_account_id sẽ trừ vào hạn mức thay vì thu tiền, xem BookingController::store().
+|
+| GET    /api/admin/corporate-accounts                        → Danh sách (?search=&status=&page=)
+| GET    /api/admin/corporate-accounts/{id}                   → Chi tiết
+| POST   /api/admin/corporate-accounts                        → Tạo mới
+| PUT    /api/admin/corporate-accounts/{id}                   → Cập nhật
+| DELETE /api/admin/corporate-accounts/{id}                   → Xoá (soft delete)
+| GET    /api/admin/corporate-accounts/{id}/employees         → Danh sách nhân viên (?include_removed=1)
+| POST   /api/admin/corporate-accounts/{id}/employees         → Thêm nhân viên (customer_id hoặc customer_phone)
+| DELETE /api/admin/corporate-accounts/{id}/employees/{empId} → Gỡ nhân viên (soft-remove, giữ lịch sử)
+|--------------------------------------------------------------------------
+*/
+Route::middleware(['auth:sanctum', 'admin.api'])->prefix('admin/corporate-accounts')->name('api.admin.corporate-accounts.')->group(function () {
+    Route::get('/',       [CorporateAccountController::class, 'index'])->name('index');
+    Route::get('/{id}',   [CorporateAccountController::class, 'show'])->name('show')->whereNumber('id');
+    Route::post('/',      [CorporateAccountController::class, 'store'])->name('store');
+    Route::put('/{id}',   [CorporateAccountController::class, 'update'])->name('update')->whereNumber('id');
+    Route::post('/{id}',  [CorporateAccountController::class, 'update'])->name('update.post')->whereNumber('id');
+    Route::delete('/{id}', [CorporateAccountController::class, 'destroy'])->name('destroy')->whereNumber('id');
+
+    Route::get('/{id}/employees',    [CorporateAccountController::class, 'employees'])->name('employees.index')->whereNumber('id');
+    Route::post('/{id}/employees',   [CorporateAccountController::class, 'addEmployee'])->name('employees.store')->whereNumber('id');
+    Route::delete('/{id}/employees/{employeeId}', [CorporateAccountController::class, 'removeEmployee'])->name('employees.destroy')->whereNumber('id')->whereNumber('employeeId');
 });
 
 /*
@@ -500,6 +638,50 @@ Route::middleware(['auth:sanctum', 'admin.api'])->prefix('admin/products')->name
 
     Route::get('/{id}/time-slots',   [AdminRoomTimeSlotController::class, 'index'])->name('time-slots.index');
     Route::post('/{id}/time-slots',  [AdminRoomTimeSlotController::class, 'store'])->name('time-slots.store');
+
+    // Room Amenities — gán/gỡ tiện ích (room_amenities) cho 1 sân, xem RoomAmenityController.
+    Route::get('/{id}/amenities',  [RoomAmenityController::class, 'assignedToProduct'])->name('amenities.index');
+    Route::post('/{id}/amenities', [RoomAmenityController::class, 'syncForProduct'])->name('amenities.sync');
+
+    // Room Services — dịch vụ bổ sung gắn riêng cho 1 sân (room_services), xem RoomServiceController.
+    Route::get('/{id}/services',                  [RoomServiceController::class, 'index'])->name('services.index');
+    Route::post('/{id}/services',                 [RoomServiceController::class, 'store'])->name('services.store');
+    Route::put('/{id}/services/{serviceId}',      [RoomServiceController::class, 'update'])->name('services.update')->whereNumber('serviceId');
+    Route::post('/{id}/services/{serviceId}',     [RoomServiceController::class, 'update'])->name('services.update.post')->whereNumber('serviceId');
+    Route::delete('/{id}/services/{serviceId}',   [RoomServiceController::class, 'destroy'])->name('services.destroy')->whereNumber('serviceId');
+
+    // Room Specials — điểm đặc biệt của 1 sân (room_specials), xem RoomSpecialController.
+    Route::get('/{id}/specials',                  [RoomSpecialController::class, 'index'])->name('specials.index');
+    Route::post('/{id}/specials',                 [RoomSpecialController::class, 'store'])->name('specials.store');
+    Route::put('/{id}/specials/{specialId}',      [RoomSpecialController::class, 'update'])->name('specials.update')->whereNumber('specialId');
+    Route::post('/{id}/specials/{specialId}',     [RoomSpecialController::class, 'update'])->name('specials.update.post')->whereNumber('specialId');
+    Route::delete('/{id}/specials/{specialId}',   [RoomSpecialController::class, 'destroy'])->name('specials.destroy')->whereNumber('specialId');
+
+    // Room Images — ảnh sân (room_images, multipart upload), xem RoomImageController.
+    Route::get('/{id}/images',                   [RoomImageController::class, 'index'])->name('images.index');
+    Route::post('/{id}/images',                  [RoomImageController::class, 'store'])->name('images.store');
+    Route::put('/{id}/images/{imageId}',         [RoomImageController::class, 'update'])->name('images.update')->whereNumber('imageId');
+    Route::post('/{id}/images/{imageId}',        [RoomImageController::class, 'update'])->name('images.update.post')->whereNumber('imageId');
+    Route::delete('/{id}/images/{imageId}',      [RoomImageController::class, 'destroy'])->name('images.destroy')->whereNumber('imageId');
+});
+
+/*
+|--------------------------------------------------------------------------
+| Room Amenities — Danh mục TIỆN ÍCH SÂN dùng chung nhiều sân của 1 đối tác (bảng
+| `room_amenities`), KHÔNG phải Spatie Tag (đó là /api/admin/tags) — xem docblock
+| App\Http\Controllers\Api\Admin\RoomAmenityController.
+| GET    /api/admin/room-amenities      → ?amenity_type=&status=&search=&per_page=
+| POST   /api/admin/room-amenities      → tạo (name required)
+| PUT|POST /api/admin/room-amenities/{id} → sửa
+| DELETE /api/admin/room-amenities/{id} → xoá (dọn luôn room_amenity_assigns liên quan)
+|--------------------------------------------------------------------------
+*/
+Route::middleware(['auth:sanctum', 'admin.api'])->prefix('admin/room-amenities')->name('api.admin.room-amenities.')->group(function () {
+    Route::get('/',        [RoomAmenityController::class, 'index'])->name('index');
+    Route::post('/',       [RoomAmenityController::class, 'store'])->name('store');
+    Route::put('/{id}',    [RoomAmenityController::class, 'update'])->name('update')->whereNumber('id');
+    Route::post('/{id}',   [RoomAmenityController::class, 'update'])->name('update.post')->whereNumber('id');
+    Route::delete('/{id}', [RoomAmenityController::class, 'destroy'])->name('destroy')->whereNumber('id');
 });
 
 /*
@@ -567,4 +749,45 @@ Route::middleware(['auth:sanctum', 'admin.api'])->prefix('admin/warehouse')->nam
     Route::get('/stock-checks/{id}',   [WarehouseStockCheckController::class, 'show'])->name('stock-checks.show')->whereNumber('id');
     Route::put('/stock-checks/{id}',   [WarehouseStockCheckController::class, 'update'])->name('stock-checks.update')->whereNumber('id');
     Route::delete('/stock-checks/{id}', [WarehouseStockCheckController::class, 'destroy'])->name('stock-checks.destroy')->whereNumber('id');
+});
+
+/*
+|--------------------------------------------------------------------------
+| Room Housekeeping — Tình trạng dọn vệ sinh sân (housekeeping_status), tương đương màn Filament
+| RoomHousekeepingResource + RoomCleaningAction.
+| GET   /api/admin/room-housekeeping      → ?branch_id=&status=available|cleaning|maintenance&search=&per_page=
+| PATCH /api/admin/room-housekeeping/{id} → đổi trạng thái (body: status, note?) — xem docblock
+|                                            RoomHousekeepingController::update() cho ma trận
+|                                            chuyển trạng thái hợp lệ + phân quyền từng bước.
+|--------------------------------------------------------------------------
+*/
+Route::middleware(['auth:sanctum', 'admin.api'])->prefix('admin/room-housekeeping')->name('api.admin.room-housekeeping.')->group(function () {
+    Route::get('/',        [RoomHousekeepingController::class, 'index'])->name('index');
+    Route::patch('/{id}',  [RoomHousekeepingController::class, 'update'])->name('update');
+});
+
+/*
+|--------------------------------------------------------------------------
+| Price Boards — "Bảng giá" đặt tên, có thời hạn (Tết, khuyến mãi, đối tác...), lớp quản trị NGỒI
+| TRÊN products/room_time_slots — xem App\Services\PriceBoardSyncService + docblock
+| App\Http\Controllers\Api\Admin\PriceBoardController. CHỈ super_admin (403 với tài khoản khác) —
+| cùng mức hạn chế PriceBoardResource ở Filament. "Bảng giá mặc định" (is_default=true) KHÔNG hiển
+| thị/sửa được ở đây (quản lý qua GET/PATCH /api/admin/rooms/{id}/pricing).
+| GET    /api/admin/price-boards          → ?search=&branch_id=&is_active=&per_page=
+| GET    /api/admin/price-boards/{id}     → kèm items/khung giờ từng sân + recent_price_logs
+| POST   /api/admin/price-boards          → tạo (name, pricing_mode, start_date/end_date, is_active,
+|                                            note, product_ids[] khi adjustment / items[] khi override)
+| PUT|POST /api/admin/price-boards/{id}   → sửa — THAY TOÀN BỘ items/product_ids hiện có
+| DELETE /api/admin/price-boards/{id}     → xoá, tự tính lại giá đúng cho các sân từng gắn với bảng
+| POST   /api/admin/price-boards/{id}/apply-now
+|                                          → áp ngay giá của bảng, bất kể ngày hiệu lực/is_active
+|--------------------------------------------------------------------------
+*/
+Route::middleware(['auth:sanctum', 'admin.api'])->prefix('admin/price-boards')->name('api.admin.price-boards.')->group(function () {
+    Route::get('/',              [PriceBoardController::class, 'index'])->name('index');
+    Route::post('/',             [PriceBoardController::class, 'store'])->name('store');
+    Route::get('/{id}',          [PriceBoardController::class, 'show'])->name('show')->whereNumber('id');
+    Route::match(['put', 'post'], '/{id}', [PriceBoardController::class, 'update'])->name('update')->whereNumber('id');
+    Route::delete('/{id}',       [PriceBoardController::class, 'destroy'])->name('destroy')->whereNumber('id');
+    Route::post('/{id}/apply-now', [PriceBoardController::class, 'applyNow'])->name('apply-now')->whereNumber('id');
 });

@@ -23,7 +23,7 @@ class PartnerFeatureMatrix extends Page
 
     protected static ?string $title = 'Tính năng theo gói đối tác';
 
-    protected static ?int $navigationSort = 2;
+    protected static ?int $navigationSort = 8;
 
     protected static string $view = 'filament.pages.partner-feature-matrix';
 

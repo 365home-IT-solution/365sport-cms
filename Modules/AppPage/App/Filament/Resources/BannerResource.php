@@ -39,7 +39,7 @@ class BannerResource extends Resource
 
     protected static ?string $pluralModelLabel = 'Banner';
 
-    protected static ?int $navigationSort = 2;
+    protected static ?int $navigationSort = 5;
 
     // Trước đây hardcode isSuperAdmin() ở cả 2 hàm — bỏ qua BannerPolicy (đã đúng, kiểm tra
     // view_any_banner), khiến tick/bỏ tick quyền này ở Roles & Permissions vô tác dụng.

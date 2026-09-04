@@ -24,11 +24,20 @@ class DepartmentResource extends Resource
 
     protected static ?string $navigationGroup = 'Quản lý';
 
+    protected static ?int $navigationSort = 1;
+
     protected static ?string $navigationLabel = 'Phòng ban';
 
     protected static ?string $modelLabel = 'Phòng ban';
 
     protected static ?string $pluralModelLabel = 'Phòng ban';
+
+    // Ẩn khỏi menu theo yêu cầu — vẫn tạo/sửa được qua nút "+" ngay trong form Nhân viên
+    // (UserForm::createOptionUsing()), chỉ không còn trang danh sách riêng ở menu.
+    public static function shouldRegisterNavigation(): bool
+    {
+        return false;
+    }
 
     public static function form(Form $form): Form
     {

@@ -22,6 +22,8 @@ class SalaryTemplateResource extends Resource
 
     protected static ?string $navigationGroup = 'Quản lý';
 
+    protected static ?int $navigationSort = 4;
+
     protected static ?string $navigationLabel = 'Mẫu lương';
 
     protected static ?string $modelLabel = 'Mẫu lương';

@@ -69,28 +69,11 @@ return [
     'telegram' => [
         'bot_token'       => env('TELEGRAM_BOT_TOKEN'),
         'chat_id'         => env('TELEGRAM_CHAT_ID'),
-        'lock_chat_id'    => env('TELEGRAM_LOCK_CHAT_ID'),    // Nhóm check-in/check-out riêng
         'deposit_chat_id' => env('TELEGRAM_DEPOSIT_CHAT_ID'), // Nhóm nhận thông báo cọc sân (style=2)
     ],
 
-    /*
-    |--------------------------------------------------------------------------
-    | TTLock Cloud API
-    |--------------------------------------------------------------------------
-    | clientId/clientSecret: lấy từ TTLock Open Platform (Management Center)
-    | username/password: tài khoản TTLock App (KHÔNG phải developer account)
-    | password phải là MD5(password_thực) lowercase 32 ký tự
-    */
     'firebase' => [
         'vapid_key' => env('FIREBASE_VAPID_KEY'),
-    ],
-
-    'ttlock' => [
-        'client_id'      => env('TTLOCK_CLIENT_ID'),
-        'client_secret'  => env('TTLOCK_CLIENT_SECRET'),
-        'username'       => env('TTLOCK_USERNAME'),
-        'password'       => env('TTLOCK_PASSWORD'), // MD5 lowercase
-        'api_base'       => env('TTLOCK_API_BASE', 'https://euapi.ttlock.com'),
     ],
 
     'ocr_space' => [
@@ -99,6 +82,16 @@ return [
 
     'google_maps' => [
         'key' => env('GOOGLE_MAPS_API_KEY'),
+    ],
+
+    // Nền bản đồ CARTO Voyager (Modules/BladeThemeV1 — map-page.blade.php + product/search.blade.php,
+    // thư viện Leaflet) — trước đây MIỄN PHÍ hoàn toàn, không cần key, nhưng CARTO đã đổi chính sách
+    // bắt buộc phải có API key mới trả về tile thật (không key thì mọi ô bản đồ chỉ hiện chữ đè "API
+    // KEY REQUIRED" — bug thật đã gặp). Lấy key MIỄN PHÍ (tới 5 triệu request/tháng, không cần tài
+    // khoản CARTO, chỉ cần điền email + domain) tại https://carto.com/basemaps/apikey — xem hướng
+    // dẫn đầy đủ trong README hoặc hỏi lại nếu cần các bước chi tiết.
+    'carto' => [
+        'basemaps_key' => env('CARTO_BASEMAPS_API_KEY'),
     ],
 
     // Đăng nhập Google cho KHÁCH HÀNG (storefront) — client_id/client_secret KHÔNG cấu hình qua

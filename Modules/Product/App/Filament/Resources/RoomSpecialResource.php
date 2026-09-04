@@ -17,17 +17,35 @@ class RoomSpecialResource extends Resource
 {
     protected static ?string $model = RoomSpecial::class;
 
-    // RoomSpecial không có cột partner_id riêng — lọc qua partner_id của Product cha.
+    // RoomSpecial không có cột partner_id riêng — lọc qua partner_id của Product cha. CỘNG THÊM
+    // lọc theo "Chuyển đổi chi nhánh" ở header qua Product::categories() — trước đây chỉ lọc
+    // partner, bỏ qua switcher hoàn toàn.
     public static function getEloquentQuery(): Builder
     {
         $query = parent::getEloquentQuery();
         $user  = auth()->user();
 
-        if (! $user || $user->isSuperAdmin()) {
+        if (! $user) {
             return $query;
         }
 
-        return $query->whereHas('product', fn (Builder $q) => $q->where('partner_id', $user->partner_id));
+        if (! $user->isSuperAdmin()) {
+            $query->whereHas('product', fn (Builder $q) => $q->where('partner_id', $user->partner_id));
+        }
+
+        $branchIds = $user->effectiveBranchIds();
+
+        if (empty($branchIds)) {
+            return $user->isSuperAdmin() ? $query : $query->whereRaw('1 = 0');
+        }
+
+        $categoryIds = $user->visibleProductCategoryIds($branchIds);
+
+        if (empty($categoryIds)) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        return $query->whereHas('product.categories', fn (Builder $q) => $q->whereIn('categories.id', $categoryIds));
     }
 
     public static function getNavigationIcon(): string
@@ -37,7 +55,12 @@ class RoomSpecialResource extends Resource
 
     public static function getNavigationGroup(): ?string
     {
-        return 'Quản lý API';
+        return 'Quản lý';
+    }
+
+    public static function getNavigationSort(): ?int
+    {
+        return 7;
     }
 
     public static function getNavigationLabel(): string

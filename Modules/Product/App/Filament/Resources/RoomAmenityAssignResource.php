@@ -14,7 +14,7 @@ class RoomAmenityAssignResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-clipboard-document-check';
 
-    protected static ?string $navigationGroup = 'Quản lý API';
+    protected static ?string $navigationGroup = 'Quản lý';
 
     protected static ?string $navigationLabel = 'Gán Tiện Ích Sân';
 
@@ -26,7 +26,7 @@ class RoomAmenityAssignResource extends Resource
 
     protected static ?string $slug = 'room-amenity-assign';
 
-    protected static ?int $navigationSort = 5;
+    protected static ?int $navigationSort = 4;
 
     public static function getModelLabel(): string
     {

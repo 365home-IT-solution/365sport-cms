@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Models\Concerns\LogsAuditTrail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -18,7 +19,7 @@ use Laravel\Sanctum\HasApiTokens;
 
 class Customer extends Authenticatable
 {
-    use HasApiTokens, HasFactory, SoftDeletes;
+    use HasApiTokens, HasFactory, SoftDeletes, LogsAuditTrail;
 
     public const STATUS_ACTIVE   = 'active';
     public const STATUS_INACTIVE = 'inactive';
@@ -45,9 +46,17 @@ class Customer extends Authenticatable
         'cccd_data',
         'membership_tier_id',
         'total_spending',
+        // Đếm dồn số lần bị đánh dấu "không đến" (Order::markNoShow()) — xem migration
+        // 2026_09_03_000003_add_no_show_count_to_customers_table. Không có ở đây do bị tăng trực
+        // tiếp qua increment(), nhưng vẫn khai báo fillable để phòng khi cần set tay/import dữ liệu.
+        'no_show_count',
         'welcome_coupon_sent_at',
         'province_id',
         'province_name',
+        // Trình độ chơi tự khai — dùng để lọc/hiển thị ở tính năng "Tìm bạn chơi" (App\Models\OpenMatch).
+        // Giá trị tự do, validate đúng tập OpenMatch::SKILL_LEVELS ở tầng API — xem migration
+        // add_skill_level_to_customers_table.
+        'skill_level',
     ];
 
     protected $hidden = [
@@ -63,6 +72,7 @@ class Customer extends Authenticatable
         'password_updated_at'    => 'datetime',
         'cccd_data'              => 'array',
         'total_spending'         => 'decimal:2',
+        'no_show_count'          => 'integer',
         'welcome_coupon_sent_at' => 'datetime',
     ];
 
@@ -158,6 +168,12 @@ class Customer extends Authenticatable
         return $this->hasMany(Order::class, 'customer_id');
     }
 
+    // Kèo "Tìm bạn chơi" mà khách này ĐANG là host — xem App\Models\OpenMatch.
+    public function openMatches(): HasMany
+    {
+        return $this->hasMany(OpenMatch::class, 'host_customer_id');
+    }
+
     // CCCD người đi cùng đã lưu sẵn, tái sử dụng cho các lần đặt sân qua đêm sau này — xem
     // migration 2026_07_20_000002_create_customer_companions_table.
     public function companions(): HasMany
@@ -173,5 +189,13 @@ class Customer extends Authenticatable
     public function referrals(): HasMany
     {
         return $this->hasMany(self::class, 'referred_by_customer_id');
+    }
+
+    // Lịch sử được gán làm nhân viên của (các) tài khoản doanh nghiệp B2B — xem
+    // App\Models\CorporateAccount/CorporateAccountEmployee. 1 khách có thể từng thuộc nhiều công
+    // ty khác nhau theo thời gian (đổi việc), removed_at đánh dấu lượt nào đã bị gỡ.
+    public function corporateAccountEmployments(): HasMany
+    {
+        return $this->hasMany(CorporateAccountEmployee::class);
     }
 }

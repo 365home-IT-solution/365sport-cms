@@ -18,6 +18,7 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 
 // Quản lý KHÁCH ĐÃ MUA gói nhiều buổi (App\Models\CustomerPackage) — khác PackagePlanResource
 // (nơi admin CẤU HÌNH các gói bán ra). Dùng CHUNG App\Models\Concerns\BelongsToPartner (đã gắn ở
@@ -37,7 +38,7 @@ class CustomerPackageResource extends Resource
     protected static ?string $navigationLabel  = 'Khách đã mua gói';
     protected static ?string $modelLabel       = 'Gói đã bán';
     protected static ?string $pluralModelLabel = 'Khách đã mua gói';
-    protected static ?int    $navigationSort   = 1;
+    protected static ?int    $navigationSort   = 7;
 
     // Cùng cách canViewAny() đơn giản như PackagePlanResource (chưa đăng ký permission qua Shield).
     public static function canViewAny(): bool
@@ -48,6 +49,37 @@ class CustomerPackageResource extends Resource
     public static function canCreate(): bool
     {
         return false;
+    }
+
+    // CustomerPackage đã lọc theo partner_id qua BelongsToPartner (global scope 'partner') — CỘNG
+    // THÊM (AND) lọc chi nhánh theo "Chuyển đổi chi nhánh" ở header. Snapshot ĐÚNG 1 TRONG 2 phạm
+    // vi (xem comment đầu class): category_id (gói cả chi nhánh) HOẶC product_id (gói riêng 1 sân)
+    // — viết OR giữa 2 điều kiện, cùng cách PackagePlan::isBranchWide() phân biệt.
+    public static function getEloquentQuery(): Builder
+    {
+        $query = parent::getEloquentQuery();
+        $user  = auth()->user();
+
+        if (! $user) {
+            return $query;
+        }
+
+        $branchIds = $user->effectiveBranchIds();
+
+        if (empty($branchIds)) {
+            return $user->isSuperAdmin() ? $query : $query->whereRaw('1 = 0');
+        }
+
+        $categoryIds = $user->visibleProductCategoryIds($branchIds);
+
+        if (empty($categoryIds)) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        return $query->where(function (Builder $q) use ($categoryIds) {
+            $q->whereIn('category_id', $categoryIds)
+                ->orWhereHas('product.categories', fn (Builder $q2) => $q2->whereIn('categories.id', $categoryIds));
+        });
     }
 
     public static function form(Form $form): Form

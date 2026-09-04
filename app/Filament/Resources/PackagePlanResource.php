@@ -7,6 +7,7 @@ namespace App\Filament\Resources;
 use App\Filament\Resources\PackagePlanResource\Pages;
 use App\Models\CustomerPackage;
 use App\Models\PackagePlan;
+use Filament\Forms\Components\CheckboxList;
 use Filament\Forms\Components\Grid;
 use Filament\Forms\Components\Radio;
 use Filament\Forms\Components\Section;
@@ -15,6 +16,7 @@ use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Forms\Form;
 use Filament\Forms\Get;
+use Modules\Product\App\Models\Product;
 use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Tables\Actions\Action;
@@ -23,6 +25,7 @@ use Filament\Tables\Actions\EditAction;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 
 // Gói nhiều buổi / thẻ trả trước — theo yêu cầu rà soát nghiệp vụ đặt sân (khách mua trước N buổi
 // cho 1 sân cụ thể, giá ưu đãi hơn mua lẻ). Đây là nơi ADMIN cấu hình các GÓI (PackagePlan) bán ra
@@ -44,10 +47,71 @@ class PackagePlanResource extends Resource
     protected static ?string $navigationLabel  = 'Gói nhiều buổi';
     protected static ?string $modelLabel       = 'Gói nhiều buổi';
     protected static ?string $pluralModelLabel = 'Gói nhiều buổi';
+    protected static ?int    $navigationSort   = 6;
 
     public static function canViewAny(): bool
     {
         return auth()->check();
+    }
+
+    // GHI CHÚ (không tự ý sửa trong lần này, ngoài phạm vi yêu cầu): PackagePlan KHÔNG có
+    // BelongsToPartner dù có cột partner_id — resource này hiện lộ gói của MỌI đối tác cho bất kỳ
+    // admin nào đã đăng nhập (canViewAny() chỉ auth()->check()). Lọc chi nhánh dưới đây (dựa trên
+    // effectiveBranchIds()/visibleProductCategoryIds(), vốn đã tự giới hạn theo partner_id của
+    // user thường qua User::rootProductCategoryIds()) tình cờ thu hẹp luôn phần lớn rò rỉ này cho
+    // user KHÔNG PHẢI super_admin, nhưng KHÔNG thay thế cho việc thêm BelongsToPartner đúng nghĩa.
+    public static function getEloquentQuery(): Builder
+    {
+        $query = parent::getEloquentQuery();
+        $user  = auth()->user();
+
+        if (! $user) {
+            return $query;
+        }
+
+        $branchIds = $user->effectiveBranchIds();
+
+        if (empty($branchIds)) {
+            return $user->isSuperAdmin() ? $query : $query->whereRaw('1 = 0');
+        }
+
+        $categoryIds = $user->visibleProductCategoryIds($branchIds);
+
+        if (empty($categoryIds)) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        // Đúng 1 trong 2 phạm vi (xem PackagePlan::isBranchWide()): category_id (cả chi nhánh)
+        // HOẶC product_id (1 sân cụ thể, lọc qua Product::categories()). Phạm vi thứ 3 "một số sân
+        // trong chi nhánh" LUÔN có category_id đi kèm (xem PackagePlan::scopeType()) nên tự động
+        // khớp nhánh category_id, không cần thêm điều kiện riêng.
+        return $query->where(function (Builder $q) use ($categoryIds) {
+            $q->whereIn('category_id', $categoryIds)
+                ->orWhereHas('product.categories', fn (Builder $q2) => $q2->whereIn('categories.id', $categoryIds));
+        });
+    }
+
+    // Tập category_id đang hiệu lực theo "Chuyển đổi chi nhánh" ở header (session active_branch_ids
+    // qua User::effectiveBranchIds()) — DÙNG CHUNG cho cả getEloquentQuery() (lọc DANH SÁCH gói) LẪN
+    // các Select trong form() (lọc SÂN/CHI NHÁNH được phép chọn khi Tạo/Sửa gói). TRƯỚC ĐÂY 2 field
+    // Select 'product_id'/'category_id' trong form hoàn toàn không lọc gì — chọn switcher xong danh
+    // sách gói đã lọc đúng, nhưng form Tạo/Sửa vẫn hiện tràn lan MỌI chi nhánh/sân của MỌI đối tác
+    // (bug thật đã gặp).
+    private static function scopedCategoryIds(): array
+    {
+        $user = auth()->user();
+
+        if (! $user) {
+            return [];
+        }
+
+        $branchIds = $user->effectiveBranchIds();
+
+        if (empty($branchIds)) {
+            return [];
+        }
+
+        return $user->visibleProductCategoryIds($branchIds);
     }
 
     public static function form(Form $form): Form
@@ -62,14 +126,31 @@ class PackagePlanResource extends Resource
                     ->label('Phạm vi áp dụng')
                     ->options([
                         'product'  => '1 sân cụ thể',
+                        'selected' => 'Một số sân trong chi nhánh',
                         'category' => 'Toàn bộ chi nhánh (mọi sân)',
                     ])
                     ->default('product')
                     ->inline()
                     ->live()
-                    ->dehydrated(false)
+                    // LUÔN dehydrate (KHÔNG còn ->dehydrated(false)) — 'scope_type' không map cột
+                    // nào của PackagePlan nên Eloquent tự bỏ qua nếu lọt vào update()/create(), NHƯNG
+                    // bắt buộc phải có mặt trong $data để 2 trang Create/Edit tự XỬ LÝ TẬP TRUNG việc
+                    // ép loại trừ lẫn nhau giữa product_id/category_id/product_ids (xem
+                    // enforceScopeExclusivity() ở Pages/CreatePackagePlan.php + EditPackagePlan.php).
+                    // TRƯỚC ĐÂY mỗi field tự ->dehydrateStateUsing() dựa vào Get('scope_type') riêng
+                    // lẻ — với 3 field loại trừ nhau (từ khi thêm phạm vi "Một số sân trong chi
+                    // nhánh"), cách này KHÔNG ĐÁNG TIN CẬY: đã gặp thật product_id cũ (từ trước khi
+                    // đổi qua "Một số sân") không được xoá dù category_id/product_ids MỚI đã lưu
+                    // đúng, khiến scopeType() vẫn đọc nhầm thành 'product' (còn sót giá trị cũ). Tập
+                    // trung về 1 nơi DUY NHẤT xử lý sau khi form đã dehydrate xong toàn bộ, không phụ
+                    // thuộc thứ tự chạy giữa các field độc lập.
                     ->afterStateHydrated(function ($component, $record) {
-                        $component->state($record?->category_id ? 'category' : 'product');
+                        $component->state(match (true) {
+                            $record?->product_id !== null => 'product',
+                            ! empty($record?->product_ids) => 'selected',
+                            $record?->category_id !== null => 'category',
+                            default => 'product',
+                        });
                     }),
 
                 Select::make('product_id')
@@ -77,7 +158,10 @@ class PackagePlanResource extends Resource
                     ->placeholder('Tìm theo tên sân')
                     ->visible(fn (Get $get) => $get('scope_type') === 'product')
                     ->required(fn (Get $get) => $get('scope_type') === 'product')
-                    ->dehydrated(fn (Get $get) => $get('scope_type') === 'product')
+                    // KHÔNG tự ->dehydrateStateUsing() ép null ở field nữa — việc ép loại trừ lẫn
+                    // nhau giữa product_id/category_id/product_ids giờ xử lý TẬP TRUNG ở
+                    // enforceScopeExclusivity() (xem ghi chú dài tại field 'scope_type' phía trên
+                    // giải thích lý do đổi cách làm).
                     // Dùng thẳng ->relationship() (PackagePlan::product(), chuẩn Filament) thay vì
                     // ->getSearchResultsUsing()/->getOptionLabelUsing() tự viết tay — select trước
                     // đây kẹt mãi ở "Đang tải..." không load được sân nào (bug đã gặp). Không dựng
@@ -85,7 +169,15 @@ class PackagePlanResource extends Resource
                     // thường) nên đổi sang cách làm chuẩn, đã chạy ổn ở nhiều select khác trong hệ
                     // thống, để loại trừ rủi ro lỗi ở tầng Livewire/JS khó dò khi không debug được
                     // trực tiếp trên trình duyệt.
-                    ->relationship('product', 'name')
+                    // Lọc theo đúng chi nhánh đang hiệu lực (switcher header) — TRƯỚC ĐÂY không lọc
+                    // gì cả, hiện ĐỦ sân của MỌI đối tác trong dropdown này (bug thật đã gặp: chọn
+                    // switcher xong list "Gói Nhiều Buổi" đã lọc đúng, nhưng form Tạo/Sửa vẫn hiện
+                    // tràn lan mọi chi nhánh). Cùng nguồn effectiveBranchIds()/visibleProductCategoryIds()
+                    // dùng ở getEloquentQuery() phía trên, xem scopedCategoryIds().
+                    ->relationship('product', 'name', fn ($query) => $query->whereHas(
+                        'categories',
+                        fn ($q) => $q->whereIn('categories.id', static::scopedCategoryIds())
+                    ))
                     ->searchable()
                     ->preload()
                     ->helperText('Gói CHỈ dùng được cho đúng sân này khi đặt sân (không dùng chéo sân khác).'),
@@ -93,13 +185,39 @@ class PackagePlanResource extends Resource
                 Select::make('category_id')
                     ->label('Chi nhánh áp dụng')
                     ->placeholder('Tìm theo tên chi nhánh')
-                    ->visible(fn (Get $get) => $get('scope_type') === 'category')
-                    ->required(fn (Get $get) => $get('scope_type') === 'category')
-                    ->dehydrated(fn (Get $get) => $get('scope_type') === 'category')
-                    ->relationship('category', 'name', fn ($query) => $query->where('category_type', 'product'))
+                    // Cần cho CẢ 2 phạm vi "Toàn bộ chi nhánh" LẪN "Một số sân trong chi nhánh" —
+                    // phạm vi sau vẫn phải biết đang thuộc chi nhánh nào để lọc options() của
+                    // CheckboxList 'product_ids_input' bên dưới VÀ để CustomerPackage::
+                    // findValidForPhoneAndProduct() khớp đúng theo category_id + product_ids.
+                    ->visible(fn (Get $get) => in_array($get('scope_type'), ['category', 'selected'], true))
+                    ->required(fn (Get $get) => in_array($get('scope_type'), ['category', 'selected'], true))
+                    ->live()
+                    // Lọc theo đúng chi nhánh đang hiệu lực (switcher header) — cùng lý do với
+                    // product_id ở trên, xem scopedCategoryIds().
+                    ->relationship('category', 'name', fn ($query) => $query->where('category_type', 'product')
+                        ->whereIn('id', static::scopedCategoryIds()))
                     ->searchable()
                     ->preload()
-                    ->helperText('Gói dùng được cho MỌI sân thuộc chi nhánh này, không riêng 1 sân.'),
+                    ->helperText(fn (Get $get) => $get('scope_type') === 'selected'
+                        ? 'Chọn chi nhánh trước để hiện danh sách sân bên dưới.'
+                        : 'Gói dùng được cho MỌI sân thuộc chi nhánh này, không riêng 1 sân.'),
+
+                CheckboxList::make('product_ids')
+                    ->label('Sân áp dụng')
+                    ->visible(fn (Get $get) => $get('scope_type') === 'selected')
+                    ->required(fn (Get $get) => $get('scope_type') === 'selected')
+                    ->options(fn (Get $get) => $get('category_id')
+                        ? Product::whereHas('categories', fn ($q) => $q->where('categories.id', $get('category_id')))
+                            ->orderBy('name')
+                            ->pluck('name', 'id')
+                        : [])
+                    ->disabled(fn (Get $get) => blank($get('category_id')))
+                    ->columns(2)
+                    ->bulkToggleable()
+                    // Tên field khớp THẲNG cột JSON thật 'product_ids' (cast 'array' ở PackagePlan
+                    // model) — không tự ->dehydrateStateUsing() ép null nữa, xử lý tập trung ở
+                    // enforceScopeExclusivity() (xem ghi chú tại field 'scope_type').
+                    ->helperText('Gói CHỈ dùng được cho các sân đã chọn — sân khác trong cùng chi nhánh không dùng được.'),
 
                 TextInput::make('name')
                     ->label('Tên gói')
@@ -145,9 +263,13 @@ class PackagePlanResource extends Resource
             ->columns([
                 TextColumn::make('product.name')
                     ->label('Phạm vi')
-                    ->formatStateUsing(fn ($record) => $record->category_id
-                        ? 'Cả chi nhánh: ' . ($record->category?->name ?? '—')
-                        : ($record->product?->name ?? '—'))
+                    ->formatStateUsing(function ($record) {
+                        return match ($record->scopeType()) {
+                            'product'           => $record->product?->name ?? '—',
+                            'selected_products'  => count($record->product_ids ?? []) . ' sân — ' . ($record->category?->name ?? '—'),
+                            'branch'            => 'Cả chi nhánh: ' . ($record->category?->name ?? '—'),
+                        };
+                    })
                     ->searchable(['product.name'])
                     ->sortable(),
 
@@ -216,6 +338,7 @@ class PackagePlanResource extends Resource
                             'buyer_name'         => $data['buyer_name'],
                             'product_id'         => $record->product_id,
                             'category_id'        => $record->category_id,
+                            'product_ids'        => $record->product_ids,
                             'name'               => $record->name,
                             'sessions_total'     => $record->sessions_count,
                             'sessions_remaining' => $record->sessions_count,

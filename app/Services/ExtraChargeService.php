@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services;
 
 use Illuminate\Support\Facades\Config;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Modules\Payment\Entities\Order;
 use PayOS\PayOS;
@@ -202,8 +203,8 @@ class ExtraChargeService
     public function createRemainingPayOS(Order $order): array
     {
         $depositPct  = (int) $order->deposit_percent;
-        $depositPaid = (int) $order->full_amount;
-        $realTotal   = $depositPct > 0 ? (int) round($depositPaid * 100 / $depositPct) : $depositPaid;
+        $realTotal   = (int) $order->full_amount;
+        $depositPaid = $order->depositPaidAmount();
         $extraCharge = (int) ($order->extra_charge_amount ?? 0);
         $remaining   = ($realTotal - $depositPaid) + $extraCharge;
 
@@ -313,16 +314,30 @@ class ExtraChargeService
     /**
      * Xử lý khi PayOS webhook báo extra charge đã thanh toán.
      */
-    public function handleExtraChargePaid(Order $order): void
+    public function handleExtraChargePaid(Order $order): bool
     {
-        $order->update([
-            'extra_charge_payment_method' => 'payos',
-            'extra_charge_paid_at'        => now(),
-            'extra_charge_expired_at'     => null,
-            'settled_adjustment_total'    => (int) ($order->settled_adjustment_total ?? 0) + (int) ($order->extra_charge_amount ?? 0),
-        ]);
+        $processed = DB::transaction(function () use ($order): bool {
+            $locked = Order::query()->lockForUpdate()->findOrFail($order->getKey());
+            if (! is_null($locked->extra_charge_paid_at)) {
+                return false;
+            }
 
-        Log::info('ExtraCharge: paid via PayOS', ['order_id' => $order->id]);
+            $amount = (int) ($locked->extra_charge_amount ?? 0);
+            if ($amount <= 0) {
+                return false;
+            }
+
+            $locked->update([
+                'extra_charge_payment_method' => 'payos',
+                'extra_charge_paid_at'        => now(),
+                'extra_charge_expired_at'     => null,
+                'settled_adjustment_total'    => (int) ($locked->settled_adjustment_total ?? 0) + $amount,
+            ]);
+            return true;
+        });
+
+        Log::info('ExtraCharge: PayOS webhook handled', ['order_id' => $order->id, 'processed' => $processed]);
+        return $processed;
     }
 
     // ─── Xử lý đơn paid bị GIẢM giá (huỷ khung giờ/dịch vụ) ─────────────────

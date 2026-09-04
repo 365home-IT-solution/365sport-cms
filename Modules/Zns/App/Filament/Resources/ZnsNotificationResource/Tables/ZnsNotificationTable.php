@@ -112,11 +112,7 @@ class ZnsNotificationTable
                             ->label('Mã đơn hàng')
                             ->url(fn ($record) => OrderResource::getUrl('edit', ['record' => $record->order_id]))
                             ->color('primary'),
-                        
-                        TextEntry::make('accessCode.code')
-                            ->label('Mã cổng')
-                            ->placeholder('----------'),
-                        
+
                         TextEntry::make('recipient_name')
                             ->label('Người nhận'),
                         

@@ -1119,6 +1119,11 @@ class ManageGeneral extends SettingsPage
         return 'Cấu hình web';
     }
 
+    public static function getNavigationSort(): ?int
+    {
+        return 10;
+    }
+
     public static function getNavigationLabel(): string
     {
         return __("page.general_settings.navigationLabel");

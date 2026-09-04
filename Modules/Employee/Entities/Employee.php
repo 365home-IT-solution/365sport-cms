@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Modules\Employee\Entities;
 
 use App\Models\Concerns\BelongsToPartner;
+use App\Models\Concerns\LogsAuditTrail;
 use App\Models\Province;
 use App\Models\User;
 use App\Models\Ward;
@@ -20,7 +21,7 @@ use Spatie\MediaLibrary\InteractsWithMedia;
 
 class Employee extends Model implements HasMedia
 {
-    use InteractsWithMedia, BelongsToPartner;
+    use InteractsWithMedia, BelongsToPartner, LogsAuditTrail;
 
     protected $fillable = [
         'created_by',

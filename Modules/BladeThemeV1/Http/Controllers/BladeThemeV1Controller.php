@@ -166,7 +166,7 @@ class BladeThemeV1Controller extends Controller
     public function bookingDetail(Request $request, $code)
     {
         // Tìm đơn hàng theo order_code, load kèm items và product
-        $order = Order::with(['items.product.manualLockPasswords', 'accessCodes'])
+        $order = Order::with(['items.product'])
             ->where('order_code', $code)
             ->firstOrFail();
 
@@ -197,14 +197,29 @@ class BladeThemeV1Controller extends Controller
         $item = $order->items->first();
         $product = $item ? $item->product : null;
 
-        // Đơn mua gói nhiều buổi (order_type=package_purchase) — không có khung giờ/mã cổng thật,
+        // Đơn mua gói nhiều buổi (order_type=package_purchase) — không có khung giờ thật,
         // view tự chuyển sang hiện "Gói đã kích hoạt" thay vì thông tin nhận/trả sân thông thường.
         $isPackagePurchase = $order->order_type === 'package_purchase';
         $customerPackage   = $isPackagePurchase
             ? \App\Models\CustomerPackage::where('order_id', $order->id)->first()
             : null;
 
-        return view('bladethemev1::pages.booking-detail', compact('order', 'item', 'product', 'isPackagePurchase', 'customerPackage'));
+        // Đơn đặt sân được trả bằng buổi trong gói vẫn là order_type mặc định. Dấu hiệu chính xác
+        // của luồng này là các PackageRedemption thuộc đơn; không suy luận từ amount/status vì đơn
+        // dùng gói vẫn lưu giá niêm yết để báo cáo nội bộ.
+        $packageRedemptions = $isPackagePurchase
+            ? collect()
+            : \App\Models\PackageRedemption::with('customerPackage')
+                ->where('order_id', $order->id)
+                ->whereNull('refunded_at')
+                ->get();
+        $isPackageBooking = $packageRedemptions->isNotEmpty();
+        $redeemedPackage  = $packageRedemptions->first()?->customerPackage;
+
+        return view('bladethemev1::pages.booking-detail', compact(
+            'order', 'item', 'product', 'isPackagePurchase', 'customerPackage',
+            'isPackageBooking', 'packageRedemptions', 'redeemedPackage'
+        ));
     }
 
     // Khách tự huỷ đơn/xin hoàn tiền online — xem App\Services\OrderCancellationService (điều
@@ -254,72 +269,6 @@ class BladeThemeV1Controller extends Controller
             ->route('booking.detail', ['code' => $order->order_code])
             ->with('bank_transfer_uploaded', true);
     }
-
-//    public function categoryDetail($slug)
-//    {
-//
-//        $parts = explode('-', $slug);
-//
-//        if (count($parts) < 4) {
-//            abort(404);
-//        }
-//
-//        $slug2 = implode('-', array_slice($parts, -2));
-//
-//        $slug3 = implode('-', array_slice($parts, 0, count($parts) - 2));
-//
-//        $category = Category::query()
-//            ->select([
-//                'c1.name as c1_name',
-//                'c2.name as c2_name',
-//                'c3.name as c3_name',
-//                'c3.image',
-//                'c3.description as c3_dep',
-//                'c1.slug as c1_slug',
-//                'c2.slug as c2_slug',
-//                'c3.slug as c3_slug',
-//                'c3.id as c3_id',
-//            ])
-//            ->from('categories as c3')
-//            ->join('categories as c2', 'c3.parent_id', '=', 'c2.id')
-//            ->join('categories as c1', 'c2.parent_id', '=', 'c1.id')
-//            ->join('categorizables as cz', 'cz.category_id', '=', 'c3.id')
-//            ->where('c1.parent_id', null)
-//            ->where([
-//                ['c1.category_type', '=', 'product'],
-//                ['c2.category_type', '=', 'product'],
-//                ['c3.category_type', '=', 'product'],
-//                ['c1.status', '=', 1],
-//                ['c2.status', '=', 1],
-//                ['c3.status', '=', 1],
-//                ['cz.categorizable_type', '=', Product::class],
-//                ['c3.slug', '=', $slug3],
-//                ['c2.slug', '=', $slug2],
-//            ])
-//            ->first();
-//
-//        if (!$category) {
-//            abort(404, 'Danh mục không tồn tại.');
-//        }
-//
-//        // SEO data
-//        $seoData = [
-//            'seo_title' => 'Home - ' . $category->c3_name . ', ' . $category->c2_name,
-//            'seo_description' => strip_tags($category->c3_dep),
-//            'seo_keywords' => implode(', ', array_filter([$category->c1_name, $category->c2_name, $category->c3_name])),
-//            'og_image' => $category->image ? asset($category->image) : null,
-//        ];
-//
-//        return view('bladethemev1::pages.category.detail', [
-//            'slug' => $category->c3_slug,
-//            'name' => $category->c3_name,
-//            'seoData' => $seoData,
-//            'primaryColor' => $this->primaryColor,
-//            'primaryColorRgb' => $this->primaryColorRgb,
-//            'heavyPrimaryColor' => $this->heavyPrimaryColor,
-//            'lightPrimaryColor' => $this->lightPrimaryColor,
-//        ]);
-//    }
 
     public function favoritesPage(Request $request)
     {
@@ -906,6 +855,8 @@ class BladeThemeV1Controller extends Controller
             'mapLat'           => $mapLat,
             'mapLng'           => $mapLng,
             'mapZoom'          => $mapZoom,
+            // Xem ghi chú đầy đủ tại config('services.carto') + .env.example (CARTO_BASEMAPS_API_KEY).
+            'cartoBasemapsKey' => config('services.carto.basemaps_key'),
         ]);
     }
 

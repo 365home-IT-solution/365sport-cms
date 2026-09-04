@@ -8,10 +8,10 @@ use PayOS\PayOS;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\DB;
 use App\Mail\OrderNotificationMail;
 use App\Services\TelegramService;
 use App\Services\PayOSCredentialResolver;
-use Modules\BladeThemeV1\Services\AccessCode\AccessCodeService;
 use Modules\BladeThemeV1\Services\Zns\ZaloZnsService;
 use Modules\Payment\Entities\Order;
 use Carbon\Carbon;
@@ -21,17 +21,14 @@ class PaymentController extends Controller
     private string $payOSClientId;
     private string $payOSApiKey;
     private string $payOSChecksumKey;
-    protected $accessCodeService;
     protected $zaloZnsService;
 
     public function __construct(
-        AccessCodeService $accessCodeService,
         ZaloZnsService $zaloZnsService
     ) {
         $this->payOSClientId    = Config::get('payos.client_id');
         $this->payOSApiKey      = Config::get('payos.api_key');
         $this->payOSChecksumKey = Config::get('payos.checksum_key');
-        $this->accessCodeService = $accessCodeService;
         $this->zaloZnsService    = $zaloZnsService;
     }
 
@@ -237,7 +234,7 @@ private function buildTelegramMessage(Order $order, string $status): string
                             Log::error('Telegram failed in checkPaymentStatus', ['error' => $e->getMessage()]);
                         }
                     } else {
-                        $order->update(['status' => 'paid']);
+                        $order->update(['status' => 'paid', 'paid_at' => now()]);
                         $this->handleSuccessfulPayment($order);
                         try {
                             $this->sendTelegram($order, $this->buildTelegramMessage($order, 'paid'));
@@ -250,7 +247,6 @@ private function buildTelegramMessage(Order $order, string $status): string
 
                 case 'CANCELLED':
                     $order->update(['status' => 'failed']);
-                    $this->accessCodeService->releaseCode($order->id);
                     try {
                         $this->sendTelegram($order, $this->buildTelegramMessage($order, 'cancelled'));
                     } catch (\Exception $e) {
@@ -260,7 +256,6 @@ private function buildTelegramMessage(Order $order, string $status): string
 
                 case 'EXPIRED':
                     $order->update(['status' => 'cancelled_payment']);
-                    $this->accessCodeService->releaseCode($order->id);
                     try {
                         $this->sendTelegram($order, $this->buildTelegramMessage($order, 'expired'));
                     } catch (\Exception $e) {
@@ -295,88 +290,12 @@ private function buildTelegramMessage(Order $order, string $status): string
     protected function handleSuccessfulPayment($order)
     {
         try {
-            $firstItem    = $order->items->sortBy('checkin_date')->first();
-            $checkinDate  = $order->items->min('checkin_date');
-            $checkoutDate = $order->items->max('checkout_date');
+            $firstItem = $order->items->sortBy('checkin_date')->first();
 
             $categoryId = $order->category_id;
             if (!$categoryId && $firstItem && $firstItem->product) {
                 $categoryId = $firstItem->product->category_id;
                 $order->update(['category_id' => $categoryId]);
-            }
-
-            $product = $firstItem?->product;
-
-            // Chặn cấp mã trùng — webhook thanh toán CÓ THỂ gọi lại nhiều lần cho cùng 1 giao dịch
-            // (PayOS/cổng thanh toán tự retry khi không nhận được response 200 kịp thời), và
-            // processWebhookStatus() không lock DB khi đọc order.status nên 2 webhook gần như đồng
-            // thời vẫn có thể cùng lọt qua bước kiểm tra "status === paid" trước khi bên nào commit
-            // xong. Nơi khác gọi assignCodeToOrder() (BankTransferConfirmationService,
-            // OrderController, OrderPaymentController) đều đã tự kiểm tra hasAccessCode() trước khi
-            // gọi — hàm này trước đây là chỗ duy nhất thiếu, có thể cấp 2 mã TTLock/tốn 2 mã nhập
-            // tay cho cùng 1 đơn.
-            if (! $order->hasAccessCode()) {
-                $this->accessCodeService->assignCodeToOrder(
-                    $order->id, $categoryId, $checkinDate, $checkoutDate, $product
-                );
-            }
-
-            // FCM + WS theo loại khóa của sân
-            try {
-                $order->loadMissing(['items.product']);
-                $notifTitle  = null;
-                $notifBody   = null;
-                $wsPayload   = ['access_code_assigned' => true];
-
-                if ($product && $product->has_manual_lock) {
-                    // Sân có mật khẩu thủ công (ManualLockPassword) → gửi mã thực tế
-                    $pwdAnchorDate = $order->paid_at ?? $order->deposit_paid_at ?? $order->created_at;
-                    $manualPwd = \Modules\Product\App\Models\ManualLockPassword::getForProductAndDate($product, $pwdAnchorDate);
-                    if ($manualPwd && ($manualPwd->gate_password || $manualPwd->room_password)) {
-                        $parts = [];
-                        if ($manualPwd->gate_password) $parts[] = 'Mã cổng: ' . $manualPwd->gate_password;
-                        if ($manualPwd->room_password) $parts[] = 'Mã sân: ' . $manualPwd->room_password;
-                        $notifTitle = "Đơn #{$order->order_code}: Mã cổng đã được cấp";
-                        $notifBody  = implode(' | ', $parts);
-                        $wsPayload  = [
-                            'access_code_assigned' => true,
-                            'lock_type'            => 'manual',
-                            'gate_password'        => $manualPwd->gate_password,
-                            'room_password'        => $manualPwd->room_password,
-                        ];
-                    }
-                } elseif ($product && $product->lock_id && \App\Services\TTLockService::forCategory($order->category_id)) {
-                    // Sân TTLock → thông báo có thể mở từ app
-                    $notifTitle = "Đơn #{$order->order_code}: Mã cổng đã sẵn sàng";
-                    $notifBody  = 'Bạn có thể mở cửa trực tiếp từ ứng dụng.';
-                    $wsPayload  = ['access_code_assigned' => true, 'lock_type' => 'ttlock'];
-                }
-                // Sân không có pass → không gửi thông báo
-
-                if ($notifTitle && $notifBody) {
-                    $notifService = app(\App\Services\NotificationFcmService::class);
-                    $extra        = ['order_code' => (string) $order->order_code, 'type' => 'order_access_code'];
-
-                    if (is_null($order->customer_id) && $order->device_token) {
-                        $notifService->sendToGuestToken($order->device_token, $notifTitle, $notifBody, 'order_access_code', $extra);
-                    } elseif ($order->customer_id) {
-                        $customer = $order->customer;
-                        if ($customer) {
-                            $notifService->sendToCustomer($customer, $notifTitle, $notifBody, 'order_access_code', $extra);
-                        }
-                    }
-
-                    app(\App\Services\OrderRealtimeService::class)->broadcastOrderUpdate(
-                        (string) $order->order_code,
-                        $wsPayload,
-                        $order->customer_id,
-                    );
-                }
-            } catch (\Throwable $e) {
-                Log::warning('handleSuccessfulPayment: access code notification failed', [
-                    'order_id' => $order->id,
-                    'error'    => $e->getMessage(),
-                ]);
             }
 
             // Không dùng ZaloZNS nữa — Telegram xử lý ở caller
@@ -410,15 +329,30 @@ private function buildTelegramMessage(Order $order, string $status): string
 
             // full_amount CỐ ĐỊNH = tổng giá thật từ lúc tạo đơn (không tính ngược từ tiền cọc
             // nữa). extra_charge_amount = khoản phát sinh cộng thêm vào tổng thực thu cuối cùng.
-            $extraCharge = (int) ($order->extra_charge_amount ?? 0);
-            $totalPaid   = (int) $order->full_amount + $extraCharge;
+            $processedOrder = DB::transaction(function () use ($order): ?Order {
+                $locked = Order::query()->lockForUpdate()->findOrFail($order->getKey());
+                if (! is_null($locked->remaining_paid_at)) {
+                    return null;
+                }
 
-            $order->update([
-                'status'              => 'paid',
-                'amount'              => $totalPaid,
-                'extra_charge_amount' => null,
-                'remaining_paid_at'   => now(),
-            ]);
+                $extraCharge = (int) ($locked->extra_charge_amount ?? 0);
+                $locked->update([
+                    'status'                   => 'paid',
+                    'amount'                   => (int) $locked->full_amount + $extraCharge,
+                    'extra_charge_amount'      => null,
+                    'settled_adjustment_total' => (int) ($locked->settled_adjustment_total ?? 0) + $extraCharge,
+                    'remaining_paid_at'        => now(),
+                    'paid_at'                  => now(),
+                ]);
+
+                return $locked->fresh();
+            });
+
+            if ($processedOrder === null) {
+                Log::info('handleRemainingPayment: already processed after lock, skip', ['order_id' => $order->id]);
+                return true;
+            }
+            $order = $processedOrder;
 
             Log::info('Order remaining payment received', [
                 'order_id'   => $order->id,
@@ -565,7 +499,10 @@ private function buildTelegramMessage(Order $order, string $status): string
                         'order_id'   => $extraChargeOrder->id,
                     ]);
 
-                    app(\App\Services\ExtraChargeService::class)->handleExtraChargePaid($extraChargeOrder);
+                    $processed = app(\App\Services\ExtraChargeService::class)->handleExtraChargePaid($extraChargeOrder);
+                    if (! $processed) {
+                        return response()->json(['error' => 0, 'message' => 'Extra charge already processed']);
+                    }
 
                     // Notify khách real-time
                     try {
@@ -789,7 +726,7 @@ private function buildTelegramMessage(Order $order, string $status): string
             }
 
             // Đơn thanh toán đầy đủ (không cọc)
-            $order->update(['status' => 'paid']);
+            $order->update(['status' => 'paid', 'paid_at' => now()]);
 
             Log::info('Order paid (full) successfully via webhook', [
                 'order_id'   => $order->id,
@@ -831,7 +768,7 @@ private function buildTelegramMessage(Order $order, string $status): string
             return false;
         }
 
-        $order->update(['status' => 'paid']);
+        $order->update(['status' => 'paid', 'paid_at' => now()]);
 
         // Logic tạo CustomerPackage DÙNG CHUNG với đường chuyển khoản ngân hàng (xem
         // App\Models\CustomerPackage::activateFromOrder() — trước đây chỉ nằm ở đây, tách ra dùng
@@ -872,8 +809,6 @@ private function buildTelegramMessage(Order $order, string $status): string
                 Log::error('Telegram cancel notification failed', ['error' => $e->getMessage()]);
             }
 
-            $this->releaseAccessCode($order);
-
             return true;
         } catch (\Exception $e) {
             Log::error('Error handling cancelled status', [
@@ -906,9 +841,6 @@ private function buildTelegramMessage(Order $order, string $status): string
                 Log::error('Telegram expired notification failed', ['error' => $e->getMessage()]);
             }
 
-            // Giải phóng access code để khách khác có thể đặt
-            $this->accessCodeService->releaseCode($order->id);
-
             return true;
         } catch (\Exception $e) {
             Log::error('Error handling expired status', [
@@ -916,25 +848,6 @@ private function buildTelegramMessage(Order $order, string $status): string
                 'error'    => $e->getMessage(),
             ]);
             return false;
-        }
-    }
-
-    // =========================================================
-    // RELEASE ACCESS CODE
-    // =========================================================
-
-    private function releaseAccessCode(Order $order)
-    {
-        try {
-            Log::info('Access code release check', [
-                'order_id' => $order->id,
-                'has_code' => $order->hasAccessCode(),
-            ]);
-        } catch (\Exception $e) {
-            Log::error('Error releasing access code', [
-                'order_id' => $order->id,
-                'error'    => $e->getMessage(),
-            ]);
         }
     }
 

@@ -432,14 +432,12 @@
                                                         💡 Còn lại {{ number_format($remainingModal, 0, ',', '.') }}đ thanh toán khi nhận sân
                                                     </p>
                                                 </div>
-                                                <p class="text-[11px] text-gray-400 italic text-center">Mã cổng được gửi sau khi thanh toán đủ</p>
                                             </div>
                                         @else
                                             <div>
                                                 <span class="text-neutral-900 text-[17px] font-bold">Tổng thanh toán:</span>
                                                 <span class="text-[18px] font-bold text-primary">{{ number_format($totalAmount, 0, ',', '.') }}đ</span>
                                             </div>
-                                            <p class="text-[11px] text-gray-400 italic text-center mt-1">Mã cổng được gửi ngay sau khi thanh toán đủ</p>
                                         @endif
                                     @else
                                         <span class="text-neutral-900 text-[17px] font-bold">Số tiền tạm tính:</span>

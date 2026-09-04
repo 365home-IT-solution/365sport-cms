@@ -56,7 +56,6 @@
                     <li><a href="https://365home.vn/noi-quy-va-quy-dinh" class="hover:text-primary transition-colors">Nội quy và Quy định</a></li>
                     <li><a href="https://365home.vn/hinh-thuc-thanh-toan" class="hover:text-primary transition-colors">Hình thức thanh toán</a></li>
                     <li><a href="https://365home.vn/huong-dan-su-dung" class="hover:text-primary transition-colors">Hướng dẫn sử dụng</a></li>
-                    <li><a href="https://365home.vn/huong-dan-tu-check-in" class="hover:text-primary transition-colors">Hướng dẫn tự Check in</a></li>
                 </ul>
             </div>
 

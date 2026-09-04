@@ -16,11 +16,14 @@ use Filament\Tables\Columns\ImageColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Columns\ToggleColumn;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 use Modules\BladeThemeV1\App\Models\AdditionService;
 use Modules\Product\App\Filament\Resources\AdditionServiceResource\Pages;
 
 // Dịch vụ bổ sung được lọc theo partner_id qua BelongsToPartner (global scope trên
-// AdditionService model) — mỗi đối tác tự tạo dịch vụ của riêng mình, không dùng chung nữa.
+// AdditionService model) — mỗi đối tác tự tạo dịch vụ của riêng mình, không dùng chung nữa. Vẫn
+// CỘNG THÊM lọc theo "Chuyển đổi chi nhánh" ở header vì 1 dịch vụ có thể gắn cho sân ở NHIỀU chi
+// nhánh khác nhau của cùng đối tác (many-to-many qua products()).
 class AdditionServiceResource extends Resource
 {
     protected static ?string $model = AdditionService::class;
@@ -28,6 +31,40 @@ class AdditionServiceResource extends Resource
     public static function canViewAny(): bool
     {
         return parent::canViewAny() && (auth()->user()?->partnerHasFeature('addition_services') ?? false);
+    }
+
+    public static function getEloquentQuery(): Builder
+    {
+        $query = parent::getEloquentQuery();
+        $user  = auth()->user();
+
+        if (! $user) {
+            return $query;
+        }
+
+        $branchIds = $user->effectiveBranchIds();
+
+        if (empty($branchIds)) {
+            return $user->isSuperAdmin() ? $query : $query->whereRaw('1 = 0');
+        }
+
+        $categoryIds = $user->visibleProductCategoryIds($branchIds);
+
+        if (empty($categoryIds)) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        // Dịch vụ chưa gán sân nào vẫn hiển thị bình thường — chỉ loại dịch vụ ĐÃ gắn sân nhưng
+        // KHÔNG có sân nào thuộc chi nhánh đang chọn. QUAN TRỌNG: doesntHave('products') PHẢI bỏ
+        // qua global scope của Product (BelongsToActiveBranchCategories) qua withoutGlobalScopes()
+        // trong callback — nếu không, "not exists" cũng tự động bị lọc theo cùng $categoryIds,
+        // khiến 1 dịch vụ ĐÃ gắn sân nhưng sân đó KHÔNG thuộc chi nhánh đang chọn bị hiểu nhầm
+        // thành "chưa gắn sân nào" rồi vẫn lọt qua nhánh doesntHave — bug thật đã phát hiện khi
+        // test qua tinker (baseline 6, chọn switcher vẫn ra 6, không hề thu hẹp).
+        return $query->where(function (Builder $q) use ($categoryIds) {
+            $q->doesntHave('products', callback: fn (Builder $q3) => $q3->withoutGlobalScopes())
+                ->orWhereHas('products.categories', fn (Builder $q2) => $q2->whereIn('categories.id', $categoryIds));
+        });
     }
 
     public static function getNavigationIcon(): string
@@ -38,6 +75,11 @@ class AdditionServiceResource extends Resource
     public static function getNavigationGroup(): ?string
     {
         return 'Quản lý';
+    }
+
+    public static function getNavigationSort(): ?int
+    {
+        return 10;
     }
 
     public static function getNavigationLabel(): string

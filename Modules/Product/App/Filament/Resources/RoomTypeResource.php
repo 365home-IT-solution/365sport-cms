@@ -23,7 +23,12 @@ class RoomTypeResource extends Resource
 
     public static function getNavigationGroup(): ?string
     {
-        return __('product::room_type.resource.navigation_group');
+        return 'Quản lý';
+    }
+
+    public static function getNavigationSort(): ?int
+    {
+        return 2;
     }
 
     public static function getNavigationLabel(): string

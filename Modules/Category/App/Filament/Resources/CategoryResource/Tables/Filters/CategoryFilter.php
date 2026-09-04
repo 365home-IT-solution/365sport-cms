@@ -97,7 +97,12 @@ class CategoryFilter
                     foreach ($categories as $category) {
                         $prefix = '';
                         if ($category->parent_id) {
-                            $prefix = str_repeat('— ', substr_count($category->hierarchical_name, '>'));
+                            // hierarchical_name có thể NULL nếu category mồ côi (parent_id trỏ tới
+                            // 1 category đã bị xoá) — CTE đệ quy không bao giờ chạm parent_id IS
+                            // NULL để khớp dòng, substr_count(null, ...) ném TypeError ở PHP 8+
+                            // (lỗi thật đã gặp: /admin/categories 500 hoàn toàn, không liên quan
+                            // filter chi nhánh).
+                            $prefix = str_repeat('— ', substr_count($category->hierarchical_name ?? '', '>'));
                         }
 
                         $options[$category->id] = $prefix . $category->name;

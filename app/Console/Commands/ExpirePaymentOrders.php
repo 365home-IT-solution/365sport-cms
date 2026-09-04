@@ -5,7 +5,6 @@ namespace App\Console\Commands;
 use App\Services\SlotRealtimeService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
-use Modules\BladeThemeV1\Services\AccessCode\AccessCodeService;
 use Modules\Payment\Entities\Order;
 use Carbon\Carbon;
 
@@ -13,14 +12,6 @@ class ExpirePaymentOrders extends Command
 {
     protected $signature   = 'orders:expire-pending';
     protected $description = 'Tự động hủy các đơn hàng pending/deposit chưa thanh toán quá hạn (expired_at)';
-
-    protected $accessCodeService;
-
-    public function __construct(AccessCodeService $accessCodeService)
-    {
-        parent::__construct();
-        $this->accessCodeService = $accessCodeService;
-    }
 
     public function handle(SlotRealtimeService $realtimeService)
     {
@@ -64,7 +55,6 @@ class ExpirePaymentOrders extends Command
                 $this->broadcastRelease($realtimeService, $room, $order->items);
 
                 $order->update(['status' => 'failed']);
-                $this->accessCodeService->releaseCode($order->id);
 
                 Log::info('Order auto-expired by cron', [
                     'order_id'    => $order->id,

@@ -28,6 +28,8 @@ use Filament\Notifications\Notification;
 use Modules\Promotion\App\Models\Coupon;
 use Modules\DataPermission\Entities\UserBranchPermission;
 use App\Services\SlotRealtimeService;
+use App\Services\PriceBoardSyncService;
+use Modules\AuditLog\Services\AuditLogger;
 
 class SettingBook extends Page implements HasForms
 {
@@ -40,14 +42,38 @@ class SettingBook extends Page implements HasForms
     {
         $isSuperAdmin = (bool) auth()->user()?->isSuperAdmin();
 
+        // 'bulk_price_update' cùng mức rủi ro với "Bảng giá"/khung giờ-giá (ghi thẳng xuống hệ
+        // thống, không xem trước) — chỉ super_admin, giống mọi công cụ đổi giá hàng loạt khác.
         $hiddenActions = $isSuperAdmin
             ? ['block_calendar']
-            : ['block_calendar', 'create_coupon', 'create_promotion'];
+            : ['block_calendar', 'create_coupon', 'create_promotion', 'bulk_price_update'];
 
-        return array_values(array_filter(
+        $actions = array_values(array_filter(
             $this->traitGetHeaderActions(),
             fn ($action) => ! in_array($action->getName(), $hiddenActions, true),
         ));
+
+        // Port từ 365home-cms — "Lịch sử" thay đổi giá TOÀN CỤC (mọi sân, mọi bảng giá), tái dùng
+        // đúng view đã port cho PriceBoardResource (Modules/Book/resources/views/filament/
+        // resources/price-board-resource/history-modal.blade.php) — không cần vào riêng "Bảng giá"
+        // mới xem được lịch sử.
+        if ($isSuperAdmin) {
+            $actions[] = \Filament\Actions\Action::make('price_history')
+                ->label('Lịch sử')
+                ->icon('heroicon-o-clock')
+                ->color('gray')
+                ->modalHeading('Lịch sử thay đổi giá')
+                ->modalSubmitAction(false)
+                ->modalCancelActionLabel('Đóng')
+                ->modalContent(fn () => view('book::filament.resources.price-board-resource.history-modal', [
+                    'logs' => \Modules\Product\App\Models\PriceBoardPriceLog::with(['product', 'changedByUser', 'priceBoard'])
+                        ->orderByDesc('created_at')
+                        ->limit(200)
+                        ->get(),
+                ]));
+        }
+
+        return $actions;
     }
 
     protected static string $resource = BookResource::class;
@@ -277,6 +303,49 @@ class SettingBook extends Page implements HasForms
         }
 
         app(SlotRealtimeService::class)->broadcastBlockedRange($roomId, $dates, [], 'available');
+    }
+
+    /** Port từ 365home-cms — RoomTimeSlot dùng LogsAuditTrail (tự động log create/update/delete)
+     *  nhưng save() xoá-tạo-lại TỪNG khung giờ của 1 sân mỗi lần Lưu — nếu để tự nhiên sẽ ra rất
+     *  nhiều dòng log vụn (mỗi khung giờ 1 dòng) cho cùng 1 lần bấm Lưu. save() chụp lại danh sách
+     *  id khung giờ TRƯỚC khi xoá/tạo (RoomTimeSlot::withoutAuditLog() tạm tắt log tự động khi ghi
+     *  xuống), rồi gọi hàm này SAU khi ghi xong để tự ghi 1 dòng TÓM TẮT duy nhất (đã thêm/bớt
+     *  khung giờ nào, giá bao nhiêu). */
+    private function logRoomTimeSlotChanges(Product $product, \Illuminate\Support\Collection $oldSlots): void
+    {
+        $newSlots = RoomTimeSlot::where('room_id', $product->id)
+            ->with('timeSlot')
+            ->get()
+            ->keyBy(fn ($slot) => (string) $slot->id);
+
+        $addedIds   = array_diff($newSlots->keys()->all(), $oldSlots->keys()->all());
+        $removedIds = array_diff($oldSlots->keys()->all(), $newSlots->keys()->all());
+
+        if (empty($addedIds) && empty($removedIds)) {
+            return;
+        }
+
+        $labelFor = fn (RoomTimeSlot $slot) => ($slot->timeSlot?->label ?? ('#' . $slot->timeslot_id))
+            . ($slot->price !== null ? ' (' . number_format((float) $slot->price, 0, ',', '.') . 'đ)' : '');
+
+        $old = [];
+        $new = [];
+
+        if (! empty($removedIds)) {
+            $old['khung_gio_da_bo'] = $oldSlots->only($removedIds)->map($labelFor)->implode(', ');
+        }
+        if (! empty($addedIds)) {
+            $new['khung_gio_da_them'] = $newSlots->only($addedIds)->map($labelFor)->implode(', ');
+        }
+
+        AuditLogger::log(
+            action: 'update',
+            module: 'RoomTimeSlot',
+            record: $product,
+            old: $old,
+            new: $new,
+            label: 'Sân ' . ($product->name ?? '#' . $product->id) . ' — Cập nhật khung giờ',
+        );
     }
 
     /** Danh sách ngày (Y-m-d) từ $start đến $end (bao gồm cả 2 đầu) — dùng để báo realtime cho các
@@ -685,6 +754,12 @@ class SettingBook extends Page implements HasForms
                     $product = Product::find($productId);
                     if (!$product) continue;
 
+                    // Port từ 365home-cms — chụp giá TRƯỚC khi sửa để so sánh sau, giữ "Bảng giá
+                    // mặc định" luôn khớp với lần lưu tay này, và ghi 1 dòng lịch sử giá NẾU thật
+                    // sự đổi gì (xem App\Services\PriceBoardSyncService).
+                    $priceBoardService = app(PriceBoardSyncService::class);
+                    $priceBefore = $priceBoardService->snapshotPricing($product);
+
                     $productStyle = (int) ($product->styles ?? 1);
 
                     // Update product info
@@ -727,8 +802,20 @@ class SettingBook extends Page implements HasForms
 
                     $product->update($updateData);
 
+                    // Port từ 365home-cms — RoomTimeSlot dùng LogsAuditTrail (tự động log create/
+                    // update/delete), nhưng 2 khối bên dưới xoá-tạo-lại TỪNG khung giờ của 1 sân
+                    // mỗi lần Lưu, nếu để tự nhiên sẽ ra rất nhiều dòng log vụn (mỗi khung giờ 1
+                    // dòng) cho cùng 1 lần bấm Lưu. Chụp lại danh sách id khung giờ TRƯỚC khi xoá/
+                    // tạo, tạm tắt log tự động qua RoomTimeSlot::withoutAuditLog(), rồi tự ghi 1
+                    // dòng TÓM TẮT duy nhất bên dưới (logRoomTimeSlotChanges()).
+                    $oldSlots = RoomTimeSlot::where('room_id', $productId)
+                        ->with('timeSlot')
+                        ->get()
+                        ->keyBy(fn ($slot) => (string) $slot->id);
+
                     // Style=2: lưu dateTimeSlots → room_time_slots qua timeslot type=date
                     if ($productStyle === 2 && isset($roomData['dateTimeSlots']) && is_array($roomData['dateTimeSlots'])) {
+                        RoomTimeSlot::withoutAuditLog(function () use ($roomData, $productId) {
                         $existingDateIds = collect($roomData['dateTimeSlots'])->pluck('id')->filter()->toArray();
                         $dateSlotsToDelete = RoomTimeSlot::where('room_id', $productId)
                             ->whereHas('timeslot', fn($q) => $q->where('type', 'date'))
@@ -782,10 +869,12 @@ class SettingBook extends Page implements HasForms
                         }
 
                         $this->broadcastDatesChanged($productId, $changedDates);
+                        });
                     }
 
                     // Style=1: lưu roomTimeSlots (timeslot_id NOT NULL)
                     if ($productStyle === 1 && isset($roomData['roomTimeSlots']) && is_array($roomData['roomTimeSlots'])) {
+                        RoomTimeSlot::withoutAuditLog(function () use ($roomData, $productId) {
                         $existingIds = collect($roomData['roomTimeSlots'])->pluck('id')->filter()->toArray();
                         $slotsToDelete = RoomTimeSlot::where('room_id', $productId)
                             ->when(!empty($existingIds), fn($q) => $q->whereNotIn('id', $existingIds))
@@ -820,7 +909,25 @@ class SettingBook extends Page implements HasForms
                                 $roomTimeSlotModel->promotions()->sync($slot['promotions'] ?? []);
                             }
                         }
+                        });
                     }
+
+                    $this->logRoomTimeSlotChanges($product, $oldSlots);
+
+                    // Giữ "Bảng giá mặc định" luôn khớp với giá vừa lưu ở trang này — dùng làm
+                    // điểm khôi phục khi 1 bảng giá đặt tên (Tết, khuyến mãi, đối tác...) hết hạn.
+                    $freshProduct = $product->fresh();
+                    $priceBoardService->seedDefaultBoard($freshProduct);
+
+                    // Ghi lịch sử NẾU giá thật sự đổi — gắn vào "Bảng giá mặc định" vì đây là sửa
+                    // trực tiếp, không qua bảng giá đặt tên nào.
+                    $priceBoardService->logPriceChange(
+                        $priceBoardService->defaultBoard()->id,
+                        $freshProduct,
+                        $priceBefore,
+                        $priceBoardService->snapshotPricing($freshProduct)
+                    );
+
                     $updated = true;
                 }
             }

@@ -29,7 +29,6 @@ class ZnsNotificationAction
 
                     $result = $znsService->sendZns(
                         $record->order_id,
-                        $record->access_code_id,
                         $record->phone_number,
                         $record->recipient_name,
                         $record->template_id,

@@ -664,6 +664,8 @@
             lat: {{ $mapLat ?? 16.0 }},
             lng: {{ $mapLng ?? 106.0 }},
             zoom: {{ $mapZoom ?? 6 }},
+            // Xem ghi chú đầy đủ tại config('services.carto') + .env.example (CARTO_BASEMAPS_API_KEY).
+            cartoKey: @js($cartoBasemapsKey ?? null),
             @if (isset($province) && $province && $province->lat && $province->lng)
                 provinceLat: {{ $province->lat }},
                 provinceLng: {{ $province->lng }},
@@ -966,11 +968,19 @@
             window.__searchMapInstance = map;
 
             // CARTO Voyager — đồng bộ với bản đồ /ban-do (nền sạch hơn, nhãn tiếng Anh cho khu vực
-            // ngoài VN), thay cho tile OSM mặc định trước đây. Miễn phí, không cần API key.
-            L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-                maxZoom: 19,
-                attribution: '© OpenStreetMap contributors © CARTO'
-            }).addTo(map);
+            // ngoài VN), thay cho tile OSM mặc định trước đây. TRƯỚC ĐÂY miễn phí không cần key —
+            // CARTO đã đổi chính sách, giờ bắt buộc key (xem config('services.carto'), lấy key tại
+            // https://carto.com/basemaps/apikey), không thì tile chỉ hiện chữ đè "API KEY REQUIRED"
+            // (bug thật đã gặp).
+            L.tileLayer(
+                cfg.cartoKey
+                    ? 'https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png?key=' + cfg.cartoKey
+                    : 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
+                {
+                    maxZoom: 19,
+                    attribution: '© OpenStreetMap contributors © CARTO'
+                }
+            ).addTo(map);
 
             var cards = document.querySelectorAll('.branch-card');
             var bounds = [];
@@ -1150,11 +1160,19 @@
             window.__searchMapInstance = map;
 
             // CARTO Voyager — đồng bộ với bản đồ /ban-do (nền sạch hơn, nhãn tiếng Anh cho khu vực
-            // ngoài VN), thay cho tile OSM mặc định trước đây. Miễn phí, không cần API key.
-            L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-                maxZoom: 19,
-                attribution: '© OpenStreetMap contributors © CARTO'
-            }).addTo(map);
+            // ngoài VN), thay cho tile OSM mặc định trước đây. TRƯỚC ĐÂY miễn phí không cần key —
+            // CARTO đã đổi chính sách, giờ bắt buộc key (xem config('services.carto'), lấy key tại
+            // https://carto.com/basemaps/apikey), không thì tile chỉ hiện chữ đè "API KEY REQUIRED"
+            // (bug thật đã gặp).
+            L.tileLayer(
+                cfg.cartoKey
+                    ? 'https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png?key=' + cfg.cartoKey
+                    : 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
+                {
+                    maxZoom: 19,
+                    attribution: '© OpenStreetMap contributors © CARTO'
+                }
+            ).addTo(map);
 
             function esc(s) {
                 return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {

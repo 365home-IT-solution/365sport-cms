@@ -15,7 +15,6 @@ class ProductAction
     public static function action(): array
     {
         return [
-            AssignLockAction::make(),
             RoomCleaningAction::confirmCleaning(),
             ActionGroup::make([
                 ViewAction::make()->label('Xem chi tiết')->modalWidth(MaxWidth::Full),

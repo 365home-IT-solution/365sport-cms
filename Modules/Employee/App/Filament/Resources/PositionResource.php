@@ -22,11 +22,19 @@ class PositionResource extends Resource
 
     protected static ?string $navigationGroup = 'Quản lý';
 
+    protected static ?int $navigationSort = 2;
+
     protected static ?string $navigationLabel = 'Chức danh';
 
     protected static ?string $modelLabel = 'Chức danh';
 
     protected static ?string $pluralModelLabel = 'Chức danh';
+
+    // Ẩn khỏi menu theo yêu cầu — vẫn tạo/sửa được qua nút "+" ngay trong form Nhân viên.
+    public static function shouldRegisterNavigation(): bool
+    {
+        return false;
+    }
 
     public static function form(Form $form): Form
     {

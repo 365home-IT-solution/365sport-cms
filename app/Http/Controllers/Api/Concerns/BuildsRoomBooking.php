@@ -133,11 +133,11 @@ trait BuildsRoomBooking
     {
         $checkin  = Carbon::parse($request->checkin_date)->startOfDay();
         $checkout = Carbon::parse($request->checkout_date)->startOfDay();
-        $nights   = (int) $checkin->diffInDays($checkout);
+        $days     = (int) $checkin->diffInDays($checkout);
 
-        if ($nights < 1) {
+        if ($days < 1) {
             throw ValidationException::withMessages([
-                'checkout_date' => ['Phải đặt tối thiểu 1 đêm.'],
+                'checkout_date' => ['Phải đặt tối thiểu 1 ngày.'],
             ]);
         }
 
@@ -160,32 +160,41 @@ trait BuildsRoomBooking
             ->filter(fn ($rts) => $rts->timeSlot?->type === 'date')
             ->keyBy(fn ($rts) => $rts->timeSlot?->label);
 
-        $basePrice   = (float) $room->price;
-        $defCheckin  = $room->default_checkin  ?? '14:00';
-        $defCheckout = $room->default_checkout ?? '12:00';
+        $basePrice = (float) $room->price;
+        // Giờ nhận/trả mặc định khi sân không tự đặt riêng (default_checkin/checkout) VÀ ngày đó
+        // cũng không có override theo room_time_slots: ưu tiên đọc giờ mở/đóng cửa THẬT của chi
+        // nhánh (categories.checkin_time/checkout_time, xem CategoryForm::openingHoursInputs()) —
+        // sân thể thao thuê cả ngày không có khái niệm "trả phòng 12:00 trưa" kiểu khách sạn. Chỉ
+        // rơi về 14:00/12:00 khi chi nhánh CHƯA cấu hình giờ mở cửa (dữ liệu cũ).
+        $branchCategory = $room->categories()
+            ->whereNull('parent_id')
+            ->where('category_type', 'product')
+            ->first();
+        $defCheckin  = $room->default_checkin  ?? $branchCategory?->checkin_time  ?? '14:00';
+        $defCheckout = $room->default_checkout ?? $branchCategory?->checkout_time ?? '12:00';
 
         $totalPrice    = 0;
         $itemsData     = [];
-        $nightSummary  = [];
+        $daySummary    = [];
         $rtsCollection = collect();
 
         $current = $checkin->copy();
         while ($current->lt($checkout)) {
             $dateStr     = $current->format('Y-m-d');
             $rts         = $slotsByDate->get($dateStr);
-            $nightPrice  = $rts?->price !== null ? (float) $rts->price : $basePrice;
+            $dayPrice    = $rts?->price !== null ? (float) $rts->price : $basePrice;
             $checkinTime = $rts?->checkin  ?? $defCheckin;
             $chkoutTime  = $rts?->checkout ?? $defCheckout;
             $nextDate    = $current->copy()->addDay()->format('Y-m-d');
             $checkinDt   = Carbon::parse("{$dateStr} {$checkinTime}");
             $checkoutDt  = Carbon::parse("{$nextDate} {$chkoutTime}");
 
-            $totalPrice += $nightPrice;
+            $totalPrice += $dayPrice;
 
             $itemsData[] = [
                 'product_id'    => $room->id,
                 'name'          => $room->name . ' - ' . $current->format('d/m/Y'),
-                'price'         => (int) $nightPrice,
+                'price'         => (int) $dayPrice,
                 'quantity'      => 1,
                 'is_shipped'    => true,
                 'checkin_date'  => $checkinDt,
@@ -195,19 +204,19 @@ trait BuildsRoomBooking
                 'over_night'    => true,
             ];
 
-            $nightSummary[] = [
+            $daySummary[] = [
                 'date'  => $dateStr,
-                'price' => (int) $nightPrice,
+                'price' => (int) $dayPrice,
             ];
 
             if ($rts) $rtsCollection->push($rts);
             $current->addDay();
         }
 
-        $summaryName = $room->name . ' - ' . $nights . ' đêm ('
+        $summaryName = $room->name . ' - ' . $days . ' ngày ('
             . $checkin->format('d/m') . ' → ' . $checkout->format('d/m/Y') . ')';
 
-        return [(int) $totalPrice, $summaryName, $itemsData, $rtsCollection, $nightSummary];
+        return [(int) $totalPrice, $summaryName, $itemsData, $rtsCollection, $daySummary];
     }
 
     // ── Monthly (thuê tháng) ─────────────────────────────────────────────────
@@ -474,7 +483,7 @@ trait BuildsRoomBooking
 
         $label = "Phụ thu {$extraGuests} người (trên {$threshold} người)";
         if ($nights > 1) {
-            $label .= " × {$nights} đêm";
+            $label .= $type === 'daily' ? " × {$nights} ngày" : " × {$nights} buổi";
         }
 
         return [$total, [
@@ -580,7 +589,7 @@ trait BuildsRoomBooking
             } else {
                 throw ValidationException::withMessages([
                     'payment_type' => [
-                        'Đặt cọc không áp dụng' . ($depositMin > 0 ? " (cần tối thiểu {$depositMin} đêm)" : '') . '.',
+                        'Đặt cọc không áp dụng' . ($depositMin > 0 ? " (cần tối thiểu {$depositMin} ngày)" : '') . '.',
                     ],
                 ]);
             }

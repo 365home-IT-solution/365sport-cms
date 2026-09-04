@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Models\Concerns\LogsAuditTrail;
 use Illuminate\Database\Eloquent\Model;
 use Modules\Category\Entities\Category;
 use Modules\Product\App\Models\Product;
@@ -13,6 +14,8 @@ use Modules\Product\App\Models\Product;
 // model này chỉ theo dõi/minh bạch hoá việc góp quỹ.
 class BookingFund extends Model
 {
+    use LogsAuditTrail;
+
     protected $fillable = [
         'leader_customer_id',
         'invite_code',

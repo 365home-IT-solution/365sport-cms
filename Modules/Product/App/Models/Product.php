@@ -2,6 +2,7 @@
 
 namespace Modules\Product\App\Models;
 
+use App\Models\Concerns\BelongsToActiveBranchCategories;
 use App\Models\Concerns\BelongsToPartner;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -23,7 +24,8 @@ class Product extends Model implements HasMedia, Resourceable
         InteractsWithMedia,
         HasTags,
         HasUlids,
-        BelongsToPartner;
+        BelongsToPartner,
+        BelongsToActiveBranchCategories;
 
     protected $fillable = [
         'partner_id',
@@ -49,9 +51,6 @@ class Product extends Model implements HasMedia, Resourceable
         'housekeeping_status',
         'wifi',
         'home_code',
-        'lock_id',
-        'lock_id_checkout',
-        'has_manual_lock',
         'address',
         'latitude',
         'longitude',
@@ -86,7 +85,6 @@ class Product extends Model implements HasMedia, Resourceable
         'is_activated'    => 'boolean',
         'is_shipped'      => 'boolean',
         'is_trend'        => 'boolean',
-        'has_manual_lock' => 'boolean',
         'nights'          => 'boolean',
         'room_config'          => 'array',
         'bulk_discount_rules'  => 'array',
@@ -121,6 +119,16 @@ class Product extends Model implements HasMedia, Resourceable
     public function roomType()
     {
         return $this->belongsTo(RoomType::class);
+    }
+
+    // Sân ngoài trời hay không — suy ra từ room_types.is_outdoor (xem migration
+    // add_sport_attributes_to_room_types_table), KHÔNG lưu field riêng trên products để tránh 2
+    // nguồn sự thật lệch nhau (đổi is_outdoor ở loại sân là đủ, không cần sửa từng sân). Sân chưa
+    // gán room_type_id (dữ liệu cũ) coi như trong nhà (false) — dùng ở
+    // App\Services\WeatherPolicyService cho chính sách hoãn/hoàn tiền do thời tiết.
+    public function isOutdoor(): bool
+    {
+        return (bool) ($this->roomType?->is_outdoor ?? false);
     }
 
     public function roomTimeSlots()
@@ -226,16 +234,6 @@ class Product extends Model implements HasMedia, Resourceable
             'cleaned_at'             => now(),
             'note'                   => $note,
         ]);
-    }
-
-    public function manualLockPasswords()
-    {
-        return $this->belongsToMany(
-            ManualLockPassword::class,
-            'manual_lock_password_product',
-            'product_id',
-            'manual_lock_password_id'
-        );
     }
 
     public function ratings()

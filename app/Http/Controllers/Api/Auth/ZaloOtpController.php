@@ -588,6 +588,8 @@ class ZaloOtpController extends Controller
             'companions.*.cccd_front' => 'required|file|mimes:jpg,jpeg,png,webp|max:5120',
             'companions.*.cccd_back'  => 'required|file|mimes:jpg,jpeg,png,webp|max:5120',
             'companions.*.full_name'  => 'nullable|string|max:255',
+            // Trình độ chơi tự khai — dùng cho tính năng "Tìm bạn chơi" (App\Models\OpenMatch).
+            'skill_level'             => ['sometimes', 'nullable', 'string', 'in:' . implode(',', \App\Models\OpenMatch::SKILL_LEVELS)],
         ]);
 
         $customer = $request->user();
@@ -599,6 +601,10 @@ class ZaloOtpController extends Controller
 
         if ($request->filled('date_of_birth')) {
             $data['date_of_birth'] = Carbon::createFromFormat('d-m-Y', $request->date_of_birth)->toDateString();
+        }
+
+        if ($request->has('skill_level')) {
+            $data['skill_level'] = $request->skill_level;
         }
 
         // Lưu path file cũ để xoá sau khi xác nhận QR hợp lệ

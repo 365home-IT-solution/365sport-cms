@@ -13,9 +13,12 @@ use Modules\Category\Entities\Category;
 // Áp dụng vào các model kho (warehouse_items/stock_ins/stock_outs/stock_checks) cần tách riêng
 // theo CHI NHÁNH bên trong 1 đối tác — khác BelongsToPartner (lọc theo cả đối tác), trait này lọc
 // hẹp hơn theo branch_id (trỏ tới category gốc, category_type='product', parent_id NULL). Rập
-// khuôn đúng cấu trúc/lý do của BelongsToPartner (xem file đó) — chỉ chạy trong admin panel, dùng
-// chung nguồn xác thực chi nhánh User::rootProductCategoryIds() (đã dùng ở AuthController,
-// WarehouseRoomOptions...).
+// khuôn đúng cấu trúc/lý do của BelongsToPartner (xem file đó) — chỉ chạy trong admin panel.
+//
+// Dùng User::effectiveBranchIds() (KHÔNG phải rootProductCategoryIds() trần) — tôn trọng lựa chọn
+// tạm thời qua nút "Chuyển đổi chi nhánh" ở header (App\Livewire\BranchSwitcher) khi user thu hẹp
+// lại còn 1/vài chi nhánh trong số được phép; mặc định (chưa bấm) = mọi chi nhánh được phép, kể cả
+// super_admin — nhờ vậy super_admin mặc định vẫn thấy hết như trước, chỉ bị lọc khi CHỦ ĐỘNG chọn.
 trait BelongsToBranch
 {
     protected static function bootBelongsToBranch(): void
@@ -29,14 +32,19 @@ trait BelongsToBranch
 
             $user = auth()->user();
 
-            if (! $user instanceof User || $user->isSuperAdmin()) {
+            if (! $user instanceof User) {
                 return;
             }
 
-            $branchIds = $user->rootProductCategoryIds();
+            $branchIds = $user->effectiveBranchIds();
 
-            // whereIn với mảng rỗng tự trả về 0 dòng (đúng ý muốn: user không quản lý chi nhánh
-            // nào thì không thấy dữ liệu kho nào) — không cần xử lý riêng trường hợp rỗng.
+            // Không xác định được chi nhánh nào (vd tài khoản chưa gán đối tác) — không lọc thêm
+            // để tránh vô tình ẩn hết dữ liệu; scope partner_id (BelongsToPartner) vẫn áp dụng
+            // song song.
+            if (empty($branchIds)) {
+                return;
+            }
+
             $builder->whereIn($builder->getModel()->getTable() . '.branch_id', $branchIds);
         });
 
@@ -50,9 +58,10 @@ trait BelongsToBranch
                 return;
             }
 
-            // Chỉ tự gán khi user quản lý ĐÚNG 1 chi nhánh — quản lý nhiều chi nhánh thì bắt buộc
-            // tự chọn qua field trên form (không đoán chi nhánh nào đúng).
-            $branchIds = $user->rootProductCategoryIds();
+            // Chỉ tự gán khi tài khoản CHỈ quản lý (hoặc đang thu hẹp còn) ĐÚNG 1 chi nhánh — nếu
+            // quản lý nhiều hơn 1, bắt buộc phải tự chọn qua field trên form, không đoán bừa 1
+            // trong nhiều chi nhánh.
+            $branchIds = $user->effectiveBranchIds();
             if (count($branchIds) === 1) {
                 $model->branch_id = $branchIds[0];
             }

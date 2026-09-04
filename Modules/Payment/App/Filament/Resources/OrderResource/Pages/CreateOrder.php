@@ -8,7 +8,6 @@ use Filament\Resources\Pages\CreateRecord;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Log;
-use Modules\BladeThemeV1\Services\AccessCode\AccessCodeService;
 use Modules\Payment\App\Filament\Resources\OrderResource;
 use Modules\Payment\App\Filament\Resources\OrderResource\Concerns\HasMemberCompanionManagement;
 use Modules\Payment\App\Filament\Resources\OrderResource\Concerns\HasOrderServicesManagement;
@@ -381,42 +380,6 @@ class CreateOrder extends CreateRecord
             return;
         }
 
-        // Tiền mặt hoặc amount < 2000 → luồng bình thường
-        if ($record->status !== 'paid') {
-            return;
-        }
-
-        if ($record->hasAccessCode()) {
-            return;
-        }
-
-        try {
-            $firstItem    = $record->items->sortBy('checkin_date')->first();
-            $checkinDate  = $record->items->min('checkin_date');
-            $checkoutDate = $record->items->max('checkout_date');
-            $product      = $firstItem?->product;
-
-            /** @var AccessCodeService $service */
-            $service = app(AccessCodeService::class);
-            $code = $service->assignCodeToOrder(
-                $record->id,
-                $record->category_id,
-                $checkinDate,
-                $checkoutDate,
-                $product,
-            );
-
-            Notification::make()
-                ->title('Đã gán mã cổng: ' . $code->code)
-                ->success()
-                ->send();
-        } catch (\Exception $e) {
-            Notification::make()
-                ->title('Tạo đơn thành công nhưng chưa gán được mã cổng')
-                ->body($e->getMessage())
-                ->warning()
-                ->send();
-        }
     }
 
     private function createAdminPayosLink(\Modules\Payment\Entities\Order $record): void

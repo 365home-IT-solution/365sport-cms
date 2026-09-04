@@ -40,6 +40,11 @@ class MapPage extends Component
     // ở admin (App\Filament\Pages\DirectionsSettings), xem map-page.blade.php nhánh drawRoute().
     public bool $directionsOrsEnabled = false;
 
+    // Nền bản đồ CARTO Voyager — xem ghi chú đầy đủ tại config('services.carto') + .env.example
+    // (CARTO_BASEMAPS_API_KEY). Rỗng thì tile CARTO chỉ hiện chữ đè "API KEY REQUIRED" (bug thật đã
+    // gặp, KHÔNG phải lỗi code — CARTO đổi chính sách bắt buộc key, trước đây thật sự miễn phí).
+    public ?string $cartoBasemapsKey = null;
+
     // Đoán "môn thể thao" hiển thị dạng badge từ tên chi nhánh — không có taxonomy riêng (xem
     // comment ở SportVenueDemoSeeder::coverImageFor(), cùng logic đoán từ khoá).
     private const SPORT_KEYWORDS = [
@@ -70,6 +75,7 @@ class MapPage extends Component
 
         $directionsConfig = DirectionsConfiguration::first();
         $this->directionsOrsEnabled = (bool) ($directionsConfig?->enabled && $directionsConfig?->ors_api_key);
+        $this->cartoBasemapsKey = config('services.carto.basemaps_key');
 
         $this->venues = ProvinceBranch::query()
             ->where('status', true)

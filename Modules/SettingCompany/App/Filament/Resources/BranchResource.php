@@ -20,7 +20,12 @@ class BranchResource extends Resource
     }
     public static function getNavigationGroup(): ?string
     {
-        return __('settingcompany::branch.resource.navigation_group');
+        return 'Cấu hình web';
+    }
+
+    public static function getNavigationSort(): ?int
+    {
+        return 2;
     }
     public static function getNavigationLabel(): string
     {

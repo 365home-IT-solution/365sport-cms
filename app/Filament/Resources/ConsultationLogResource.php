@@ -28,6 +28,8 @@ class ConsultationLogResource extends Resource
 
     protected static ?string $navigationGroup = 'Quản lý';
 
+    protected static ?int $navigationSort = 10;
+
     protected static ?string $navigationLabel = 'Tư vấn khách hàng';
 
     protected static ?string $modelLabel = 'lượt tư vấn';

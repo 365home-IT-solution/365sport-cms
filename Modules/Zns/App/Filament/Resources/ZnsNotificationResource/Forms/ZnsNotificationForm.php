@@ -28,15 +28,7 @@ class ZnsNotificationForm
                             ->searchable()
                             ->required()
                             ->preload(),
-                        
-                        Select::make('access_code_id')
-                            ->label('Mã cổng')
-                            ->relationship('accessCode', 'code')
-                            ->getOptionLabelFromRecordUsing(fn (Model $record): string => (string) ($record->code ?? ''))
-                            ->getOptionLabelUsing(fn ($record): string => (string) ($record->code ?? ''))
-                            ->native(false)
-                            ->nullable(),
-                        
+
                         TextInput::make('phone_number')
                             ->label('Số điện thoại')
                             ->tel()

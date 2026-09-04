@@ -28,7 +28,12 @@ class CommentProductResource extends Resource
     }
     public static function getNavigationGroup(): ?string
     {
-        return __('comment::comment-product.resource.navigation_group');
+        return 'Cấu hình web';
+    }
+
+    public static function getNavigationSort(): ?int
+    {
+        return 15;
     }
 
     public static function getNavigationLabel(): string

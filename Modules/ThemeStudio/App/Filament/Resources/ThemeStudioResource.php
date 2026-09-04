@@ -20,6 +20,8 @@ class ThemeStudioResource extends Resource
 
     protected static ?string $navigationGroup = 'Cấu hình web';
 
+    protected static ?int $navigationSort = 6;
+
     public static function getNavigationLabel(): string
     {
         return 'Theme Studio';

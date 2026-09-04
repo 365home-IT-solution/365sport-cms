@@ -26,7 +26,7 @@ class ManageMail extends SettingsPage
 
     protected static string $settings = MailSettings::class;
 
-    protected static ?int $navigationSort = 99;
+    protected static ?int $navigationSort = 11;
 
     protected static ?string $navigationIcon = 'heroicon-o-wrench-screwdriver';
 

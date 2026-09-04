@@ -75,6 +75,21 @@ class AppServiceProvider extends ServiceProvider
             PanelsRenderHook::FOOTER,
             fn(): View => view('filament.components.panel-footer'),
         );
+        // Nút "Chuyển đổi chi nhánh" ở topbar — port từ 365home-cms (App\Livewire\BranchSwitcher).
+        // Chỉ hiện khi tài khoản quản lý từ 2 chi nhánh trở lên — 1 chi nhánh thì không có gì để
+        // chuyển đổi.
+        FilamentView::registerRenderHook(
+            PanelsRenderHook::USER_MENU_BEFORE,
+            function (): string {
+                $user = auth()->user();
+
+                if (! $user instanceof \App\Models\User || count($user->rootProductCategoryIds()) <= 1) {
+                    return '';
+                }
+
+                return \Livewire\Livewire::mount('branch-switcher');
+            },
+        );
         FilamentView::registerRenderHook(
             PanelsRenderHook::USER_MENU_BEFORE,
             fn(): View => view('filament.components.button-website'),

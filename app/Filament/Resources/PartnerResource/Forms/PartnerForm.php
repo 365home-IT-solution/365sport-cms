@@ -842,7 +842,7 @@ class PartnerForm
     // Áp dụng lựa chọn ở 2 tab "Chi nhánh"/"Người dùng" — dùng CHUNG cho CreatePartner::afterCreate()
     // và EditPartner::afterSave(). Chi nhánh phải gán TỪNG CÁI MỘT qua ->update() trên từng model
     // (không dùng query builder mass update) để trigger CategoryObserver::saved(), cascade đúng
-    // partner_id xuống Product/Order/AccessCode + dọn rác UserBranchPermission bên trong.
+    // partner_id xuống Product/Order + dọn rác UserBranchPermission bên trong.
     public static function syncAssignments(Partner $record, array $branchIds, array $userIds): void
     {
         // CheckboxList trả về id dạng string (Livewire); Category::id là int nên phải ép kiểu

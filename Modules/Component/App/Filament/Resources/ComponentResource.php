@@ -23,7 +23,12 @@ class ComponentResource extends Resource
 
     public static function getNavigationGroup(): ?string
     {
-        return __('component::component.resource.navigation_group');
+        return 'Cấu hình web';
+    }
+
+    public static function getNavigationSort(): ?int
+    {
+        return 3;
     }
 
     public static function getNavigationLabel(): string

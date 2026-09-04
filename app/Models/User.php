@@ -249,15 +249,39 @@ public function getFilamentAvatarUrl(): ?string
     }
 
     /**
+     * Chi nhánh gốc (rootProductCategoryIds()) mà user ĐANG THỰC SỰ thao tác — mặc định = mọi chi
+     * nhánh được phép, thu hẹp lại khi user chủ động chọn qua nút "Chuyển đổi chi nhánh" ở header
+     * (session 'active_branch_ids', xem App\Livewire\BranchSwitcher). Dùng thay cho
+     * rootProductCategoryIds() ở mọi nơi cần TÔN TRỌNG lựa chọn tạm thời này (App\Models\Concerns\
+     * BelongsToBranch, BelongsToActiveBranchCategories) — nơi nào chỉ cần "toàn bộ quyền" (không
+     * quan tâm switcher, vd chính component BranchSwitcher liệt kê để CHỌN) vẫn dùng
+     * rootProductCategoryIds() như cũ.
+     */
+    public function effectiveBranchIds(): array
+    {
+        $permitted = $this->rootProductCategoryIds();
+        $selected  = session('active_branch_ids');
+
+        if (empty($selected)) {
+            return $permitted;
+        }
+
+        return array_values(array_intersect($permitted, $selected));
+    }
+
+    /**
      * Toàn bộ category_id loại 'product' (chi nhánh gốc — rootProductCategoryIds() — VÀ khu vực
      * con mọi cấp) mà user được phép CHỌN/GÁN — nguồn xác thực dùng chung cho mọi API cần validate
      * 1 category_id do FE gửi lên nằm đúng phạm vi quyền.
+     *
+     * @param  array|null  $branchIds  Tập chi nhánh gốc để mở rộng — mặc định rootProductCategoryIds(),
+     *                                 truyền effectiveBranchIds() khi cần thu hẹp theo chi nhánh đang chọn.
      */
-    public function visibleProductCategoryIds(): array
+    public function visibleProductCategoryIds(?array $branchIds = null): array
     {
         $categoryModel = \Modules\Category\Entities\Category::class;
 
-        $branchIds = $this->rootProductCategoryIds();
+        $branchIds = $branchIds ?? $this->rootProductCategoryIds();
 
         if (empty($branchIds)) {
             return [];

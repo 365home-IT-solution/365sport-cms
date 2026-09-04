@@ -53,7 +53,6 @@ class OrderController extends Controller
             'items.product.roomTimeSlots.timeSlot',
             'items.product.roomTimeSlots.promotions' => fn ($q) => $q->where('is_active', true),
             'services',
-            'accessCodes',
         ])
             ->where('order_code', $orderCode)
             ->where('customer_id', $customer->id)
@@ -459,7 +458,7 @@ class OrderController extends Controller
             $guestSurchargeTotal = $extraGuests * $guestFee * $nights;
 
             if ($guestFee > 0) {
-                $nightsLabel = (! $isSlotType && $nights > 1) ? " × {$nights} đêm" : '';
+                $nightsLabel = $nights > 1 ? ($isSlotType ? " × {$nights} buổi" : " × {$nights} ngày") : '';
                 $guestSurchargeInfo = [
                     'guest_count'    => $guestCount,
                     'threshold'      => $guestThreshold,
@@ -963,22 +962,6 @@ class OrderController extends Controller
                             'remaining_paid_at'        => now(),
                             'remaining_payment_method' => 'payos',
                         ]);
-                        try {
-                            $order->load('items.product');
-                            $firstItem    = $order->items->sortBy('checkin_date')->first();
-                            $checkinDate  = $order->items->min('checkin_date');
-                            $checkoutDate = $order->items->max('checkout_date');
-                            $product      = $firstItem?->product;
-                            if (! $order->hasAccessCode()) {
-                                app(\Modules\BladeThemeV1\Services\AccessCode\AccessCodeService::class)
-                                    ->assignCodeToOrder($order->id, $order->category_id, $checkinDate, $checkoutDate, $product);
-                            }
-                        } catch (\Throwable $codeErr) {
-                            Log::warning('Could not assign access code after remaining PayOS payment', [
-                                'order_code' => $order->order_code,
-                                'error'      => $codeErr->getMessage(),
-                            ]);
-                        }
                     } elseif ($order->deposit_percent !== null) {
                         $order->update(['status' => 'deposit', 'checkout_url' => null, 'deposit_paid_at' => now()]);
                     } else {
@@ -1165,7 +1148,7 @@ class OrderController extends Controller
             $extraGuests    = max(0, $guestCount - $guestThreshold);
             $guestSurchargeTotal = $extraGuests * $guestFee * $nights;
             if ($guestFee > 0 && $extraGuests > 0) {
-                $nightsLabel = (! $isSlotType && $nights > 1) ? " × {$nights} đêm" : '';
+                $nightsLabel = $nights > 1 ? ($isSlotType ? " × {$nights} buổi" : " × {$nights} ngày") : '';
                 $guestSurchargeInfo = [
                     'guest_count'    => $guestCount,
                     'threshold'      => $guestThreshold,
@@ -1241,11 +1224,6 @@ class OrderController extends Controller
                 'grand_total'          => $realFinalDetail + (int) ($order->extra_charge_amount ?? 0),
             ],
         ];
-
-        $lockInfo = $this->buildLockInfo($order, $product);
-        if ($lockInfo) {
-            $result['lock_info'] = $lockInfo;
-        }
 
         // Extra charge (phát sinh thêm sau khi đã thanh toán)
         if ($order->extra_charge_amount) {
@@ -1533,35 +1511,6 @@ class OrderController extends Controller
         }
 
         return [(int) $total, $applied];
-    }
-
-    private function buildLockInfo(Order $order, ?\Modules\Product\App\Models\Product $product): ?array
-    {
-        if (! $product || ! in_array($order->status, ['paid', 'deposit'])) {
-            return null;
-        }
-
-        $pwdAnchorDate = $order->paid_at ?? $order->deposit_paid_at ?? $order->created_at;
-
-        // Case 1: Mật khẩu thủ công (gate_password / room_password)
-        $manualPwd = \Modules\Product\App\Models\ManualLockPassword::getForProductAndDate($product, $pwdAnchorDate);
-        if ($manualPwd) {
-            return [
-                'type'          => 'manual',
-                'gate_password' => $manualPwd->gate_password,
-                'room_password' => $manualPwd->room_password,
-            ];
-        }
-
-        // Case 2: TTLock — chi nhánh có tài khoản TTLock + product có lock_id
-        if ($product->lock_id && \App\Services\TTLockService::forCategory($order->category_id)) {
-            return [
-                'type'       => 'ttlock',
-                'can_unlock' => true,
-            ];
-        }
-
-        return null;
     }
 
     private function getRoomThumbnail(?\Modules\Product\App\Models\Product $product): ?string

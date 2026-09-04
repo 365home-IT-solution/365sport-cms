@@ -27,6 +27,8 @@ class DirectionsSettings extends Page implements HasForms
 
     protected static ?string $navigationGroup = 'Cấu hình web';
 
+    protected static ?int $navigationSort = 8;
+
     protected static ?string $navigationLabel = 'Dẫn đường bản đồ';
 
     protected static ?string $title = 'Dẫn đường bản đồ (/ban-do)';

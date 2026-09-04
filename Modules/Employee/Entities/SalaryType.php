@@ -5,11 +5,12 @@ declare(strict_types=1);
 namespace Modules\Employee\Entities;
 
 use App\Models\Concerns\BelongsToPartner;
+use App\Models\Concerns\LogsAuditTrail;
 use Illuminate\Database\Eloquent\Model;
 
 class SalaryType extends Model
 {
-    use BelongsToPartner;
+    use BelongsToPartner, LogsAuditTrail;
 
     // calc_type: 'fixed' (lương cơ bản cố định như bình thường) hoặc 'piece_rate' (tính theo số
     // lượt công việc thực tế trong tháng — vd Lễ tân: room_cleaning_rate đồng/lượt dọn sân +

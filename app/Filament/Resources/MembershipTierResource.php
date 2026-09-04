@@ -33,7 +33,7 @@ class MembershipTierResource extends Resource
     protected static ?string $navigationLabel  = 'Hạng thành viên';
     protected static ?string $modelLabel       = 'Hạng thành viên';
     protected static ?string $pluralModelLabel = 'Hạng thành viên';
-    protected static ?int    $navigationSort   = 25;
+    protected static ?int    $navigationSort   = 2;
 
     // Trước đây hardcode isSuperAdmin() — bỏ qua MembershipTierPolicy (đã đúng, kiểm tra
     // view_any_membership::tier), khiến tick/bỏ tick quyền này ở Roles & Permissions vô tác dụng.

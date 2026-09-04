@@ -109,35 +109,4 @@ class OrderRealtimeService
         }
     }
 
-    /**
-     * Broadcast thông báo mã cổng/sân thay đổi.
-     *
-     * @param  string    $orderCode
-     * @param  string    $newCode
-     * @param  string    $type       'manual' | 'ttlock'
-     * @param  int|null  $customerId
-     */
-    public function broadcastCodeChanged(string $orderCode, string $newCode, string $type = 'manual', ?int $customerId = null): void
-    {
-        $url = $this->wsUrl();
-        if (empty($url)) {
-            return;
-        }
-
-        try {
-            Http::withHeaders(['x-internal-key' => $this->wsKey()])
-                ->timeout(2)
-                ->post("{$url}/internal/order-code-changed", [
-                    'order_code'  => $orderCode,
-                    'customer_id' => $customerId,
-                    'new_code'    => $newCode,
-                    'type'        => $type,
-                ]);
-        } catch (\Throwable $e) {
-            Log::warning('WS order-code-changed push failed', [
-                'order_code' => $orderCode,
-                'error'      => $e->getMessage(),
-            ]);
-        }
-    }
 }

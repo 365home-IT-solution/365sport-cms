@@ -364,7 +364,7 @@ Route::middleware(['auth', 'web', 'throttle:120,1'])->prefix('admin/api')->group
             return response()->json(['message' => 'Unauthorized'], 401);
         }
 
-        $query = \Modules\Payment\Entities\Order::with(['items.product', 'services', 'accessCodes']);
+        $query = \Modules\Payment\Entities\Order::with(['items.product', 'services']);
         if (! $user->isSuperAdmin()) {
             $allowedIds = $user->allowedCategoryIds() ?? [];
             if (! empty($allowedIds)) {
@@ -409,52 +409,6 @@ Route::middleware(['auth', 'web', 'throttle:120,1'])->prefix('admin/api')->group
             'hideAdjustments' => true,
         ])->render();
 
-        // Mã cổng — ĐÚNG luật hiển thị của OrderForm::hasAccessCodeSection() (chỉ đơn đã 'paid' —
-        // access code/mật khẩu thủ công chỉ thật sự được gán lúc đơn chuyển paid): sân
-        // has_manual_lock -> mật khẩu thủ công (ManualLockPassword, mốc paid_at/deposit_paid_at/
-        // created_at — KHÔNG dùng checkin_date/now(), xem docblock getForProductAndDate()); nếu
-        // không thì chi nhánh có tài khoản TTLock đang active (TTLockService::hasAccountForCategory())
-        // -> mã cổng TTLock/pool đã gán (accessCodes, load sẵn ở trên). Chi nhánh không thuộc cả 2
-        // trường hợp -> 'access_code' = null, JS không hiện khối này.
-        //
-        // Trả DỮ LIỆU THÔ (không render sẵn access-code-info.blade.php/manual-lock-info.blade.php
-        // như 'amount_html' ở trên) — 2 component đó thiết kế cho khung RỘNG của orderform (chữ
-        // mã cỡ 3xl/4xl, lưới hiệu lực 2 cột, padding lớn), nhồi vào cột trái hẹp của popup này
-        // (~230px) sẽ vỡ layout — JS (rcCalOpenOrderPopup()) tự dựng bản GỌN riêng từ dữ liệu này.
-        $accessCode = null;
-        $product = $order->items->sortBy('checkin_date')->first()?->product;
-
-        if ($order->status === 'paid' && $product) {
-            if ($product->has_manual_lock) {
-                $pwdAnchorDate = $order->paid_at ?? $order->deposit_paid_at ?? $order->created_at;
-                $manualPwd = \Modules\Product\App\Models\ManualLockPassword::getForProductAndDate($product, $pwdAnchorDate);
-
-                if ($manualPwd && ($manualPwd->gate_password || $manualPwd->room_password)) {
-                    $accessCode = [
-                        'type'          => 'manual',
-                        'gate_password' => $manualPwd->gate_password,
-                        'room_password' => $manualPwd->room_password,
-                        'status_label'  => $manualPwd->status_label,
-                        'status_color'  => $manualPwd->status_color,
-                        'valid_from'    => $manualPwd->valid_from?->format('d/m/Y H:i'),
-                        'valid_until'   => $manualPwd->valid_until?->format('d/m/Y H:i'),
-                    ];
-                }
-            } elseif (\App\Services\TTLockService::hasAccountForCategory($order->category_id)) {
-                $code = $order->accessCodes->first();
-
-                $accessCode = [
-                    'type'          => 'ttlock',
-                    'code'          => $code?->code,
-                    'status_label'  => $code ? ($code->status === 'active' ? 'Hoạt động' : ($code->status === 'expired' ? 'Hết hạn' : 'Vô hiệu hoá')) : null,
-                    'status_color'  => $code ? ($code->status === 'active' ? 'success' : ($code->status === 'expired' ? 'danger' : 'gray')) : 'gray',
-                    'valid_from'    => $code?->valid_from?->format('d/m/Y H:i'),
-                    'valid_until'   => $code?->valid_until?->format('d/m/Y H:i'),
-                    'gate_location' => $code?->gate_location,
-                ];
-            }
-        }
-
         return response()->json([
             'order_id'         => $order->id,
             'order_code'       => $order->order_code,
@@ -464,7 +418,6 @@ Route::middleware(['auth', 'web', 'throttle:120,1'])->prefix('admin/api')->group
             'status'           => $order->status,
             'status_label'     => $statusLabels[$order->status] ?? $order->status,
             'amount_html'      => $amountHtml,
-            'access_code'      => $accessCode,
             'edit_url'         => '/admin/orders/' . $order->id . '/edit',
         ]);
     })->name('admin.orders.quick-info');

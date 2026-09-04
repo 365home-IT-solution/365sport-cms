@@ -27,7 +27,7 @@ use Spatie\Tags\Tag;
  *
  * Field trong request khớp với Modules\Product\App\Filament\Resources\ProductResource\Forms\ProductForm:
  *  - categories (chi nhánh/khu vực áp dụng), tags (tiện ích — Spatie Tag, KHÔNG phải RoomAmenity),
- *    additional_services (dịch vụ bổ sung), name/slug/wifi/home_code/address/latitude/longitude/
+ *    additional_services (dịch vụ bổ sung), name/slug/wifi/address/latitude/longitude/
  *    hotline/styles, short_description/description, setting_video_room{url,ratio,title},
  *    image_main (collection "Ảnh bìa"), gallery[] (collection "Thư viện").
  *
@@ -249,7 +249,6 @@ class ProductController extends Controller
                 'name'                => $data['name'],
                 'slug'                => $data['slug'] ?? $this->uniqueSlug(Product::class, $data['name']),
                 'wifi'                => $data['wifi'] ?? null,
-                'home_code'           => $data['home_code'] ?? null,
                 'address'             => $data['address'] ?? null,
                 'latitude'            => $data['latitude'] ?? null,
                 'longitude'           => $data['longitude'] ?? null,
@@ -328,7 +327,7 @@ class ProductController extends Controller
 
         DB::transaction(function () use ($product, $data) {
             $product->update(collect($data)->only([
-                'name', 'slug', 'wifi', 'home_code', 'address', 'latitude', 'longitude', 'hotline',
+                'name', 'slug', 'wifi', 'address', 'latitude', 'longitude', 'hotline',
                 'styles', 'short_description', 'description', 'setting_video_room',
             ])->toArray());
 
@@ -534,7 +533,6 @@ class ProductController extends Controller
             'name'                => "{$required}|string|max:255",
             'slug'                => ['nullable', 'string', 'max:255', Rule::unique('products', 'slug')->ignore($productId)],
             'wifi'                => 'nullable|string|max:100',
-            'home_code'           => 'nullable|string|max:255',
             'address'             => 'nullable|string|max:100',
             'latitude'            => 'nullable|numeric|between:-90,90',
             'longitude'           => 'nullable|numeric|between:-180,180',
@@ -776,7 +774,6 @@ class ProductController extends Controller
             'name'                => $product->name,
             'slug'                => $product->slug,
             'wifi'                => $product->wifi,
-            'home_code'           => $product->home_code,
             'address'             => $product->address,
             'latitude'            => $product->latitude,
             'longitude'           => $product->longitude,

@@ -61,6 +61,11 @@ class DataScopeResource extends Resource
         return 'Phân quyền';
     }
 
+    public static function getNavigationSort(): ?int
+    {
+        return 3;
+    }
+
     public static function getNavigationLabel(): string
     {
         return 'Phân quyền dữ liệu';

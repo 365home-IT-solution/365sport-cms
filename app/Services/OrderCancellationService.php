@@ -7,6 +7,7 @@ namespace App\Services;
 use App\Models\CustomerPackage;
 use App\Models\PackageRedemption;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\DB;
 use Modules\Payment\Entities\Order;
 
 // Khách TỰ huỷ đơn/xin hoàn tiền online (trước đây chỉ admin huỷ tay qua điện thoại/hotline,
@@ -28,31 +29,39 @@ class OrderCancellationService
      */
     public function cancelByCustomer(Order $order, ?string $reason = null): array
     {
-        $order->loadMissing('items');
+        $result = DB::transaction(function () use ($order, $reason): array {
+            $locked = Order::query()->lockForUpdate()->findOrFail($order->getKey());
+            $locked->load('items');
 
-        if (! $order->canBeCancelledByCustomer()) {
-            return ['ok' => false, 'error' => 'Đơn này không thể huỷ (đã huỷ trước đó, chưa thanh toán, hoặc đã tới/qua giờ nhận sân).'];
+            if (! $locked->canBeCancelledByCustomer()) {
+                return ['ok' => false, 'error' => 'Đơn này không thể huỷ (đã huỷ trước đó, chưa thanh toán, hoặc đã tới/qua giờ nhận sân).'];
+            }
+
+            $paidByPackage = PackageRedemption::where('order_id', $locked->id)
+                ->whereNull('refunded_at')->exists();
+            $refundAmount = $paidByPackage ? 0 : $locked->computeCustomerCancelRefundAmount();
+
+            $locked->update([
+                'cancelled_at'  => now(),
+                'cancelled_by'  => 'customer',
+                'cancel_reason' => $reason,
+            ]);
+
+            if ($paidByPackage) {
+                CustomerPackage::refundRedemptionsForOrder($locked);
+            } elseif ($refundAmount > 0) {
+                $this->extraChargeService->recordPendingRefund($locked, $refundAmount);
+            }
+
+            return ['ok' => true, 'refund_amount' => $refundAmount];
+        });
+
+        if (! $result['ok']) {
+            return $result;
         }
 
-        // Đơn được thanh toán bằng cách trừ buổi trong gói (xem CustomerPackage::redeem(), gọi từ
-        // ProductDetail::confirmBooking() khi khách chọn "Dùng gói") — KHÔNG có tiền thật để hoàn
-        // 70%, phải HOÀN LẠI BUỔI vào gói thay vì tạo khoản hoàn tiền (order->amount cho case này
-        // luôn là 0, xem ghi chú tại nơi tạo đơn).
-        $paidByPackage = PackageRedemption::where('order_id', $order->id)->whereNull('refunded_at')->exists();
-
-        $refundAmount = $paidByPackage ? 0 : $order->computeCustomerCancelRefundAmount();
-
-        $order->update([
-            'cancelled_at'  => now(),
-            'cancelled_by'  => 'customer',
-            'cancel_reason' => $reason,
-        ]);
-
-        if ($paidByPackage) {
-            CustomerPackage::refundRedemptionsForOrder($order);
-        } elseif ($refundAmount > 0) {
-            $this->extraChargeService->recordPendingRefund($order, $refundAmount);
-        }
+        $refundAmount = $result['refund_amount'];
+        $order->refresh()->load('items');
 
         // Giải phóng khung giờ/ngày real-time — khách khác đang xem đúng sân này thấy trống lại
         // ngay, không cần đợi tải lại trang (cùng cơ chế dùng khi XOÁ đơn, xem

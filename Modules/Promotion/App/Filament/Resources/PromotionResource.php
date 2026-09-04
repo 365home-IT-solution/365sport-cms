@@ -27,7 +27,12 @@ class PromotionResource extends Resource
 
     public static function getNavigationGroup(): ?string
     {
-        return __('promotion::promotion.resource.navigation_group');
+        return 'Quản lý';
+    }
+
+    public static function getNavigationSort(): ?int
+    {
+        return 5;
     }
 
     public static function getNavigationLabel(): string
@@ -55,11 +60,25 @@ class PromotionResource extends Resource
         $query = parent::getEloquentQuery();
         $user  = auth()->user();
 
-        if (! $user || $user->isSuperAdmin()) {
+        if (! $user) {
             return $query;
         }
 
-        $allowedCategoryIds = $user->allowedCategoryIds();
+        // Luôn tôn trọng "Chuyển đổi chi nhánh" ở header (App\Livewire\BranchSwitcher), KỂ CẢ
+        // super_admin — đổi từ allowedCategoryIds() (toàn bộ quyền được CẤP, không quan tâm
+        // switcher) sang effectiveBranchIds()/visibleProductCategoryIds() (chi nhánh ĐANG CHỌN).
+        $branchIds = $user->effectiveBranchIds();
+
+        if (empty($branchIds)) {
+            if ($user->isSuperAdmin()) {
+                return $query;
+            }
+
+            // Không có chi nhánh nào hợp lệ — chỉ còn thấy promotion do chính mình tạo.
+            return $query->where('created_by', $user->id);
+        }
+
+        $allowedCategoryIds = $user->visibleProductCategoryIds($branchIds);
 
         // Tìm product_id thuộc các chi nhánh được phép
         $productIds = empty($allowedCategoryIds)

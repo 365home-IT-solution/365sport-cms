@@ -174,32 +174,14 @@
         return parts[0] + 'h' + (parts[1] || '00');
     },
 
-    // Gộp các khung giờ liên tiếp cùng sân/cùng ngày thành 1 dòng khoảng giờ (vd chọn liền
-    // 10h00-11h00, 11h00-12h00, ... -> chỉ hiện 1 dòng 10h00-20h00) thay vì liệt kê từng giờ rời
-    // rạc — dùng cho khối Chi tiết đặt sân ở book/_pricing.blade.php.
+    // Mỗi khung giờ đã chọn phải có đúng một dòng. Không gộp các khung liên tiếp: việc gộp làm
+    // khách chọn 3 khung nhưng phần chi tiết chỉ còn 1-2 dòng, đặc biệt dễ hiểu nhầm khung có
+    // khuyến mãi đã bị mất.
     get groupedSlotDetails() {
-        const groups = {};
-        const order = [];
-        this.selectedSlots.forEach(s => {
-            const key = s.roomId + '|' + s.date;
-            if (!groups[key]) { groups[key] = []; order.push(key); }
-            groups[key].push(s);
+        return this.selectedSlots.slice().sort((a, b) => {
+            const dateOrder = String(a.date).localeCompare(String(b.date));
+            return dateOrder !== 0 ? dateOrder : String(a.startTime).localeCompare(String(b.startTime));
         });
-        const result = [];
-        order.forEach(key => {
-            const slots = groups[key].slice().sort((a, b) => a.startTime.localeCompare(b.startTime));
-            let current = null;
-            slots.forEach(s => {
-                if (current && current.endTime === s.startTime) {
-                    current.endTime = s.endTime;
-                } else {
-                    if (current) result.push(current);
-                    current = { roomName: s.roomName, startTime: s.startTime, endTime: s.endTime };
-                }
-            });
-            if (current) result.push(current);
-        });
-        return result;
     },
 
     get totalPrice() {

@@ -112,9 +112,6 @@
                 @foreach($orders as $order)
                 @php
 
-                $accessCode = $order->accessCode;
-                $unlockCode = $accessCode ? $accessCode->code : '....';
-                $gateLocation = $accessCode && $accessCode->gate_location ? $accessCode->gate_location : '';
                 $branchName = $order->category ? $order->category->name : 'Chi nhánh';
                 $create_at = $order->created_at ? \Carbon\Carbon::parse($order->created_at)->format('d/m/Y H:i') :
                 'N/A';
@@ -140,10 +137,6 @@
                 $firstItem = $order->items->first();
                 $firstProduct = $firstItem ? $firstItem->product : null;
                 $checkinDate = $firstItem && $firstItem->checkin_date ? \Carbon\Carbon::parse($firstItem->checkin_date) : null;
-                $pwdAnchorDate = $order->paid_at ?? $order->deposit_paid_at ?? $order->created_at;
-                $manualLockPassword = $firstProduct && $firstProduct->has_manual_lock
-                    ? \Modules\Product\App\Models\ManualLockPassword::getForProductAndDate($firstProduct, $pwdAnchorDate)
-                    : null;
                 $branchAddress = $firstProduct ? $firstProduct->address : 'Địa chỉ chi nhánh không xác định';
                 // Cột map_url đã bị xoá khỏi bảng products (migration 2026_06_04_000002) — ưu tiên
                 // dùng toạ độ latitude/longitude (nếu có) để ghim đúng vị trí thay vì chỉ tìm theo
@@ -257,54 +250,6 @@
                             <span class="absolute -right-2.5 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-gray-50"></span>
                         </div>
 
-                        <!-- Gate Unlock Code -->
-                        @if($isDepositPaid || $isPendingDeposit)
-                        {{-- Đơn cọc: chưa có mã, hiện thông báo chờ thanh toán --}}
-                        <div class="flex items-center gap-3">
-                            <div
-                                class="w-9 h-9 bg-amber-50 rounded-full flex items-center justify-center text-amber-500 shrink-0">
-                                <i class="fa fa-lock"></i>
-                            </div>
-                            <div>
-                                <p class="text-sm font-semibold text-amber-800">Mã mở khóa chưa được cấp</p>
-                                <p class="text-xs text-amber-600 mt-0.5">
-                                    @if($isPendingDeposit)
-                                    Vui lòng hoàn tất thanh toán cọc để tiếp tục.
-                                    @else
-                                    Mã sẽ được cấp sau khi bạn thanh toán tiền còn lại.
-                                    @endif
-                                </p>
-                            </div>
-                        </div>
-                        @elseif($firstProduct && $firstProduct->has_manual_lock)
-                        {{-- Sân khóa thủ công: hiển thị pass cổng + pass sân --}}
-                        <div class="text-center">
-                            @if($manualLockPassword)
-                            <div class="flex items-center justify-center gap-6 flex-wrap">
-                                <div>
-                                    <p class="text-[10px] font-semibold uppercase tracking-widest text-gray-400">Pass Cổng</p>
-                                    <span class="text-2xl font-mono font-black tracking-[0.2em] text-gray-900">{{ $manualLockPassword->gate_password }}</span>
-                                </div>
-                                @if($manualLockPassword->room_password)
-                                <div>
-                                    <p class="text-[10px] font-semibold uppercase tracking-widest text-gray-400">Pass Sân</p>
-                                    <span class="text-2xl font-mono font-black tracking-[0.2em] text-gray-900">{{ $manualLockPassword->room_password }}</span>
-                                </div>
-                                @endif
-                            </div>
-                            @else
-                            <p class="text-sm text-gray-500">Vui lòng liên hệ để nhận mật khẩu sân</p>
-                            @endif
-                        </div>
-                        @else
-                        {{-- TTLock: mã cổng điện tử — hiển thị lớn, nổi bật kiểu số hiệu trên vé
-                             máy bay, đây là thông tin quan trọng nhất khách cần khi tra cứu. --}}
-                        <div class="text-center">
-                            <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-widest">Mã mở khóa</p>
-                            <p class="text-3xl font-mono font-black tracking-[0.25em] text-gray-900 mt-1">{{ $unlockCode }}#</p>
-                        </div>
-                        @endif
-
                         <!-- Branch Address -->
                         <div class="mt-4 flex items-start gap-2.5 text-xs">
                             <i class="fa fa-map-marker-alt text-amber-500 mt-0.5 shrink-0"></i>
@@ -326,15 +271,6 @@
                                     </a>
                                 </span>
                             </div>
-                            <div class="flex justify-between text-sm">
-                                <span class="text-gray-500">Hướng dẫn check-in</span>
-                                <span class="font-medium text-primary">
-                                    <a class="text-primary underline font-semibold"
-                                        href="{{ url('huong-dan-tu-check-in') }}">Xem hướng dẫn ngay
-                                    </a>
-                                </span>
-                            </div>
-
                             @if($isPendingDeposit)
                             {{-- Đơn cọc đang chờ thanh toán lần 1 --}}
                             <div class="flex justify-between text-sm">
@@ -398,7 +334,7 @@
                                         <path stroke-linecap="round" stroke-linejoin="round"
                                             d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
                                     </svg>
-                                    Thanh toán phần còn lại để nhận mã cổng
+                                    Thanh toán phần còn lại để hoàn tất đặt sân
                                 </p>
                                 <p class="text-xs text-amber-700 mb-3">
                                     Số tiền cần thanh toán:
@@ -418,7 +354,7 @@
                                 <p class="text-red-600 text-xs mt-2 text-center">{{ $remainingError }}</p>
                                 @endif
                                 <p class="text-[11px] text-amber-600 mt-2 text-center italic">Sau khi thanh toán thành
-                                    công, mã cổng sẽ hiển thị ngay tại đây.</p>
+                                    công, trạng thái đơn sẽ cập nhật ngay tại đây.</p>
                             </div>
 
                             @else
@@ -430,7 +366,7 @@
                                 class="text-blue-700 rounded-lg p-3 flex gap-3 items-start mt-2">
                                 <i class="fa fa-info-circle mt-1"></i>
                                 <p class="text-xs leading-relaxed">
-                                    Bạn đã thanh toán 100%. Vui lòng check-in đúng giờ và mã mở khóa khi đến nhận sân.
+                                    Bạn đã thanh toán 100%. Vui lòng check-in đúng giờ khi đến nhận sân.
                                     Chúc quý khách có trải nghiệm tuyệt vời tại 365Home!
                                 </p>
                             </div>

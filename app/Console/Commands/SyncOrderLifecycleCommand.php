@@ -9,8 +9,7 @@ use Modules\Payment\Entities\OrderItem;
 
 /**
  * Safety-net: tự động trả sân (order_status = checked_out) khi khách quá giờ
- * checkout nhưng không tự mở khoá lần 2. Các transition khác (chờ→đang ở,
- * đang ở→trả sân khi khách tự mở khoá) đã event-driven qua UnlockController.
+ * checkout mà nhân viên chưa cập nhật trạng thái trả sân.
  */
 class SyncOrderLifecycleCommand extends Command
 {

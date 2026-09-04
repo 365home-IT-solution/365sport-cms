@@ -112,10 +112,6 @@ class FormContact extends Component
                 'facebookLink' => 'https://facebook.com',
             ];
 
-            // $subject = "[Form: {$this->form->name}] " . $subject;
-            // $messageBody = "Form Name: {$this->form->name}\n\n" . $messageBody;
-            // $messageBody = preg_replace('/C:\\\\Users\\\\[^\\\\]+\\\\AppData\\\\Local\\\\Temp\\\\[a-zA-Z0-9]+\.tmp/', '', $messageBody);
-
             $mailerType = $emailSetting->mailer_type ?? config('mail.default');
 
             try {

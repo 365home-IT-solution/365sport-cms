@@ -73,6 +73,9 @@
         // Bật/tắt ở admin (App\Filament\Pages\DirectionsSettings) — xem drawRoute()/fetchRouteOrs()/
         // fetchRouteOsrm() bên dưới.
         directionsOrsEnabled: @js($directionsOrsEnabled),
+        // Xem ghi chú đầy đủ tại config('services.carto') — CARTO Basemaps giờ BẮT BUỘC key, rỗng
+        // thì tile chỉ hiện chữ đè API KEY REQUIRED.
+        cartoBasemapsKey: @js($cartoBasemapsKey),
         init() {
             // Đánh dấu phiên bản JS đang chạy — nếu KHÔNG thấy dòng này trong Console sau khi tải
             // lại trang, nghĩa là trình duyệt đang chạy bản JS CŨ (cache trang/tab chưa tải lại
@@ -90,11 +93,20 @@
             // Voyager (CARTO, dựa trên dữ liệu OSM nhưng style sạch hơn: nền màu kem/xanh nhạt,
             // biên giới mảnh, ưu tiên nhãn tên latin/English cho khu vực ngoài Việt Nam) — khớp
             // đúng phong cách ảnh mẫu, thay cho tile OSM mặc định trước đây (màu đậm, chữ Hán to,
-            // đường biên giới tranh chấp nét đứt nổi bật). Vẫn miễn phí, không cần API key.
-            this.baseLayers.street = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-                maxZoom: 19,
-                attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
-            });
+            // đường biên giới tranh chấp nét đứt nổi bật). TRƯỚC ĐÂY miễn phí không cần key — CARTO
+            // đã đổi chính sách, giờ bắt buộc key (xem config('services.carto'), lấy key tại
+            // https://carto.com/basemaps/apikey), không thì tile chỉ hiện chữ đè API KEY REQUIRED
+            // (bug thật đã gặp). Bỏ luôn tiền tố {s}. (subdomain xoay vòng) — endpoint có key dùng
+            // đúng 1 host duy nhất theo tài liệu CARTO, {s}. không còn cần thiết.
+            this.baseLayers.street = L.tileLayer(
+                this.cartoBasemapsKey
+                    ? `https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png?key=${this.cartoBasemapsKey}`
+                    : 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
+                {
+                    maxZoom: 19,
+                    attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
+                }
+            );
             // Vệ tinh (Esri World Imagery) — lựa chọn thứ 2 trong nút lớp bản đồ (layers) góc
             // trên phải, cũng miễn phí không cần API key.
             this.baseLayers.satellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {

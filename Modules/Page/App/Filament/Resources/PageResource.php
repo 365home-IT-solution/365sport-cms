@@ -22,7 +22,12 @@ class PageResource extends Resource
 
     public static function getNavigationGroup(): ?string
     {
-        return __('page::page.resource.navigation_group');
+        return 'Cấu hình web';
+    }
+
+    public static function getNavigationSort(): ?int
+    {
+        return 2;
     }
     public static function getNavigationLabel(): string
     {

@@ -68,7 +68,47 @@ class UserResource extends Resource
         $query = parent::getEloquentQuery();
         $user  = auth()->user();
 
-        if (! $user || $user->isSuperAdmin()) {
+        if (! $user) {
+            return $query;
+        }
+
+        // TRƯỚC ĐÂY super_admin return thẳng $query ở đây, bỏ qua HẲN cả lọc partner lẫn "Chuyển
+        // đổi chi nhánh" ở header — chọn riêng vài chi nhánh trên switcher xong danh sách "Thành
+        // Viên" vẫn hiện tài khoản của MỌI đối tác (bug đã gặp, giống hệt OrderResource trước khi
+        // sửa). User thường cũng chỉ lọc theo partner_id, không quan tâm switcher.
+        //
+        // User không có category_id/branch_id trực tiếp — chỉ gắn chi nhánh GIÁN TIẾP qua 1 trong 2
+        // đường: (1) partner_id của TÀI KHOẢN (chủ đối tác + nhân viên không bị giới hạn chi nhánh
+        // cụ thể — xem User::allowedBranchIds() rỗng nghĩa là "không giới hạn, thấy hết chi nhánh
+        // của đối tác mình"), hoặc (2) UserBranchPermission.category_id (nhân viên bị giới hạn chỉ
+        // xem/làm việc ở 1 vài chi nhánh cụ thể trong đối tác). Phải khớp ĐÚNG 1 TRONG 2 đường đó
+        // với tập chi nhánh đang hiệu lực (effectiveBranchIds()), không thể whereIn thẳng 1 cột.
+        $branchIds = $user->effectiveBranchIds();
+
+        if (empty($branchIds)) {
+            $query = $user->isSuperAdmin() ? $query : $query->whereRaw('1 = 0');
+        } else {
+            $categoryIds = $user->visibleProductCategoryIds($branchIds);
+
+            if (empty($categoryIds)) {
+                $query = $query->whereRaw('1 = 0');
+            } else {
+                $partnerIds = \Modules\Category\Entities\Category::whereIn('id', $categoryIds)
+                    ->whereNotNull('partner_id')
+                    ->pluck('partner_id')
+                    ->unique()
+                    ->values()
+                    ->all();
+
+                $query = $query->whereIn('partner_id', $partnerIds)
+                    ->where(function (Builder $q) use ($categoryIds) {
+                        $q->doesntHave('branchPermissions')
+                            ->orWhereHas('branchPermissions', fn (Builder $bp) => $bp->whereIn('category_id', $categoryIds));
+                    });
+            }
+        }
+
+        if ($user->isSuperAdmin()) {
             return $query;
         }
 

@@ -339,18 +339,40 @@
             <p class="text-xs font-semibold tracking-wider uppercase text-[#717171]">Mua gói nhiều buổi</p>
             <div class="space-y-2">
                 @foreach ($sellablePackagePlans as $plan)
-                    <div class="flex items-center justify-between gap-3 border border-[#DDDDDD] rounded-xl p-3">
+                    {{-- 3 phạm vi loại trừ nhau (xem PackagePlan::scopeType()) — TRƯỚC ĐÂY chỉ có
+                         2 nhánh (isBranchWide() true/false), thiếu nhánh "một số sân cụ thể"
+                         (product_id null, product_ids có danh sách) nên rơi vào else và hiện "Chỉ
+                         dùng cho sân" TRỐNG KHÔNG (bug thật đã gặp, cùng lỗi với book/_package-modal.
+                         blade.php). $plan->products() trả về Eloquent Builder (không phải Relation
+                         thật), phải ->pluck() tường minh. --}}
+                    @php
+                        $scopeNames = match ($plan->scopeType()) {
+                            'product' => array_filter([$plan->product?->name]),
+                            'selected_products' => $plan->products()->pluck('name')->all(),
+                            'branch' => [],
+                        };
+                    @endphp
+                    <div class="flex items-start justify-between gap-3 border border-[#DDDDDD] rounded-xl p-3">
                         <div class="min-w-0">
                             <p class="text-sm font-semibold text-[#222222] truncate">{{ $plan->name }}</p>
                             {{-- Phạm vi gói — quan trọng để khách không hiểu nhầm mua gói "cả chi
-                                 nhánh" chỉ dùng được đúng sân đang xem, hoặc ngược lại. --}}
-                            <p class="text-[11px] font-medium mt-0.5 {{ $plan->isBranchWide() ? 'text-blue-600' : 'text-[#9CA3AF]' }}">
-                                @if ($plan->isBranchWide())
+                                 nhánh" chỉ dùng được đúng sân đang xem, hoặc ngược lại. Hiện DẠNG
+                                 LIST (mỗi sân 1 "chip" nổi bật) khi áp dụng nhiều sân cùng lúc,
+                                 thay vì gộp chung 1 dòng text nối dấu phẩy. --}}
+                            @if ($plan->scopeType() === 'branch')
+                                <p class="text-[11px] font-medium mt-0.5 text-blue-600">
                                     Dùng cho mọi sân tại {{ $plan->category?->name }}
-                                @else
-                                    Chỉ dùng cho sân {{ $plan->product?->name }}
-                                @endif
-                            </p>
+                                </p>
+                            @else
+                                <div class="flex flex-wrap items-center gap-1 mt-1">
+                                    <span class="text-[11px] font-medium text-[#9CA3AF]">Chỉ dùng cho:</span>
+                                    @forelse ($scopeNames as $name)
+                                        <span class="inline-flex items-center px-2 py-0.5 rounded-full bg-blue-50 text-blue-600 text-[11px] font-semibold whitespace-nowrap">{{ $name }}</span>
+                                    @empty
+                                        <span class="text-[11px] text-[#9CA3AF]">—</span>
+                                    @endforelse
+                                </div>
+                            @endif
                             <p class="text-xs text-[#717171] mt-0.5">
                                 {{ $plan->sessions_count }} buổi — {{ number_format($plan->price, 0, ',', '.') }}đ
                                 @if ($plan->savingsPercent() > 0)

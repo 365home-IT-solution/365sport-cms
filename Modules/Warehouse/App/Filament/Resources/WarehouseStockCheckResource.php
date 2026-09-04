@@ -16,7 +16,7 @@ class WarehouseStockCheckResource extends Resource
 {
     protected static ?string $model = WarehouseStockCheck::class;
 
-    protected static ?int $navigationSort = 5;
+    protected static ?int $navigationSort = 13;
 
     public static function canViewAny(): bool
     {

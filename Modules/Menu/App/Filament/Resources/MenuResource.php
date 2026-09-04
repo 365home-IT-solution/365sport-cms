@@ -26,7 +26,12 @@ class MenuResource extends Resource
 
     public static function getNavigationGroup(): ?string
     {
-        return __('menu::menu-builder.resource.navigation_group');
+        return 'Cấu hình web';
+    }
+
+    public static function getNavigationSort(): ?int
+    {
+        return 4;
     }
 
     public static function getNavigationLabel(): string

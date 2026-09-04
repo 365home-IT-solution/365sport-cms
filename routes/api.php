@@ -13,12 +13,11 @@ use App\Http\Controllers\Api\CouponController;
 use App\Http\Controllers\Api\OrderController;
 use App\Http\Controllers\Api\OrderServiceController;
 use App\Http\Controllers\Api\AskUserController;
+use App\Http\Controllers\Api\PopupController;
 use App\Http\Controllers\Api\HomeController;
 use App\Http\Controllers\Api\ProvinceController;
 use App\Http\Controllers\Api\SearchController;
 use App\Http\Controllers\Api\WardController;
-use App\Http\Controllers\Api\LockRecordCallbackController;
-use App\Http\Controllers\Api\UnlockController;
 use App\Http\Controllers\Api\DailyRoomController;
 use App\Http\Controllers\Api\DailyRoomHoldController;
 use App\Http\Controllers\Api\DirectionsController;
@@ -30,18 +29,9 @@ use App\Http\Controllers\Api\RatingController;
 use App\Http\Controllers\Api\WaitlistController;
 use App\Http\Controllers\Api\WishlistController;
 use App\Http\Controllers\Api\BookingFundController;
+use App\Http\Controllers\Api\OpenMatchController;
 use Illuminate\Support\Facades\Route;
 use Modules\AppPage\App\Http\Controllers\AppPageController;
-
-/*
-|--------------------------------------------------------------------------
-| TTLock Callback
-| Callback URL cần đăng ký trong TTLock Management Center > Application
-| URL: https://365home.vn/api/lock/callback
-|--------------------------------------------------------------------------
-*/
-Route::post('lock/callback', [LockRecordCallbackController::class, 'handle'])
-    ->name('lock.callback');
 
 /*
 |--------------------------------------------------------------------------
@@ -84,6 +74,8 @@ Route::get('v1/branches/{id}', [BranchController::class, 'show'])->name('api.v1.
 | GET /api/v1/provinces/{slug}              → Chi tiết tỉnh + chi nhánh (slug)
 |
 | GET /api/v1/ask-user/{id}                 → Nội dung thông báo khi vào app
+| GET /api/v1/popups                        → Danh sách ảnh popup (ảnh + url điều hướng), dùng
+|                                                cho cả app và website
 |
 | GET /api/v1/branches/{slug}/time-slots?days=15 → Lịch đặt sân đầy đủ 1 chi nhánh (mọi sân
 |                                                    theo khung giờ x ngày, kèm giá/khuyến mãi/
@@ -116,6 +108,10 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
     Route::get('wards/{code}', [WardController::class, 'showByCode'])->name('wards.show')->whereNumber('code');
 
     Route::get('ask-user/{id}', [AskUserController::class, 'show'])->name('ask-user.show')->whereNumber('id');
+
+    // GET /api/v1/popups → danh sách ảnh popup đang cấu hình (ảnh + url điều hướng), đúng thứ tự
+    // sắp xếp trên admin — dùng cho cả app và website. Quản lý ở Admin > Quản lý API > Popup.
+    Route::get('popups', [PopupController::class, 'index'])->name('popups.index')->middleware('throttle:public-api');
 
     Route::get('config',     ConfigController::class)->name('config')->middleware('throttle:config');
     Route::get('config/map', [ConfigController::class, 'map'])->name('config.map')->middleware('throttle:config');
@@ -328,7 +324,6 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('orders/{order}/services',              [OrderServiceController::class,'store'])->name('api.orders.services.store');
         Route::post('orders/{order_code}/extra',             [OrderController::class,       'addExtra'])->name('api.orders.extra');
         Route::post('orders/{order_code}/extra-charge-qr',   [OrderController::class,       'extraChargeQr'])->name('api.orders.extra-charge-qr');
-        Route::post('orders/{order_code}/unlock',           [UnlockController::class,      'unlock'])->name('api.orders.unlock')->middleware('throttle:10,1');
         Route::get('coupons/mine',             [CouponController::class,     'mine'])->name('api.coupons.mine');
         Route::post('coupons/validate',        [CouponController::class,     'check'])->name('api.coupons.validate');
     });
@@ -353,7 +348,7 @@ Route::middleware('auth:sanctum')->group(function () {
 // suất thì dò được: kẻ tấn công đoán order_code (thu hẹp phạm vi nếu biết khoảng thời gian khách
 // đặt) để xem/tải ảnh CCCD mặt trước-sau + dữ liệu cá nhân của người khác qua GET
 // orders/{order_code}, hoặc sửa được đơn người khác qua POST orders/{order_code} — throttle CHẶT
-// hơn mức mặc định của toàn API (60/phút) là bắt buộc, giống hệt route unlock bên dưới đã làm.
+// hơn mức mặc định của toàn API (60/phút) là bắt buộc.
 Route::prefix('guest')->name('api.guest.')->middleware('throttle:20,1')->group(function () {
     Route::post('orders',                                        [GuestBookingController::class, 'store'])->name('orders.store');
     Route::post('orders/{order_code}',                           [GuestBookingController::class, 'update'])->name('orders.update');
@@ -365,7 +360,6 @@ Route::prefix('guest')->name('api.guest.')->middleware('throttle:20,1')->group(f
     Route::post('orders/{order_code}/extra',                     [GuestBookingController::class, 'addExtra'])->name('orders.extra');
     Route::post('orders/{order_code}/extra-charge-qr',           [GuestBookingController::class, 'extraChargeQr'])->name('orders.extra-charge-qr');
     Route::get('orders/{order_code}/payment-status',             [GuestBookingController::class, 'paymentStatus'])->name('orders.payment-status');
-    Route::post('orders/{order_code}/unlock',                    [UnlockController::class,       'unlockGuest'])->name('orders.unlock')->middleware('throttle:10,1');
 
     /*
     |--------------------------------------------------------------------------
@@ -486,5 +480,26 @@ Route::middleware(['auth:sanctum', 'customer.active'])->prefix('booking-funds')-
     Route::post('{code}/close',                  [BookingFundController::class, 'close'])->name('close');
     Route::get('{code}/messages',                [BookingFundController::class, 'messages'])->name('messages.index');
     Route::post('{code}/messages',               [BookingFundController::class, 'sendMessage'])->name('messages.store');
+});
+
+/*
+|--------------------------------------------------------------------------
+| Open Match — "Tìm bạn chơi" (App\Models\OpenMatch)
+| GET    /api/open-matches            → Duyệt kèo đang mở (?category_id=&?product_id=&?date=
+|                                        &?skill_level=&?sport_type=), loại trừ kèo của chính mình
+| POST   /api/open-matches            → Mở kèo từ 1 đơn đã đặt (order_id)
+| GET    /api/open-matches/{id}       → Chi tiết kèo + danh sách người đã ghép
+| POST   /api/open-matches/{id}/join  → Xin ghép vào kèo (tự động, không cần host duyệt)
+| POST   /api/open-matches/{id}/leave → Rời kèo đã ghép
+| DELETE /api/open-matches/{id}       → (Host) huỷ cả kèo
+|--------------------------------------------------------------------------
+*/
+Route::middleware(['auth:sanctum', 'customer.active'])->prefix('open-matches')->name('api.open-matches.')->group(function () {
+    Route::get('/',            [OpenMatchController::class, 'index'])->name('index');
+    Route::post('/',           [OpenMatchController::class, 'store'])->name('store');
+    Route::get('{id}',         [OpenMatchController::class, 'show'])->name('show')->whereNumber('id');
+    Route::post('{id}/join',   [OpenMatchController::class, 'join'])->name('join')->whereNumber('id');
+    Route::post('{id}/leave',  [OpenMatchController::class, 'leave'])->name('leave')->whereNumber('id');
+    Route::delete('{id}',      [OpenMatchController::class, 'destroy'])->name('destroy')->whereNumber('id');
 });
 

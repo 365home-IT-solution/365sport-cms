@@ -24,7 +24,12 @@ class CommentResource extends Resource
 
     public static function getNavigationGroup(): ?string
     {
-        return __('comment::comment-main.resource.navigation_group');
+        return 'Cấu hình web';
+    }
+
+    public static function getNavigationSort(): ?int
+    {
+        return 13;
     }
 
 

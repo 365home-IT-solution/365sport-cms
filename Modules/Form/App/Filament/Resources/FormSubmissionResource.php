@@ -25,7 +25,12 @@ class FormSubmissionResource extends Resource
 
     public static function getNavigationGroup(): ?string
     {
-        return __('form::form-submission.resource.navigation_group');
+        return 'Quản lý';
+    }
+
+    public static function getNavigationSort(): ?int
+    {
+        return 8;
     }
     public static function getNavigationLabel(): string
     {

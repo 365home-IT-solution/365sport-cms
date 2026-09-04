@@ -26,7 +26,7 @@ class AskUserResource extends Resource
     protected static ?string $navigationLabel  = 'Thông báo vào app';
     protected static ?string $modelLabel       = 'Thông báo';
     protected static ?string $pluralModelLabel = 'Thông báo vào app';
-    protected static ?int    $navigationSort   = 20;
+    protected static ?int    $navigationSort   = 11;
 
     // Trước đây hardcode isSuperAdmin() — bỏ qua AskUserPolicy (đã đúng, kiểm tra
     // view_any_ask::user), khiến tick/bỏ tick quyền này ở Roles & Permissions vô tác dụng.

@@ -41,6 +41,9 @@ class GuestBookingController extends Controller
             'buyer_name'              => 'required|string|max:100',
             'buyer_phone'             => 'required|string|max:20',
             'guest_count'             => 'required|integer|min:1',
+            // Tên đội/nhóm — tuỳ chọn, dùng khi khách đặt sân theo dạng đội/nhóm (vd giải đấu nội
+            // bộ, CLB) thay vì chỉ 1 khách lẻ.
+            'team_name'               => 'sometimes|nullable|string|max:255',
             // Phương thức online (PayOS/bank_transfer) do ADMIN quyết định qua
             // Partner::effectivePaymentMethod(), giá trị client gửi ở đây chỉ còn ý nghĩa khi đúng
             // 'cod' (xem bên dưới) — vẫn validate rộng để không lỗi 422 nếu client gửi 'bank_transfer'.
@@ -266,7 +269,7 @@ class GuestBookingController extends Controller
                 } else {
                     throw ValidationException::withMessages([
                         'payment_type' => [
-                            'Đặt cọc không áp dụng' . ($depositMin > 0 ? " (cần tối thiểu {$depositMin} đêm)" : '') . '.',
+                            'Đặt cọc không áp dụng' . ($depositMin > 0 ? " (cần tối thiểu {$depositMin} ngày)" : '') . '.',
                         ],
                     ]);
                 }
@@ -360,6 +363,7 @@ class GuestBookingController extends Controller
                 'payment_method'  => $paymentMethod,
                 'status'          => 'pending',
                 'guest_count'     => $request->guest_count,
+                'team_name'       => $request->input('team_name'),
                 'category_id'     => $category?->id,
                 // Xem App\Services\BookingRateLimiter — chặn phá hoại theo IP thay vì SĐT.
                 'creator_ip'      => $request->ip(),
@@ -449,6 +453,7 @@ class GuestBookingController extends Controller
                 'expired_at'     => $order->expired_at,
                 'buyer_name'     => $order->buyer_name,
                 'buyer_phone'    => $order->buyer_phone,
+                'team_name'      => $order->team_name,
                 'cccd_front'     => $order->cccd_front ? Storage::disk('public')->url($order->cccd_front) : null,
                 'cccd_back'      => $order->cccd_back  ? Storage::disk('public')->url($order->cccd_back)  : null,
                 'cccd_data'      => $order->cccd_data,
@@ -809,7 +814,6 @@ class GuestBookingController extends Controller
             'items.product.roomTimeSlots.timeSlot',
             'items.product.roomTimeSlots.promotions' => fn ($q) => $q->where('is_active', true),
             'services',
-            'accessCodes',
             'guestCccds',
         ])
             ->where('order_code', $orderCode)
@@ -1286,11 +1290,11 @@ class GuestBookingController extends Controller
     {
         $checkin  = Carbon::parse($request->checkin_date)->startOfDay();
         $checkout = Carbon::parse($request->checkout_date)->startOfDay();
-        $nights   = (int) $checkin->diffInDays($checkout);
+        $days     = (int) $checkin->diffInDays($checkout);
 
-        if ($nights < 1) {
+        if ($days < 1) {
             throw ValidationException::withMessages([
-                'checkout_date' => ['Phải đặt tối thiểu 1 đêm.'],
+                'checkout_date' => ['Phải đặt tối thiểu 1 ngày.'],
             ]);
         }
 
@@ -1312,32 +1316,41 @@ class GuestBookingController extends Controller
             ->filter(fn ($rts) => $rts->timeSlot?->type === 'date')
             ->keyBy(fn ($rts) => $rts->timeSlot?->label);
 
-        $basePrice   = (float) $room->price;
-        $defCheckin  = $room->default_checkin  ?? '14:00';
-        $defCheckout = $room->default_checkout ?? '12:00';
+        $basePrice = (float) $room->price;
+        // Giờ nhận/trả mặc định khi sân không tự đặt riêng (default_checkin/checkout) VÀ ngày đó
+        // cũng không có override theo room_time_slots: ưu tiên đọc giờ mở/đóng cửa THẬT của chi
+        // nhánh (categories.checkin_time/checkout_time, xem CategoryForm::openingHoursInputs()) —
+        // sân thể thao thuê cả ngày không có khái niệm "trả phòng 12:00 trưa" kiểu khách sạn. Chỉ
+        // rơi về 14:00/12:00 khi chi nhánh CHƯA cấu hình giờ mở cửa (dữ liệu cũ).
+        $branchCategory = $room->categories()
+            ->whereNull('parent_id')
+            ->where('category_type', 'product')
+            ->first();
+        $defCheckin  = $room->default_checkin  ?? $branchCategory?->checkin_time  ?? '14:00';
+        $defCheckout = $room->default_checkout ?? $branchCategory?->checkout_time ?? '12:00';
 
         $totalPrice    = 0;
         $itemsData     = [];
-        $nightSummary  = [];
+        $daySummary    = [];
         $rtsCollection = collect();
 
         $current = $checkin->copy();
         while ($current->lt($checkout)) {
             $dateStr     = $current->format('Y-m-d');
             $rts         = $slotsByDate->get($dateStr);
-            $nightPrice  = $rts?->price !== null ? (float) $rts->price : $basePrice;
+            $dayPrice    = $rts?->price !== null ? (float) $rts->price : $basePrice;
             $checkinTime = $rts?->checkin  ?? $defCheckin;
             $chkoutTime  = $rts?->checkout ?? $defCheckout;
             $nextDate    = $current->copy()->addDay()->format('Y-m-d');
             $checkinDt   = Carbon::parse("{$dateStr} {$checkinTime}");
             $checkoutDt  = Carbon::parse("{$nextDate} {$chkoutTime}");
 
-            $totalPrice += $nightPrice;
+            $totalPrice += $dayPrice;
 
             $itemsData[] = [
                 'product_id'    => $room->id,
                 'name'          => $room->name . ' - ' . $current->format('d/m/Y'),
-                'price'         => (int) $nightPrice,
+                'price'         => (int) $dayPrice,
                 'quantity'      => 1,
                 'is_shipped'    => true,
                 'checkin_date'  => $checkinDt,
@@ -1348,19 +1361,19 @@ class GuestBookingController extends Controller
                 'over_night'    => true,
             ];
 
-            $nightSummary[] = [
+            $daySummary[] = [
                 'date'  => $dateStr,
-                'price' => (int) $nightPrice,
+                'price' => (int) $dayPrice,
             ];
 
             if ($rts) $rtsCollection->push($rts);
             $current->addDay();
         }
 
-        $summaryName = $room->name . ' - ' . $nights . ' đêm ('
+        $summaryName = $room->name . ' - ' . $days . ' ngày ('
             . $checkin->format('d/m') . ' → ' . $checkout->format('d/m/Y') . ')';
 
-        return [(int) $totalPrice, $summaryName, $itemsData, $rtsCollection, $nightSummary];
+        return [(int) $totalPrice, $summaryName, $itemsData, $rtsCollection, $daySummary];
     }
 
     private function buildServices(Request $request, Product $room): array
@@ -1430,7 +1443,7 @@ class GuestBookingController extends Controller
 
         $label = "Phụ thu {$extraGuests} người (trên {$threshold} người)";
         if ($nights > 1) {
-            $label .= " × {$nights} đêm";
+            $label .= $type === 'daily' ? " × {$nights} ngày" : " × {$nights} buổi";
         }
 
         return [$total, [
@@ -1918,7 +1931,7 @@ class GuestBookingController extends Controller
             $guestSurchargeTotal = $extraGuests * $guestFee * $nights;
 
             if ($guestFee > 0 && $extraGuests > 0) {
-                $nightsLabel = (! $isSlotType && $nights > 1) ? " × {$nights} đêm" : '';
+                $nightsLabel = $nights > 1 ? ($isSlotType ? " × {$nights} buổi" : " × {$nights} ngày") : '';
                 $guestSurchargeInfo = [
                     'guest_count'    => $guestCount,
                     'threshold'      => $guestThreshold,
@@ -2003,10 +2016,6 @@ class GuestBookingController extends Controller
             ],
         ];
 
-        $lockInfo = $this->buildLockInfo($order, $product);
-        if ($lockInfo) {
-            $result['lock_info'] = $lockInfo;
-        }
 
         // Extra charge (phát sinh thêm sau khi đã thanh toán)
         if ($order->extra_charge_amount) {
@@ -2024,35 +2033,6 @@ class GuestBookingController extends Controller
         }
 
         return $result;
-    }
-
-    private function buildLockInfo(Order $order, ?\Modules\Product\App\Models\Product $product): ?array
-    {
-        if (! $product || ! in_array($order->status, ['paid', 'deposit'])) {
-            return null;
-        }
-
-        $pwdAnchorDate = $order->paid_at ?? $order->deposit_paid_at ?? $order->created_at;
-
-        // Case 1: Mật khẩu thủ công (gate_password / room_password)
-        $manualPwd = \Modules\Product\App\Models\ManualLockPassword::getForProductAndDate($product, $pwdAnchorDate);
-        if ($manualPwd) {
-            return [
-                'type'          => 'manual',
-                'gate_password' => $manualPwd->gate_password,
-                'room_password' => $manualPwd->room_password,
-            ];
-        }
-
-        // Case 2: TTLock — chi nhánh có tài khoản TTLock + product có lock_id
-        if ($product->lock_id && \App\Services\TTLockService::forCategory($order->category_id)) {
-            return [
-                'type'       => 'ttlock',
-                'can_unlock' => true,
-            ];
-        }
-
-        return null;
     }
 
     private function buildListItem(Order $order): array

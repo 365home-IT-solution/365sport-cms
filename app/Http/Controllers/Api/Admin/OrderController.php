@@ -269,6 +269,39 @@ class OrderController extends Controller
     }
 
     /**
+     * POST /api/admin/orders/{order_code}/mark-no-show
+     * Đánh dấu khách đã đặt sân (status paid/deposit) nhưng KHÔNG đến nhận sân — khác hẳn huỷ đơn
+     * (cancelled_at, khách/admin chủ động huỷ TRƯỚC giờ nhận). Toàn bộ logic/điều kiện nằm ở
+     * Order::markNoShow() — dùng CHUNG với action "Đánh dấu không đến" ở Filament
+     * (OrderTable.php, action 'mark_no_show') để 2 đường luôn xử lý y hệt nhau, chỉ khác message
+     * hiển thị (English ở đây cho JSON API, theo đúng convention của các endpoint mới thêm gần đây
+     * — xem PackageOrderController).
+     */
+    public function markNoShow(Request $request, string $orderCode): JsonResponse
+    {
+        /** @var User $admin */
+        $admin = $request->user();
+
+        $order = Order::where('order_code', $orderCode)->first();
+
+        if (! $order || (! $admin->isSuperAdmin() && $order->partner_id !== $admin->partner_id)) {
+            return response()->json(['message' => 'Order not found.'], 404);
+        }
+
+        $result = $order->markNoShow($admin);
+
+        if (! $result['ok']) {
+            $message = $result['reason'] === 'already_marked'
+                ? 'This order has already been marked as no-show.'
+                : 'Only paid or deposit orders can be marked as no-show.';
+
+            return response()->json(['message' => $message], 422);
+        }
+
+        return response()->json(['order' => $this->toDetailItem($order->fresh())]);
+    }
+
+    /**
      * GET /api/admin/orders/{order_code}/cccds
      * Toàn bộ CCCD đã lưu của 1 đơn, GỘP CHUNG khách chính (guest_index=1 — lưu trực tiếp trên
      * Order.cccd_front/back/data) và khách đi cùng (guest_index từ 2 — bảng order_guest_cccds)
@@ -686,7 +719,7 @@ class OrderController extends Controller
                         } else {
                             throw ValidationException::withMessages([
                                 'payment_type' => [
-                                    'Đặt cọc không áp dụng' . ($depositMin > 0 ? " (cần tối thiểu {$depositMin} đêm)" : '') . '.',
+                                    'Đặt cọc không áp dụng' . ($depositMin > 0 ? " (cần tối thiểu {$depositMin} ngày)" : '') . '.',
                                 ],
                             ]);
                         }
@@ -997,8 +1030,12 @@ class OrderController extends Controller
     /**
      * Dọn dữ liệu con + file CCCD trong storage rồi xoá bản ghi Order — dùng chung cho destroy()
      * (xoá 1 đơn) và destroyBatch() (xoá nhiều đơn) để không lặp lại logic dọn dẹp.
+     *
+     * protected (không phải private) để RecurringBookingController (đơn đặt sân định kỳ, mỗi tuần
+     * vẫn là 1 Order riêng — xem docblock ở đó) tái dùng đúng logic xoá này cho từng đơn trong loạt,
+     * thay vì copy lại.
      */
-    private function deleteOrderWithRelations(Order $order): void
+    protected function deleteOrderWithRelations(Order $order): void
     {
         foreach ($order->guestCccds as $guestCccd) {
             if ($guestCccd->cccd_front) Storage::disk('public')->delete($guestCccd->cccd_front);
@@ -1014,7 +1051,9 @@ class OrderController extends Controller
         $order->delete();
     }
 
-    private function toListItem(Order $order): array
+    // protected (không phải private) để RecurringBookingController tái dùng đúng shape JSON này khi
+    // liệt kê các đơn trong 1 loạt đặt định kỳ, thay vì định nghĩa lại 1 shape thứ 2 dễ lệch nhau.
+    protected function toListItem(Order $order): array
     {
         return [
             'id'             => $order->id,
@@ -1026,6 +1065,7 @@ class OrderController extends Controller
             'amount'         => (int) $order->amount,
             'full_amount'    => (int) $order->full_amount,
             'guest_count'    => $order->guest_count,
+            'team_name'      => $order->team_name,
             'description'       => $order->description,
             'short_description' => $order->short_description,
             'buyer_name'     => $order->buyer_name,
@@ -1081,7 +1121,6 @@ class OrderController extends Controller
             'remaining_paid_at' => $order->remaining_paid_at,
             'checked_in_at'     => $order->checked_in_at,
             'checked_out_at'    => $order->checked_out_at,
-            'unlock_anytime'    => (bool) $order->unlock_anytime,
             'creator'           => $order->creator ? [
                 'id'       => $order->creator->id,
                 'fullname' => $order->creator->fullname,
@@ -1158,7 +1197,7 @@ class OrderController extends Controller
         $nights = max(1, $nights);
 
         $total       = $extra * $fee * $nights;
-        $nightsLabel = (! $isSlotType && $nights > 1) ? " × {$nights} đêm" : '';
+        $nightsLabel = $nights > 1 ? ($isSlotType ? " × {$nights} buổi" : " × {$nights} ngày") : '';
 
         return [
             'guest_count'    => $guests,

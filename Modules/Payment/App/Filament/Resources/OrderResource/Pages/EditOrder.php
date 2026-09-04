@@ -7,7 +7,6 @@ use Filament\Actions;
 use Filament\Resources\Pages\EditRecord;
 use Filament\Notifications\Notification;
 use Illuminate\Database\Eloquent\Model;
-use Modules\BladeThemeV1\Services\AccessCode\AccessCodeService;
 use Modules\Payment\App\Services\CccdScannerService;
 use App\Services\CccdDeclarationService;
 use App\Services\OrderRealtimeService;
@@ -359,235 +358,6 @@ class EditOrder extends EditRecord
                     $this->redirect($this->getResource()::getUrl('edit', ['record' => $record]));
                 }),
 
-            Actions\Action::make('assignAccessCode')
-                ->label(fn () => $this->record->hasAccessCode() ? 'Cấp lại mã cổng' : 'Gán mã cổng')
-                ->icon(fn () => $this->record->hasAccessCode() ? 'heroicon-m-arrow-path' : 'heroicon-m-key')
-                ->color(fn () => $this->record->hasAccessCode() ? 'warning' : 'success')
-                // Tạm ẩn hẳn theo yêu cầu — chưa dùng mã cửa/TTLock trong giai đoạn hiện tại (đồng
-                // bộ với OrderTable::gateActions() đã ẩn ở bảng danh sách — action này nằm ở trang
-                // "Chỉnh sửa Booking" nên trước đó bị bỏ sót).
-                ->visible(false)
-                ->requiresConfirmation()
-                ->modalHeading(fn () => $this->record->hasAccessCode() ? 'Cấp lại mã cổng' : 'Gán mã cổng cho đơn hàng')
-                ->modalDescription(fn () => $this->record->hasAccessCode()
-                    ? 'Hệ thống sẽ thu hồi mã cổng hiện tại và cấp mã mới. Khách hàng sẽ được thông báo realtime.'
-                    : 'Hệ thống sẽ tự động tìm mã cổng khả dụng và gán cho đơn này. Khách hàng sẽ được thông báo realtime.')
-                ->modalSubmitActionLabel(fn () => $this->record->hasAccessCode() ? 'Xác nhận cấp lại' : 'Xác nhận gán')
-                ->action(function () {
-                    $record = $this->record->fresh(['items.product', 'accessCodes']);
-
-                    try {
-                        $service = app(AccessCodeService::class);
-
-                        // Thu hồi mã cũ nếu đã có
-                        if ($record->hasAccessCode()) {
-                            $service->releaseCode($record->id);
-                        }
-
-                        $firstItem    = $record->items->sortBy('checkin_date')->first();
-                        $checkinDate  = $record->items->min('checkin_date');
-                        $checkoutDate = $record->items->max('checkout_date');
-                        $product      = $firstItem?->product;
-
-                        $code = $service->assignCodeToOrder(
-                            $record->id,
-                            $record->category_id,
-                            $checkinDate,
-                            $checkoutDate,
-                            $product,
-                        );
-
-                        // Notify realtime + FCM đến khách theo loại khóa
-                        $notifService = app(\App\Services\NotificationFcmService::class);
-                        $extra        = ['order_code' => (string) $record->order_code, 'type' => 'order_access_code'];
-                        $notifTitle   = null;
-                        $notifBody    = null;
-                        $wsPayload    = ['access_code_assigned' => true];
-                        $adminMsg     = 'Đã gán mã cổng';
-
-                        if ($product && $product->has_manual_lock) {
-                            // Sân mật khẩu thủ công → gửi mã thực tế
-                            $pwdAnchorDate = $record->paid_at ?? $record->deposit_paid_at ?? $record->created_at;
-                            $manualPwd = \Modules\Product\App\Models\ManualLockPassword::getForProductAndDate($product, $pwdAnchorDate);
-                            if ($manualPwd && ($manualPwd->gate_password || $manualPwd->room_password)) {
-                                $parts = [];
-                                if ($manualPwd->gate_password) $parts[] = 'Mã cổng: ' . $manualPwd->gate_password;
-                                if ($manualPwd->room_password) $parts[] = 'Mã sân: ' . $manualPwd->room_password;
-                                $notifTitle = "Đơn #{$record->order_code}: Mã cổng đã được cấp";
-                                $notifBody  = implode(' | ', $parts);
-                                $wsPayload  = [
-                                    'access_code_assigned' => true,
-                                    'lock_type'            => 'manual',
-                                    'gate_password'        => $manualPwd->gate_password,
-                                    'room_password'        => $manualPwd->room_password,
-                                ];
-                                $adminMsg = 'Đã cấp: ' . implode(' | ', $parts);
-                            }
-                        } elseif ($product && $product->lock_id && \App\Services\TTLockService::forCategory($record->category_id)) {
-                            // Sân TTLock
-                            $notifTitle = "Đơn #{$record->order_code}: Mã cổng đã sẵn sàng";
-                            $notifBody  = 'Bạn có thể mở cửa trực tiếp từ ứng dụng.';
-                            $wsPayload  = ['access_code_assigned' => true, 'lock_type' => 'ttlock'];
-                            $adminMsg   = 'Đã cấp TTLock: ' . ($code?->code ?? '-');
-                        } elseif ($code) {
-                            // Pool AccessCode (không có thông báo khách — sân không cần hiển thị code)
-                            $adminMsg = 'Đã gán mã cổng: ' . $code->code;
-                        }
-
-                        if ($notifTitle && $notifBody) {
-                            $this->pushClientNotification($record, $notifService, $notifTitle, $notifBody, 'order_access_code', $extra);
-                            app(\App\Services\OrderRealtimeService::class)->broadcastOrderUpdate(
-                                (string) $record->order_code,
-                                $wsPayload,
-                                $record->customer_id,
-                            );
-                        }
-
-                        Notification::make()
-                            ->title($adminMsg)
-                            ->success()
-                            ->send();
-
-                        $this->record = $record->fresh();
-                    } catch (\Exception $e) {
-                        Notification::make()
-                            ->title('Không thể gán mã cổng')
-                            ->body($e->getMessage())
-                            ->danger()
-                            ->send();
-                    }
-                }),
-
-            Actions\Action::make('changeManualCode')
-                ->label('Đổi mã cổng (thủ công)')
-                ->icon('heroicon-m-key')
-                ->color('info')
-                // Tạm ẩn hẳn theo yêu cầu — xem ghi chú ở action 'assignAccessCode' phía trên.
-                ->visible(false)
-                ->form([
-                    \Filament\Forms\Components\Select::make('new_access_code_id')
-                        ->label('Chọn mã cổng mới')
-                        ->options(function () {
-                            return \Modules\AccessCode\Entities\AccessCode::where('status', 'active')
-                                ->where('category_id', $this->record->category_id)
-                                ->whereNull('ttlock_keyboard_pwd_id')
-                                ->whereDoesntHave('orders', fn ($q) => $q->where('orders.id', $this->record->id))
-                                ->get()
-                                ->mapWithKeys(fn ($c) => [$c->id => $c->code . ($c->gate_location ? " ({$c->gate_location})" : '')])
-                                ->toArray();
-                        })
-                        ->required()
-                        ->searchable(),
-                ])
-                ->requiresConfirmation()
-                ->modalHeading('Đổi mã cổng thủ công')
-                ->modalDescription('Mã cổng cũ sẽ bị thu hồi và mã mới sẽ được gán cho đơn này. Khách hàng sẽ được thông báo realtime.')
-                ->modalSubmitActionLabel('Xác nhận đổi mã')
-                ->action(function (array $data) {
-                    $record = $this->record->fresh(['items', 'accessCodes']);
-
-                    try {
-                        $newCode = \Modules\AccessCode\Entities\AccessCode::findOrFail($data['new_access_code_id']);
-
-                        // Thu hồi mã cũ (chỉ manual, không gọi TTLock API)
-                        $record->accessCodes()
-                            ->whereNull('ttlock_keyboard_pwd_id')
-                            ->each(fn ($ac) => $ac->orders()->detach($record->id));
-
-                        // Gán mã mới
-                        $newCode->assignToOrder($record->id);
-
-                        // Notify realtime đến client
-                        try {
-                            app(OrderRealtimeService::class)->broadcastCodeChanged(
-                                (string) $record->order_code,
-                                (string) $newCode->code,
-                                'manual',
-                                $record->customer_id,
-                            );
-                        } catch (\Throwable) {}
-
-                        Notification::make()
-                            ->title("Đã đổi mã cổng thành: {$newCode->code}")
-                            ->success()
-                            ->send();
-
-                        $this->redirect($this->getResource()::getUrl('edit', ['record' => $record]));
-                    } catch (\Exception $e) {
-                        Notification::make()
-                            ->title('Không thể đổi mã cổng')
-                            ->body($e->getMessage())
-                            ->danger()
-                            ->send();
-                    }
-                }),
-
-            Actions\Action::make('changeTtlockCode')
-                ->label('Tạo mã mới (TTLock)')
-                ->icon('heroicon-m-arrow-path')
-                ->color('info')
-                // Tạm ẩn hẳn theo yêu cầu — xem ghi chú ở action 'assignAccessCode' phía trên.
-                ->visible(false)
-                ->requiresConfirmation()
-                ->modalHeading('Tạo mã TTLock mới')
-                ->modalDescription('Mã cũ sẽ bị xóa khỏi khóa, một mã 6 số mới sẽ được tạo và cập nhật lên TTLock. Khách hàng sẽ được thông báo realtime.')
-                ->modalSubmitActionLabel('Xác nhận tạo mã mới')
-                ->action(function () {
-                    $record = $this->record->fresh(['items.product', 'accessCodes']);
-
-                    try {
-                        $accessCodeService = app(\Modules\BladeThemeV1\Services\AccessCode\AccessCodeService::class);
-
-                        // Thu hồi mã TTLock cũ (gọi TTLock API delete + xóa record)
-                        $accessCodeService->releaseCode($record->id);
-
-                        // Cấp mã TTLock mới
-                        $firstItem    = $record->items->where('extra_fee', 0)->first() ?? $record->items->first();
-                        $checkinDate  = $firstItem?->checkin_date;
-                        $checkoutDate = $firstItem?->checkout_date;
-                        $product      = $firstItem?->product;
-
-                        $newCode = $accessCodeService->assignCodeToOrder(
-                            $record->id,
-                            $record->category_id,
-                            $checkinDate,
-                            $checkoutDate,
-                            $product,
-                        );
-
-                        if (! $newCode) {
-                            Notification::make()
-                                ->title('Sân này dùng khóa thủ công, không cần tạo mã TTLock.')
-                                ->warning()
-                                ->send();
-                            return;
-                        }
-
-                        // Notify realtime đến client
-                        try {
-                            app(OrderRealtimeService::class)->broadcastCodeChanged(
-                                (string) $record->order_code,
-                                (string) $newCode->code,
-                                'ttlock',
-                                $record->customer_id,
-                            );
-                        } catch (\Throwable) {}
-
-                        Notification::make()
-                            ->title("Đã tạo mã TTLock mới: {$newCode->code}")
-                            ->success()
-                            ->send();
-
-                        $this->redirect($this->getResource()::getUrl('edit', ['record' => $record]));
-                    } catch (\Exception $e) {
-                        Notification::make()
-                            ->title('Không thể tạo mã TTLock mới')
-                            ->body($e->getMessage())
-                            ->danger()
-                            ->send();
-                    }
-                }),
-
             Actions\Action::make('regenerateExtraChargeQr')
                 ->label('Tạo lại QR phát sinh')
                 ->icon('heroicon-m-qr-code')
@@ -833,11 +603,11 @@ class EditOrder extends EditRecord
     }
 
     /**
-     * Sau khi lưu đơn, gửi thông báo nếu trạng thái thay đổi và cập nhật TTLock nếu ngày thay đổi.
+     * Sau khi lưu đơn, gửi thông báo nếu trạng thái thay đổi.
      */
     protected function afterSave(): void
     {
-        $record = $this->record->fresh(['items.product', 'accessCodes', 'services']);
+        $record = $this->record->fresh(['items.product', 'services']);
 
         // Đơn đã lưu xong (khung giờ mới thêm/đổi giờ đã thành order_item THẬT) — hold real-time
         // (xem TimeslotHoldService) không cần giữ nữa, trả lại ngay cho admin khác.
@@ -956,17 +726,10 @@ class EditOrder extends EditRecord
             }
         }
 
-        // Refresh $this->record NGAY TẠI ĐÂY, KHÔNG đặt sau các early-return riêng của phần TTLock
-        // bên dưới — trước đây dòng này nằm ở CUỐI hàm, sau 2 chỗ "return" chỉ dành cho nhánh
-        // TTLock (ngày check-in/check-out không đổi, hoặc đơn chưa có mã cổng — TRƯỜNG HỢP RẤT
-        // PHỔ BIẾN khi chỉ thêm/bớt khung giờ mà KHÔNG đổi ngày, hoặc đơn còn ở trạng thái paid mà
-        // chưa gán mã cổng). Gặp 1 trong 2 điều kiện đó, hàm return SỚM, $this->record không bao
-        // giờ được refresh — khiến Section "Phát sinh thêm"/"Hoàn tiền chưa xử lý" và badge tab vẫn
-        // đọc dữ liệu CŨ (extra_charge_amount chưa set) ở lần render này, dù DB đã lưu đúng. Admin
-        // phải bấm thêm 1 lần nữa (Lưu lại, hoặc thao tác bất kỳ khiến trang render lại từ đầu) mới
-        // thấy — đúng y hệt hiện tượng "bấm 1 lần không thấy gì, bấm 2 lần mới hiện". Xem thêm ghi
-        // chú ở syncRecordAndForm() — CHỈ gán $this->record thôi vẫn chưa đủ, còn phải "mở khoá"
-        // Form đã cache để nó trỏ đúng sang bản ghi mới.
+        // Refresh $this->record NGAY TẠI ĐÂY — Section "Phát sinh thêm"/"Hoàn tiền chưa xử lý" và
+        // badge tab phải đọc dữ liệu MỚI (extra_charge_amount vừa set) ngay ở lần render này. Xem
+        // thêm ghi chú ở syncRecordAndForm() — CHỈ gán $this->record thôi vẫn chưa đủ, còn phải
+        // "mở khoá" Form đã cache để nó trỏ đúng sang bản ghi mới.
         $this->syncRecordAndForm($this->record->fresh());
 
         $firstItem    = $record->items->where('extra_fee', 0)->first() ?? $record->items->first();
@@ -981,40 +744,6 @@ class EditOrder extends EditRecord
             $record->items()->where('extra_fee', 0)->update([
                 'expiry_notified'   => false,
                 'checkout_notified' => false,
-            ]);
-        }
-
-        // Chỉ gọi TTLock API khi ngày thực sự thay đổi và đơn có mã cổng
-        if ((!$checkoutChanged && !$checkinChanged) || $record->accessCodes->isEmpty()) {
-            return;
-        }
-
-        $checkinDate  = $firstItem?->checkin_date;
-        $checkoutDate = $firstItem?->checkout_date;
-
-        if (!$checkinDate || !$checkoutDate) {
-            return;
-        }
-
-        try {
-            $service = app(AccessCodeService::class);
-            $updated = $service->updateCodeDatesForOrder(
-                $record->id,
-                $checkinDate,
-                $checkoutDate,
-                $firstItem?->product,
-            );
-
-            if ($updated) {
-                Notification::make()
-                    ->title('Đã cập nhật thời gian mã cổng trên TTLock')
-                    ->success()
-                    ->send();
-            }
-        } catch (\Exception $e) {
-            \Illuminate\Support\Facades\Log::warning('afterSave: updateCodeDates failed', [
-                'order_id' => $record->id,
-                'error'    => $e->getMessage(),
             ]);
         }
     }
@@ -1344,6 +1073,13 @@ class EditOrder extends EditRecord
 
             // ── Đơn đã paid: tạo PayOS mới cho khoản phát sinh ───────────────
             if ($diff > 0) {
+                if ($pendingRefund > 0) {
+                    $order->update([
+                        'extra_refund_amount' => null,
+                        'extra_refund_method' => null,
+                        'extra_refund_paid_at' => null,
+                    ]);
+                }
                 $result = $extraChargeService->createExtraChargePayOS($order, $diff);
 
                 // Notify admin (Filament)
@@ -1379,6 +1115,17 @@ class EditOrder extends EditRecord
                     ]);
                 }
             } else {
+                if ($pendingCharge > 0) {
+                    $order->update([
+                        'extra_charge_amount' => null,
+                        'extra_charge_payos_code' => null,
+                        'extra_charge_checkout_url' => null,
+                        'extra_charge_qr_code' => null,
+                        'extra_charge_payment_method' => null,
+                        'extra_charge_paid_at' => null,
+                        'extra_charge_expired_at' => null,
+                    ]);
+                }
                 // Giảm giá (huỷ khung giờ/dịch vụ) trên đơn ĐÃ paid — PHẢI lưu lại khoản cần hoàn
                 // (extra_refund_amount), KHÔNG chỉ bắn Notification thoáng qua như trước — nếu
                 // không lưu, admin bỏ lỡ thông báo là mất dấu hoàn toàn, không còn cách nào biết đơn

@@ -18,17 +18,35 @@ class RoomServiceResource extends Resource
     protected static ?string $model = RoomService::class;
 
     // RoomService không có cột partner_id riêng (đã gắn trực tiếp product_id) — lọc qua
-    // partner_id của Product cha (Product tự lọc theo BelongsToPartner rồi).
+    // partner_id của Product cha (Product tự lọc theo BelongsToPartner rồi). CỘNG THÊM lọc theo
+    // "Chuyển đổi chi nhánh" ở header qua Product::categories() — trước đây chỉ lọc partner, bỏ
+    // qua switcher hoàn toàn.
     public static function getEloquentQuery(): Builder
     {
         $query = parent::getEloquentQuery();
         $user  = auth()->user();
 
-        if (! $user || $user->isSuperAdmin()) {
+        if (! $user) {
             return $query;
         }
 
-        return $query->whereHas('product', fn (Builder $q) => $q->where('partner_id', $user->partner_id));
+        if (! $user->isSuperAdmin()) {
+            $query->whereHas('product', fn (Builder $q) => $q->where('partner_id', $user->partner_id));
+        }
+
+        $branchIds = $user->effectiveBranchIds();
+
+        if (empty($branchIds)) {
+            return $user->isSuperAdmin() ? $query : $query->whereRaw('1 = 0');
+        }
+
+        $categoryIds = $user->visibleProductCategoryIds($branchIds);
+
+        if (empty($categoryIds)) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        return $query->whereHas('product.categories', fn (Builder $q) => $q->whereIn('categories.id', $categoryIds));
     }
 
     public static function getNavigationIcon(): string
@@ -38,7 +56,12 @@ class RoomServiceResource extends Resource
 
     public static function getNavigationGroup(): ?string
     {
-        return 'Quản lý API';
+        return 'Quản lý';
+    }
+
+    public static function getNavigationSort(): ?int
+    {
+        return 6;
     }
 
     public static function getNavigationLabel(): string

@@ -52,10 +52,9 @@ use Modules\Warehouse\App\Filament\WarehousePlugin;
 use TomatoPHP\FilamentMediaManager\FilamentMediaManagerPlugin;
 use App\Filament\Pages\Auth\Login;
 use App\Filament\Pages\Auth\RequestPasswordReset;
-use Modules\AccessCode\App\Filament\AccessCodePlugin;
-use Modules\TTLock\App\Filament\TTLockPlugin;
 use Modules\Zns\App\Filament\ZnsPlugin;
 use Modules\Payment\App\Filament\Resources\OrderResource\Widgets\OrderCalendarWidget;
+use Modules\QA\App\Filament\QAPlugin;
 
 class AdminPanelProvider extends PanelProvider
 {
@@ -87,6 +86,7 @@ class AdminPanelProvider extends PanelProvider
                 'Quản lý',
                 'Cấu hình web',
                 'Phân quyền',
+                'Quản lý API',
             ])
             ->pages([
                 \Modules\Dashboard\App\Filament\Pages\Dashboard::class,
@@ -158,19 +158,18 @@ class AdminPanelProvider extends PanelProvider
                 ThemePlugin::make(),
                 CommentPlugin::make(),
                 FormPlugin::make(),
-//                ThemeStudioPlugin::make(),
+                ThemeStudioPlugin::make(),
                 PaymentPlugin::make(),
                 SettingCompanyPlugin::make(),
-                AccessCodePlugin::make(),
                 ZnsPlugin::make(),
                 BookPlugin::make(),
                 CouponPlugin::make(),
                 DataPermissionPlugin::make(),
                 AppPagePlugin::make(),
                 AuditLogPlugin::make(),
-                TTLockPlugin::make(),
                 WarehousePlugin::make(),
                 EmployeePlugin::make(),
+                QAPlugin::make(),
             ])
             // ->spa()
             ->maxContentWidth('full')

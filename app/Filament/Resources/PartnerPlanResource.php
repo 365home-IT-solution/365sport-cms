@@ -35,7 +35,7 @@ class PartnerPlanResource extends Resource
 
     protected static ?string $slug = 'partner-plans';
 
-    protected static ?int $navigationSort = 1;
+    protected static ?int $navigationSort = 6;
 
     // Danh sách MODULE CHÍNH mà 1 tài khoản đối tác có thể được cấp quyền (khớp đúng
     // PartnerRolePermissionsSeeder::PARTNER_RESOURCES — toàn bộ resource Shield thật sự cấp cho
@@ -57,9 +57,6 @@ class PartnerPlanResource extends Resource
         'promotions'         => 'Quản lý khuyến mãi',
         'orders'             => 'Đơn hàng',
         'bookings'           => 'Đặt lịch / Hệ thống giá',
-        'access_codes'       => 'Mã truy cập cửa',
-        'ttlock_accounts'    => 'Tài khoản khoá TTLock',
-        'lock_passwords'     => 'Mật khẩu khoá thủ công',
         'addition_services'  => 'Dịch vụ cộng thêm',
         'tags'               => 'Thẻ (Tag)',
         'posts'              => 'Bài viết',
@@ -99,9 +96,6 @@ class PartnerPlanResource extends Resource
         'promotions'         => ['promotion'],
         'orders'             => ['order'],
         'bookings'           => ['book'],
-        'access_codes'       => ['access::code'],
-        'ttlock_accounts'    => ['ttlock::account'],
-        'lock_passwords'     => ['manual::lock::password'],
         'addition_services'  => ['addition::service'],
         'tags'               => ['tag'],
         'posts'              => ['post'],

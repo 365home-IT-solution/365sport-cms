@@ -184,15 +184,37 @@ class Book extends Component
             return collect();
         }
 
+        // Lấy trước tập ỨNG VIÊN rộng bằng SQL (category_id khớp chi nhánh HOẶC product_id khớp 1
+        // trong các sân đang liệt kê) rồi LỌC LẠI CHÍNH XÁC bằng PackagePlan::appliesToProduct() —
+        // riêng nhánh "category_id khớp NHƯNG product_ids thu hẹp về 1 số sân cụ thể" (xem migration
+        // add_product_ids_to_package_tables) không thể diễn tả gọn bằng 1 câu SQL đơn giản như cũ
+        // (JSON intersect), nên lọc tay ở PHP — số lượng plan/chi nhánh nhỏ, không đáng lo hiệu năng.
+        $roomIds = $this->roomIds;
+
         return \App\Models\PackagePlan::where('is_active', true)
-            ->where(function ($q) {
+            ->where(function ($q) use ($roomIds) {
                 $q->where('category_id', $this->activeCategoryId);
-                if (! empty($this->roomIds)) {
-                    $q->orWhereIn('product_id', $this->roomIds);
+                if (! empty($roomIds)) {
+                    $q->orWhereIn('product_id', $roomIds);
                 }
             })
             ->orderBy('sessions_count')
-            ->get();
+            ->get()
+            ->filter(function (\App\Models\PackagePlan $plan) use ($roomIds) {
+                if ($plan->product_id !== null) {
+                    return in_array($plan->product_id, $roomIds, true);
+                }
+
+                // category_id khớp (đã lọc ở câu SQL trên) — chỉ còn kiểm tra product_ids có thu
+                // hẹp không: rỗng = toàn bộ chi nhánh (luôn hợp lệ), có danh sách = phải giao nhau
+                // với các sân đang hiển thị trên lưới.
+                if (empty($plan->product_ids)) {
+                    return true;
+                }
+
+                return ! empty(array_intersect($plan->product_ids, $roomIds));
+            })
+            ->values();
     }
 
     /**

@@ -82,33 +82,56 @@ class OrderResource extends Resource
     {
         $user = auth()->user();
 
-        if ($user && $user->isSuperAdmin()) {
-            return parent::getEloquentQuery();
-        }
-
         // Nhân viên đối tác NỀN TẢNG (vd 365home) đặt sân hộ mọi đối tác khác — họ cần xem lại
         // đúng những đơn CHÍNH HỌ đã tạo (created_by), CỘNG với đơn của đối tác mình, nhưng KHÔNG
         // được thấy đơn của đối tác khác do NHÂN VIÊN CỦA ĐỐI TÁC ĐÓ tự tạo. Phải gỡ hẳn global
         // scope 'partner' của Order để tự viết lại điều kiện lọc (partner_id CỦA MÌNH OR
-        // created_by CỦA MÌNH), vì scope mặc định sẽ chỉ giữ đúng 1 vế partner_id.
+        // created_by CỦA MÌNH), vì scope mặc định sẽ chỉ giữ đúng 1 vế partner_id. Trường hợp
+        // đặc thù này giữ nguyên, KHÔNG áp thêm lọc switcher (đơn "đặt hộ" có category_id thuộc
+        // đối tác KHÁC, không nằm trong cây chi nhánh của chính nhân viên nền tảng).
+        //
+        // "BOOKING" chỉ quản lý đơn ĐẶT SÂN thật (order_type='booking') — đơn MUA GÓI nhiều buổi
+        // (order_type='package_purchase') có hẳn 1 Resource RIÊNG với Form/Table/trang Sửa RIÊNG,
+        // không dùng chung form đặt sân (không có khung giờ/check-in/check-out) — xem
+        // Modules\Payment\App\Filament\Resources\PackageOrderResource. Loại hẳn ở đây (không chỉ
+        // ẩn khỏi danh sách) để route Sửa/Xem của OrderResource cũng không mở nhầm đơn mua gói —
+        // PackageOrderResource có route/trang Sửa riêng cho đúng loại đơn này.
         if ($user && $user->belongsToPlatformPartner()) {
             return Order::withoutGlobalScope('partner')
                 ->where(function (Builder $q) use ($user) {
                     $q->where('partner_id', $user->partner_id)
                         ->orWhere('created_by', $user->id);
-                });
+                })
+                ->where('order_type', 'booking');
         }
 
-        $query = parent::getEloquentQuery();
+        $query = parent::getEloquentQuery()->where('order_type', 'booking');
 
-        $allCategoryIds = $user->allowedCategoryIds();
-
-        // Order đã lọc theo partner_id qua BelongsToPartner; allowedCategoryIds chỉ thu hẹp thêm.
-        if (empty($allCategoryIds)) {
+        if (! $user) {
             return $query;
         }
 
-        return $query->whereIn('category_id', $allCategoryIds);
+        // Luôn tôn trọng "Chuyển đổi chi nhánh" ở header (App\Livewire\BranchSwitcher), KỂ CẢ
+        // super_admin. TRƯỚC ĐÂY super_admin return parent::getEloquentQuery() ngay ở trên, bỏ
+        // qua hẳn lựa chọn chi nhánh trên switcher — chọn riêng vài chi nhánh xong danh sách
+        // Booking vẫn hiện đủ mọi chi nhánh khác (bug đã gặp). Đồng thời đổi user thường từ
+        // allowedCategoryIds() (toàn bộ quyền được CẤP, không quan tâm switcher) sang
+        // effectiveBranchIds() (chi nhánh ĐANG CHỌN, giao với quyền được cấp) — cùng nguồn dữ
+        // liệu mà BelongsToActiveBranchCategories đang dùng cho Product/Coupon, để mọi nơi lọc
+        // theo chi nhánh nhất quán với nhau.
+        $branchIds = $user->effectiveBranchIds();
+
+        if (empty($branchIds)) {
+            return $user->isSuperAdmin() ? $query : $query->whereRaw('1 = 0');
+        }
+
+        $categoryIds = $user->visibleProductCategoryIds($branchIds);
+
+        if (empty($categoryIds)) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        return $query->whereIn('category_id', $categoryIds);
     }
 
     public static function form(Form $form): Form

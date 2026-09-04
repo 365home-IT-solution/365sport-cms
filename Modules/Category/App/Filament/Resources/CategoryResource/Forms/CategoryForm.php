@@ -9,6 +9,7 @@ use App\Models\Ward;
 use CodeWithDennis\FilamentSelectTree\SelectTree;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Grid;
+use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Section;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -93,9 +94,9 @@ class CategoryForm
     {
         return Section::make()
             ->schema([
+                self::categoryTypeHidden(),
                 self::parentCategoryInput(),
                 self::sortOrderInput(),
-                self::categoryTypeInput(),
                 self::partnerInput(),
                 self::openingHoursInputs(),
                 self::statusToggle(),
@@ -238,8 +239,7 @@ class CategoryForm
             ->label(__('category::category.form.label.parent_id'))
             ->placeholder(__('category::category.form.placeholder.parent_id'))
             ->relationship('parent', 'name', 'parent_id', function ($query, $get) {
-                $currentId    = $get('id');
-                $categoryType = $get('category_type');
+                $currentId = $get('id');
 
                 if ($currentId) {
                     $query->where('id', '!=', $currentId)
@@ -249,38 +249,21 @@ class CategoryForm
                         });
                 }
 
-                if ($categoryType) {
-                    $query->where('category_type', $categoryType);
-                }
+                $query->where('category_type', 'product');
 
                 // Lọc theo quyền chi nhánh của user
                 $user = auth()->user();
                 if ($user && ! $user->isSuperAdmin()) {
-                    if ($categoryType === 'product') {
-                        $allowedIds = $user->allowedBranchIds();
-                        if (! empty($allowedIds)) {
-                            $query->where(function ($q) use ($allowedIds) {
-                                $q->whereIn('id', $allowedIds)
-                                  ->orWhereIn('parent_id', $allowedIds);
-                            });
-                        } else {
-                            // Chưa gán quyền chi nhánh cụ thể thì mặc định thấy chi nhánh của
-                            // đối tác mình (partner_id), không chặn hết.
-                            $query->where('partner_id', $user->partner_id);
-                        }
-                    } elseif ($categoryType === 'post') {
-                        $allowedPostIds = $user->allowedDirectPostRootIds();
-                        if (! empty($allowedPostIds)) {
-                            $query->where(function ($q) use ($allowedPostIds) {
-                                $q->whereIn('id', $allowedPostIds)
-                                  ->orWhereIn('parent_id', $allowedPostIds);
-                            });
-                        } else {
-                            $query->whereRaw('1 = 0');
-                        }
+                    $allowedIds = $user->allowedBranchIds();
+                    if (! empty($allowedIds)) {
+                        $query->where(function ($q) use ($allowedIds) {
+                            $q->whereIn('id', $allowedIds)
+                              ->orWhereIn('parent_id', $allowedIds);
+                        });
                     } else {
-                        // category_type chưa chọn → ẩn hết để tránh lộ dữ liệu
-                        $query->whereRaw('1 = 0');
+                        // Chưa gán quyền chi nhánh cụ thể thì mặc định thấy chi nhánh của
+                        // đối tác mình (partner_id), không chặn hết.
+                        $query->where('partner_id', $user->partner_id);
                     }
                 }
 
@@ -299,18 +282,13 @@ class CategoryForm
             });
     }
 
-    private static function categoryTypeInput(): Select
+    // Resource này chỉ quản lý chi nhánh/khu vực — không còn cho chọn "Kiểu hiển thị" (danh mục
+    // bài viết đã tách sang PostCategoryResource riêng), luôn cố định category_type = product.
+    // Giữ dạng Hidden (thay vì bỏ hẳn) để $get('category_type') trong partnerInput(),
+    // openingHoursInputs() và locationSection() ở trên vẫn hoạt động đúng như cũ.
+    private static function categoryTypeHidden(): Hidden
     {
-        return Select::make('category_type')
-            ->label(__('category::category.form.label.category_type'))
-            ->placeholder(__('category::category.form.placeholder.category_type'))
-            ->required()
-            ->default('product')
-            ->live()
-            ->options([
-                'product' => __('category::category.form.options.product'),
-                'post' => __('category::category.form.options.post'),
-            ]);
+        return Hidden::make('category_type')->default('product')->dehydrated();
     }
 
     private static function statusToggle(): Toggle

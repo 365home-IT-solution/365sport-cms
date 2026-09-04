@@ -308,7 +308,10 @@
              "hoàn toàn chưa giống như tôi nói" — mong muốn CHỈ viền màu, nền trong vẫn trắng). --}}
         .book-tl-cell .selectable.promo::before,
         .book-tl-cell .selectable.promo::after { content: none !important; }
-        .book-tl-cell .selectable.promo {
+        /* Viền khuyến mãi chỉ dành cho ô còn trống. Nếu ô đồng thời đã đặt/đang chờ/bị khóa/
+           hết giờ thì màu trạng thái phải thắng; selector promo cũ có độ ưu tiên cao hơn
+           .selectable.booked nên đã phủ nền trắng lên đúng ô 17:00 đã đặt. */
+        .book-tl-cell .selectable.promo:not(.booked):not(.pending):not(.blocked):not(.held):not(.past-date):not(.past-time):not(.active) {
             border: 2px solid transparent !important;
             background: linear-gradient(#fff, #fff) padding-box,
                         linear-gradient(135deg, #f472b6, #60a5fa) border-box !important;
@@ -331,8 +334,8 @@
              hơn CẢ HAI rule trên, ép hẳn về xanh lá đặc khi đã chọn — ưu tiên trạng thái "đang
              chọn" hơn viền khuyến mãi (thông tin giảm giá đã có sẵn ở bảng tính tiền bên dưới). --}}
         .book-tl-wrap .book-tl-day-grid .book-tl-cell .selectable.promo.active {
-            background: #22c55e !important;
-            border: 2px solid #16a34a !important;
+            background: #111827 !important;
+            border: 2px solid #111827 !important;
         }
     </style>
 @endonce

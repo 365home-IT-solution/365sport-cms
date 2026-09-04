@@ -28,7 +28,12 @@ class EmailSettingResource extends Resource
     }
     public static function getNavigationGroup(): ?string
     {
-        return __('form::email-setting.resource.navigation_group');
+        return 'Cấu hình web';
+    }
+
+    public static function getNavigationSort(): ?int
+    {
+        return 10;
     }
     public static function getNavigationLabel(): string
     {

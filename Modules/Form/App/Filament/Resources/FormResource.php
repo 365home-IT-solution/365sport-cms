@@ -23,7 +23,12 @@ class FormResource extends Resource
     }
     public static function getNavigationGroup(): ?string
     {
-        return __('form::form.resource.navigation_group');
+        return 'Quản lý';
+    }
+
+    public static function getNavigationSort(): ?int
+    {
+        return 7;
     }
     public static function getNavigationLabel(): string
     {

@@ -13,6 +13,7 @@ use Filament\Resources\Resource;
 use Filament\Tables\Actions\ViewAction;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 
 // Quỹ nhóm góp tiền đặt sân do KHÁCH TỰ TẠO (App\Models\BookingFund) — tiền không đi qua hệ
 // thống (chuyển thẳng vào STK cá nhân trưởng nhóm), nên KHÔNG thuộc riêng đối tác nào (KHÔNG dùng
@@ -27,6 +28,7 @@ class BookingFundResource extends Resource
     protected static ?string $navigationLabel  = 'Quỹ nhóm góp tiền';
     protected static ?string $modelLabel       = 'Quỹ nhóm';
     protected static ?string $pluralModelLabel = 'Quỹ nhóm góp tiền';
+    protected static ?int    $navigationSort   = 8;
 
     public static function canViewAny(): bool
     {
@@ -46,6 +48,42 @@ class BookingFundResource extends Resource
     public static function canDelete($record): bool
     {
         return false;
+    }
+
+    // canViewAny() giới hạn resource này CHỈ super_admin truy cập được, nên ở đây không có scope
+    // đối tác/quyền chi nhánh cụ thể nào khác cần tôn trọng, NGOÀI chính "Chuyển đổi chi nhánh" ở
+    // header (App\Livewire\BranchSwitcher) mà super_admin có thể tự chọn. GHI CHÚ (không tự ý sửa
+    // trong lần này): BookingFund KHÔNG có BelongsToPartner — đúng vì tiền không đi qua hệ thống,
+    // quỹ không thuộc riêng đối tác nào (xem comment đầu class) nên việc "thiếu partner scope"
+    // không phải lỗi cần vá, chỉ super_admin xem được resource này.
+    public static function getEloquentQuery(): Builder
+    {
+        $query = parent::getEloquentQuery();
+        $user  = auth()->user();
+
+        if (! $user) {
+            return $query;
+        }
+
+        $branchIds = $user->effectiveBranchIds();
+
+        if (empty($branchIds)) {
+            return $query;
+        }
+
+        $categoryIds = $user->visibleProductCategoryIds($branchIds);
+
+        if (empty($categoryIds)) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        // category_id là chi nhánh dự định đặt; product_id là sân dự định đặt — cả 2 đều nullable
+        // (quỹ có thể tạo trước khi chọn sân/chi nhánh cụ thể). Thêm nhánh whereHas('product.categories')
+        // để không bỏ sót quỹ có category_id null nhưng đã chọn sân cụ thể.
+        return $query->where(function (Builder $q) use ($categoryIds) {
+            $q->whereIn('category_id', $categoryIds)
+                ->orWhereHas('product.categories', fn (Builder $q2) => $q2->whereIn('categories.id', $categoryIds));
+        });
     }
 
     public static function form(Form $form): Form

@@ -27,6 +27,11 @@ class UserBranchPermissionResource extends Resource
         return 'Phân quyền';
     }
 
+    public static function getNavigationSort(): ?int
+    {
+        return 4;
+    }
+
     public static function getNavigationLabel(): string
     {
         return 'Phân quyền Chi nhánh';

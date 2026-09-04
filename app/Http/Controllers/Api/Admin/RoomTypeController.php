@@ -34,7 +34,7 @@ class RoomTypeController extends Controller
         }
 
         $roomTypes = $query->orderBy('sort_order')->orderBy('id')
-            ->get(['id', 'slug', 'name', 'icon', 'icon_url', 'is_active', 'sort_order']);
+            ->get(['id', 'slug', 'name', 'sport_type', 'surface_type', 'is_outdoor', 'icon', 'icon_url', 'is_active', 'sort_order']);
 
         return response()->json(['data' => $roomTypes]);
     }

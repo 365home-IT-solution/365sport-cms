@@ -7,9 +7,9 @@ use App\Models\Customer;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Modules\AccessCode\Entities\AccessCode;
 use Modules\Category\Entities\Category;
 use Modules\Zns\App\Models\ZnsNotification;
+use Illuminate\Support\Facades\DB;
 use Guava\Calendar\Contracts\Eventable;
 use Guava\Calendar\ValueObjects\CalendarEvent;
 use Modules\Payment\App\Models\OrderService;
@@ -79,11 +79,13 @@ class Order extends Model implements Eventable
         'cccd_data_2',
         'buyer_phone_2',
         'guest_count',
+        // Tên đội/nhóm — tuỳ chọn, dùng khi khách đặt sân theo dạng đội/nhóm (vd giải đấu nội bộ,
+        // CLB) thay vì chỉ 1 khách lẻ. Không ảnh hưởng luồng đặt sân hiện có nếu để trống.
+        'team_name',
         'category_id',
         'user_id',
         'money_deposit',
         'exclude_from_stats',
-        'unlock_anytime',
         'checked_in_at',
         'checked_out_at',
         'order_status',
@@ -109,8 +111,24 @@ class Order extends Model implements Eventable
         'cancelled_at',
         'cancelled_by',
         'cancel_reason',
+        // Khách đã thanh toán (paid/deposit) nhưng KHÔNG đến nhận sân — xem migration
+        // 2026_09_03_000004_add_no_show_to_orders_table + Order::markNoShow().
+        'no_show_at',
+        'no_show_marked_by',
+        // Hoãn/hoàn tiền do thời tiết (sân ngoài trời) — xem migration
+        // add_weather_policy_to_orders_table và App\Services\WeatherPolicyService.
+        'weather_affected_at',
+        'weather_resolution',
         'order_type',
         'package_plan_id',
+        // Đơn thanh toán qua hạn mức tài khoản doanh nghiệp (App\Models\CorporateAccount) thay vì
+        // khách tự trả — xem migration add_corporate_account_id_to_orders_table +
+        // App\Http\Controllers\Api\Admin\BookingController::store().
+        'corporate_account_id',
+        // Đặt sân định kỳ (lặp lại N tuần) — xem migration add_recurring_group_to_orders_table +
+        // App\Http\Controllers\Api\Admin\RecurringBookingController.
+        'recurring_group_id',
+        'recurring_occurrence_number',
     ];
 
     protected $casts = [
@@ -124,10 +142,11 @@ class Order extends Model implements Eventable
         'extra_charge_expired_at' => 'datetime',
         'extra_refund_paid_at'    => 'datetime',
         'exclude_from_stats'     => 'boolean',
-        'unlock_anytime'         => 'boolean',
         'checked_in_at'          => 'datetime',
         'checked_out_at'         => 'datetime',
         'cancelled_at'           => 'datetime',
+        'no_show_at'             => 'datetime',
+        'weather_affected_at'    => 'datetime',
         'bank_transfer_confirmed_at' => 'datetime',
     ];
 
@@ -139,6 +158,71 @@ class Order extends Model implements Eventable
     public function isCancelled(): bool
     {
         return ! is_null($this->cancelled_at);
+    }
+
+    // Đơn đã được xử lý hoãn/hoàn tiền do thời tiết (xem App\Services\WeatherPolicyService) —
+    // weather_affected_at là NGUỒN SỰ THẬT DUY NHẤT, giống cách isCancelled() dùng cancelled_at.
+    public function isWeatherAffected(): bool
+    {
+        return ! is_null($this->weather_affected_at);
+    }
+
+    public function isNoShow(): bool
+    {
+        return ! is_null($this->no_show_at);
+    }
+
+    /**
+     * Đánh dấu khách ĐÃ ĐẶT SÂN (paid/deposit) nhưng KHÔNG đến nhận sân — KHÁC hẳn huỷ đơn
+     * (cancelled_at/cancelled_by ở trên: khách/admin CHỦ ĐỘNG huỷ TRƯỚC giờ nhận, giải phóng khung
+     * giờ cho người khác). No-show là đơn VẪN giữ chỗ nguyên vẹn tới hết giờ mà khách không xuất
+     * hiện — không giải phóng khung giờ, không hoàn tiền, chỉ là NHÃN thống kê để nhận diện khách
+     * hay bùng kèo. CỐ Ý không đổi cột `status` — cùng triết lý với cancelled_at, giữ nguyên
+     * paid/deposit để báo cáo doanh thu không bị lệch.
+     *
+     * Logic gộp DUY NHẤT ở đây (không viết lại riêng cho Filament action lẫn API admin) — xem
+     * Modules\Payment\App\Filament\Resources\OrderResource\Tables\OrderTable.php (action
+     * 'mark_no_show') và App\Http\Controllers\Api\Admin\OrderController::markNoShow(), cả 2 chỉ tự
+     * lo phần message/hiển thị theo ngôn ngữ riêng của từng nơi (Filament = tiếng Việt, JSON API =
+     * tiếng Anh) dựa trên 'reason' trả về.
+     *
+     * Chỉ đơn ĐÃ THANH TOÁN thật (paid/deposit) mới đánh dấu được — đơn pending/cancelled/failed
+     * chưa từng thật sự "giữ chỗ" nên no-show với nó vô nghĩa. Khoá đơn (lockForUpdate) + kiểm tra
+     * lại no_show_at bên trong transaction để chặn double-click/2 tab cùng đánh dấu 1 đơn ra 2 lần
+     * tăng đếm Customer.no_show_count.
+     *
+     * @param  User|string|null  $admin  Admin thao tác — null/'system' nếu về sau có job tự động
+     *                                   quét đơn quá giờ nhận sân chưa check-in (CHƯA xây ở bản này).
+     * @return array{ok: true}|array{ok: false, reason: 'already_marked'|'not_payable'}
+     */
+    public function markNoShow(User|string|null $admin = null): array
+    {
+        return DB::transaction(function () use ($admin): array {
+            $locked = static::query()->lockForUpdate()->findOrFail($this->getKey());
+
+            if (! is_null($locked->no_show_at)) {
+                return ['ok' => false, 'reason' => 'already_marked'];
+            }
+
+            if (! in_array($locked->status, ['paid', 'deposit'], true)) {
+                return ['ok' => false, 'reason' => 'not_payable'];
+            }
+
+            $locked->update([
+                'no_show_at'        => now(),
+                'no_show_marked_by' => $admin instanceof User ? (string) $admin->id : ($admin ?: 'system'),
+            ]);
+
+            // Tăng đếm no-show của khách — best-effort, không chặn nếu đơn không gắn customer_id
+            // (đơn vãng lai tạo tay không bắt buộc chọn khách có sẵn).
+            if ($locked->customer_id) {
+                Customer::where('id', $locked->customer_id)->increment('no_show_count');
+            }
+
+            $this->setRawAttributes($locked->getAttributes());
+
+            return ['ok' => true];
+        });
     }
 
     /**
@@ -506,6 +590,18 @@ class Order extends Model implements Eventable
         return $this->hasMany(OrderItem::class);
     }
 
+    // Lượt đã trừ từ gói nhiều buổi cho đơn đặt sân này. Giá niêm yết vẫn được giữ trong amount
+    // để đối soát, nhưng giao diện phải dựa vào quan hệ này để không hiểu nhầm là khách trả tiền.
+    public function packageRedemptions()
+    {
+        return $this->hasMany(\App\Models\PackageRedemption::class);
+    }
+
+    public function activePackageRedemptions()
+    {
+        return $this->packageRedemptions()->whereNull('refunded_at');
+    }
+
     // Khách thứ 2 trở đi (đặt qua đêm) — xem migration 2026_07_20_000001_create_order_guest_cccds_table.
     public function guestCccds()
     {
@@ -553,43 +649,25 @@ class Order extends Model implements Eventable
         return $this->belongsTo(Customer::class);
     }
 
+    // Chỉ có giá trị khi order_type='package_purchase' — gói khách đang mua qua đơn này (xem
+    // Modules\Payment\App\Filament\Resources\PackageOrderResource).
+    public function packagePlan()
+    {
+        return $this->belongsTo(\App\Models\PackagePlan::class, 'package_plan_id');
+    }
+
+    // Chỉ có giá trị khi đơn được thanh toán qua hạn mức tài khoản doanh nghiệp (xem migration
+    // add_corporate_account_id_to_orders_table + App\Models\CorporateAccount).
+    public function corporateAccount()
+    {
+        return $this->belongsTo(\App\Models\CorporateAccount::class);
+    }
+
     // Nhân viên/tài khoản đã TẠO đơn này — dùng cho nhân viên đối tác nền tảng (vd 365home) xem
     // lại đúng những đơn CHÍNH HỌ đặt hộ cho đối tác khác (xem OrderResource::getEloquentQuery()).
     public function creator()
     {
         return $this->belongsTo(User::class, 'created_by');
-    }
-
-    /**
-     * Order có thể dùng nhiều access codes
-     */
-    public function accessCodes()
-    {
-        return $this->belongsToMany(
-            AccessCode::class,
-            'access_code_order',
-            'order_id',
-            'access_code_id'
-        )->withTimestamps()->withPivot('assigned_at');
-    }
-
-    /**
-     * Lấy access code chính (code đầu tiên)
-     */
-    public function accessCode()
-    {
-        return $this->accessCodes()->first();
-    }
-
-    public function hasAccessCode()
-    {
-        return $this->accessCodes()->exists();
-    }
-
-    // Lấy chi nhánh từ order items (nếu chưa có trong order)
-    public function getAccessCodeAttribute()
-    {
-        return $this->getPrimaryAccessCode();
     }
 
     public function znsNotifications()
@@ -601,18 +679,6 @@ class Order extends Model implements Eventable
     {
         return CalendarEvent::make($this)
             ->title($this->name);
-    }
-
-    /**
-     * Lấy access code đầu tiên (primary code)
-     * Return: AccessCode model instance hoặc null
-     */
-    public function getPrimaryAccessCode()
-    {
-        if (!$this->relationLoaded('accessCodes')) {
-            $this->load('accessCodes');
-        }
-        return $this->accessCodes->first();
     }
 
     public function services()

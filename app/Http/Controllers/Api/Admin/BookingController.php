@@ -53,6 +53,9 @@ class BookingController extends Controller
             'type'                    => 'required|in:slot,monthly,daily',
             'room_id'                 => 'required|string',
             'guest_count'             => 'required|integer|min:1',
+            // Tên đội/nhóm — tuỳ chọn, dùng khi khách đặt sân theo dạng đội/nhóm (vd giải đấu nội
+            // bộ, CLB) thay vì chỉ 1 khách lẻ.
+            'team_name'               => 'sometimes|nullable|string|max:255',
             // customers.id là UUID (char 36), KHÔNG phải số nguyên — xem migration create_customers_table.
             'customer_id'             => 'sometimes|nullable|string|size:36|exists:customers,id',
             'customer_phone'          => 'sometimes|nullable|string|max:20',
@@ -61,6 +64,10 @@ class BookingController extends Controller
             'payment_method'          => 'sometimes|in:PayOS,cod',
             'payment_type'            => 'sometimes|in:full,deposit',
             'status'                  => 'sometimes|in:pending,paid,deposit,failed,cancelled_payment,refunded',
+            // Đặt hộ NHÂN VIÊN CÔNG TY — trừ vào hạn mức giờ của tài khoản doanh nghiệp thay vì thu
+            // tiền per-booking (xem App\Models\CorporateAccount). Chỉ hỗ trợ ở luồng admin/lễ tân
+            // đặt hộ (KHÔNG có ở app khách tự đặt — xem giải thích tại khối xử lý bên dưới).
+            'corporate_account_id'    => 'sometimes|nullable|integer|exists:corporate_accounts,id',
             'services'                => 'sometimes|nullable|array',
             'services.*.service_id'   => 'required_with:services|integer',
             'services.*.quantity'     => 'required_with:services|integer|min:1',
@@ -149,6 +156,70 @@ class BookingController extends Controller
             [$basePrice, $summaryName, $itemsData, $rtsCollection, $slotSummary] = $this->buildDailyItems($request, $room);
         } else {
             [$basePrice, $summaryName, $itemsData] = $this->buildMonthlyItem($request, $room);
+        }
+
+        // ── 4.4 Tài khoản doanh nghiệp (B2B) — trừ hạn mức giờ thay vì thu tiền per-booking ────
+        // CHỈ hỗ trợ ở API admin/lễ tân này (KHÔNG có ở app khách tự đặt): thực tế vận hành, việc
+        // "công ty ký hợp đồng, nhân viên tới quầy đặt sân" luôn qua LỄ TÂN xác minh nhân viên đúng
+        // công ty rồi mới trừ hạn mức — cho khách tự chọn "trả bằng tài khoản công ty" trên app sẽ
+        // phải tự expose danh sách nhân viên/hạn mức còn lại cho khách xem trước (rò rỉ thông tin
+        // nội bộ công ty ra app công khai) và mất luôn bước xác minh con người. Nếu sau này có nhu
+        // cầu tự đặt (vd nhân viên có tài khoản riêng, công ty chấp nhận rủi ro), nên làm ở luồng
+        // khách hàng như 1 tính năng riêng, không mở rộng thẳng từ đây.
+        $corporateAccount    = null;
+        $corporateHoursNeeded = 0.0;
+
+        if ($request->filled('corporate_account_id')) {
+            if (! $customer) {
+                throw ValidationException::withMessages([
+                    'customer_id' => ['Đặt sân qua tài khoản doanh nghiệp bắt buộc chọn khách hàng đã là thành viên (customer_id/customer_phone) — khách vãng lai không thể là nhân viên công ty.'],
+                ]);
+            }
+
+            // Hạn mức tài khoản doanh nghiệp tính theo GIỜ trong tháng — chỉ hợp lý cho đặt theo
+            // khung giờ (type=slot). Đặt theo ngày/tháng (type=daily/monthly) có thể tự chiếm 8-22h+
+            // chỉ trong 1 đơn, "ăn" gần hết hạn mức tháng ngay lập tức — sai với ý nghĩa "hạn mức giờ
+            // chơi định kỳ" ban đầu. Nếu công ty cần đặt nguyên ngày/tháng, dùng luồng thanh toán
+            // thường (không qua corporate_account_id).
+            if ($request->input('type') !== 'slot') {
+                throw ValidationException::withMessages([
+                    'corporate_account_id' => ['Tài khoản doanh nghiệp chỉ áp dụng cho đặt sân theo khung giờ (type=slot), không áp dụng cho đặt theo ngày/tháng.'],
+                ]);
+            }
+
+            $corporateAccount = \App\Models\CorporateAccount::find($request->input('corporate_account_id'));
+
+            if (! $corporateAccount || ! $corporateAccount->isActive()) {
+                throw ValidationException::withMessages([
+                    'corporate_account_id' => ['Tài khoản doanh nghiệp không tồn tại hoặc đã bị tạm ngưng.'],
+                ]);
+            }
+
+            if ($corporateAccount->partner_id !== $room->partner_id) {
+                throw ValidationException::withMessages([
+                    'corporate_account_id' => ['Tài khoản doanh nghiệp này không thuộc đối tác sở hữu sân đang đặt.'],
+                ]);
+            }
+
+            if (! $corporateAccount->hasActiveEmployee($customer->id)) {
+                throw ValidationException::withMessages([
+                    'customer_id' => ['Khách hàng này không phải là nhân viên đang hoạt động của tài khoản doanh nghiệp đã chọn.'],
+                ]);
+            }
+
+            if ($request->input('payment_type') === 'deposit') {
+                throw ValidationException::withMessages([
+                    'payment_type' => ['Đặt cọc không áp dụng cho đơn thanh toán qua tài khoản doanh nghiệp — hạn mức được trừ đủ ngay lúc đặt.'],
+                ]);
+            }
+
+            $corporateHoursNeeded = $this->computeItemsHours($itemsData);
+
+            if (! $corporateAccount->hasQuotaRemaining($corporateHoursNeeded)) {
+                throw ValidationException::withMessages([
+                    'corporate_account_id' => ['Tài khoản doanh nghiệp không còn đủ hạn mức giờ trong kỳ này (còn lại ' . $corporateAccount->remainingHours() . 'h, cần ' . $corporateHoursNeeded . 'h).'],
+                ]);
+            }
         }
 
         // ── 4.5 CCCD (tùy chọn) — khách chính + khách đi cùng nếu có khung giờ qua đêm ─────────
@@ -266,7 +337,11 @@ class BookingController extends Controller
         $finalAmount    = $slotFinalPrice + $servicesTotal + $guestSurcharge;
 
         // ── Deposit (chỉ daily) ───────────────────────────────────────────────
-        $paymentMethod = $request->input('payment_method', 'cod');
+        // Đơn corporate LUÔN dùng payment_method='corporate_account' — bỏ qua lựa chọn PayOS/cod
+        // của request (nếu có gửi), vì đơn không thu tiền qua cổng thanh toán nào cả, chỉ trừ hạn
+        // mức. Cột payment_method là string thường (không phải DB enum, xem migration
+        // create_orders_table), nên thêm giá trị mới ở đây không cần migration đổi schema.
+        $paymentMethod = $corporateAccount ? 'corporate_account' : $request->input('payment_method', 'cod');
         $amountDue     = $finalAmount;
         $depositInfo   = null;
 
@@ -294,7 +369,7 @@ class BookingController extends Controller
                 } else {
                     throw ValidationException::withMessages([
                         'payment_type' => [
-                            'Đặt cọc không áp dụng' . ($depositMin > 0 ? " (cần tối thiểu {$depositMin} đêm)" : '') . '.',
+                            'Đặt cọc không áp dụng' . ($depositMin > 0 ? " (cần tối thiểu {$depositMin} ngày)" : '') . '.',
                         ],
                     ]);
                 }
@@ -318,16 +393,41 @@ class BookingController extends Controller
         // webhook PayOS khi khách thanh toán (xem OrderController::paymentStatus/webhook), nên bỏ
         // qua status admin gửi lên nếu có. Đơn tiền mặt (cod) không qua cổng thanh toán nên admin có
         // thể chỉnh trạng thái ngay lúc tạo (vd đã thu tiền mặt tại quầy → 'paid' luôn).
-        $initialStatus = $paymentMethod === 'PayOS' ? 'pending' : $request->input('status', 'pending');
+        // Đơn corporate được xem là "đã thanh toán" NGAY LÚC ĐẶT — không có khái niệm chờ xác nhận
+        // (khác cod, nơi admin CÓ THỂ vẫn để 'pending' nếu chưa thu tiền mặt): công ty đã cam kết
+        // trả qua hợp đồng/hoá đơn cuối kỳ, hạn mức bị trừ ngay nên đơn phải phản ánh đúng đã
+        // "trả" — mirror đúng cách processPackagePayment() ở ProductDetail.php đánh dấu 'paid' ngay
+        // khi redeem gói thành công (không qua PayOS/QR).
+        $initialStatus = $corporateAccount
+            ? 'paid'
+            : ($paymentMethod === 'PayOS' ? 'pending' : $request->input('status', 'pending'));
 
         // ── 7. Tạo đơn + items + services trong transaction ──────────────────
         $order = DB::transaction(function () use (
             $room, $finalAmount, $buyerName, $buyerPhone,
             $customer, $category, $itemsData, $servicesData,
             $paymentMethod, $request, $depositPercentToSave,
-            $admin, $initialStatus, $cccdFront, $cccdBack, $cccdData, $guestCccdRows
+            $admin, $initialStatus, $cccdFront, $cccdBack, $cccdData, $guestCccdRows,
+            $corporateAccount, $corporateHoursNeeded
         ) {
             Product::where('id', $room->id)->lockForUpdate()->first();
+
+            // Khoá + kiểm tra lại hạn mức NGAY TRONG transaction (không tin kết quả hasQuotaRemaining()
+            // đã tính TRƯỚC KHI vào transaction) — cùng nguyên tắc "re-check sau lockForUpdate()" đã
+            // dùng ở CustomerPackage::redeem()/ProductDetail::processPackagePayment(): 2 lễ tân ở 2 chi
+            // nhánh/2 tab cùng đặt hộ cho công ty này gần như đồng thời có thể cùng đọc thấy còn hạn
+            // mức trước khi cả 2 cùng trừ, vượt quá monthly_hour_quota nếu không khoá lại ở đây.
+            if ($corporateAccount) {
+                $lockedCorporate = \App\Models\CorporateAccount::query()
+                    ->lockForUpdate()
+                    ->findOrFail($corporateAccount->id);
+
+                if (! $lockedCorporate->hasQuotaRemaining($corporateHoursNeeded)) {
+                    throw ValidationException::withMessages([
+                        'corporate_account_id' => ['Tài khoản doanh nghiệp không còn đủ hạn mức giờ trong kỳ này (vừa bị dùng hết bởi 1 đơn khác).'],
+                    ]);
+                }
+            }
 
             foreach ($itemsData as $itemData) {
                 if (empty($itemData['checkin_date'])) {
@@ -360,6 +460,7 @@ class BookingController extends Controller
                 'payment_method'  => $paymentMethod,
                 'status'          => $initialStatus,
                 'guest_count'     => $request->guest_count,
+                'team_name'       => $request->input('team_name'),
                 'note_for_admin'  => $request->input('note_for_admin'),
                 'category_id'     => $category?->id,
                 // Đơn gán theo đúng partner_id của SÂN đang đặt (không phải của admin đang tạo) —
@@ -367,6 +468,7 @@ class BookingController extends Controller
                 // nên partner_id phải phản ánh đúng chủ sở hữu sân.
                 'partner_id'      => $room->partner_id,
                 'customer_id'     => $customer?->id,
+                'corporate_account_id' => $corporateAccount?->id,
                 // Ghi nhận admin/lễ tân đã tạo đơn này — dùng để tra lại đơn đặt hộ (xem Order::creator()).
                 'created_by'      => $admin->id,
                 // Ưu tiên ảnh CCCD admin vừa upload trong request này (tùy chọn); nếu không gửi thì
@@ -397,6 +499,13 @@ class BookingController extends Controller
 
             foreach ($servicesData as $svc) {
                 $order->services()->create($svc);
+            }
+
+            // Trừ hạn mức giờ NGAY TRONG transaction (cùng transaction với tạo Order/items) — nếu
+            // bất kỳ bước nào bên trên throw (vd trùng khung giờ), toàn bộ rollback lại, hạn mức
+            // KHÔNG bị trừ nhầm cho 1 đơn không thực sự được tạo.
+            if ($corporateAccount) {
+                $lockedCorporate->consumeHours($corporateHoursNeeded);
             }
 
             return $order;
@@ -443,7 +552,9 @@ class BookingController extends Controller
                 'expired_at'     => $order->expired_at,
                 'buyer_name'     => $order->buyer_name,
                 'buyer_phone'    => $order->buyer_phone,
+                'team_name'      => $order->team_name,
                 'customer_id'    => $order->customer_id,
+                'corporate_account_id' => $order->corporate_account_id,
                 'description'       => $order->description,
                 'short_description' => $order->short_description,
                 'created_by'     => $admin->fullname,
@@ -482,6 +593,12 @@ class BookingController extends Controller
                 'total_after_discount' => (int) $finalAmount,
                 'final_amount'         => (int) $order->full_amount,
             ],
+            'corporate_account' => $corporateAccount ? [
+                'id'               => $corporateAccount->id,
+                'company_name'     => $corporateAccount->company_name,
+                'hours_charged'    => $corporateHoursNeeded,
+                'remaining_hours'  => $corporateAccount->fresh()->remainingHours(),
+            ] : null,
         ], 201);
     }
 
@@ -554,5 +671,37 @@ class BookingController extends Controller
         }
 
         return response()->json($this->computeBookingPreview($request, $room));
+    }
+
+    /**
+     * Tổng số GIỜ của 1 đơn — dùng để trừ hạn mức tài khoản doanh nghiệp (xem khối "4.4" ở store()).
+     * Cộng dồn (checkout_date - checkin_date) của TỪNG item, tính theo PHÚT rồi chia 60 để giữ được
+     * phần lẻ (vd khung giờ 90 phút = 1.5h) thay vì làm tròn — hạn mức công ty là số thập phân
+     * (monthly_hour_quota decimal), làm tròn sớm ở đây sẽ làm sai lệch dần qua nhiều lần đặt.
+     *
+     * GIẢ ĐỊNH NGHIỆP VỤ CẦN NGƯỜI XÁC NHẬN LẠI: sân thuê theo ngày/tháng (type=daily/monthly) quy
+     * đổi NGUYÊN các khung giờ nhận-trả thành "giờ" (vd thuê 1 ngày qua đêm 14h hôm nay -> 12h hôm
+     * sau = 22h) — hợp lý về mặt số học (đúng số giờ sân bị chiếm dụng) nhưng CÓ THỂ không phải điều
+     * chủ đối tác muốn tính vào hạn mức B2B (thường hạn mức công ty nhắm tới đặt sân THEO KHUNG GIỜ
+     * ngắn cho nhân viên chơi giao lưu, không phải thuê nguyên ngày/tháng). MVP này áp dụng CÙNG 1
+     * công thức cho mọi loại (đơn giản, nhất quán) — nếu thực tế công ty chỉ nên dùng hạn mức cho
+     * type=slot, cần chặn thêm ở khối "4.4" (validate $request->input('type') === 'slot').
+     */
+    private function computeItemsHours(array $itemsData): float
+    {
+        $totalMinutes = 0;
+
+        foreach ($itemsData as $item) {
+            $checkin  = $item['checkin_date']  ?? null;
+            $checkout = $item['checkout_date'] ?? null;
+
+            if (! $checkin || ! $checkout) {
+                continue;
+            }
+
+            $totalMinutes += $checkin->diffInMinutes($checkout);
+        }
+
+        return round($totalMinutes / 60, 2);
     }
 }

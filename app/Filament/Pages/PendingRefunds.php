@@ -28,6 +28,8 @@ class PendingRefunds extends Page implements HasTable
 
     protected static ?string $navigationGroup = 'Quản lý';
 
+    protected static ?int $navigationSort = 15;
+
     protected static ?string $navigationLabel = 'Hoàn tiền chờ xử lý';
 
     protected static ?string $title = 'Hoàn tiền chờ xử lý';

@@ -18,11 +18,11 @@ use Modules\Payment\Entities\Order;
 class CustomerChat extends Page
 {
     protected static string  $view             = 'filament.pages.customer-chat';
-    protected static ?string $navigationGroup  = 'Quản lý';
+    protected static ?string $navigationGroup  = 'Phân quyền';
     protected static ?string $navigationIcon   = 'heroicon-o-chat-bubble-left-right';
     protected static ?string $navigationLabel  = 'Tin nhắn khách hàng';
     protected static ?string $title            = 'Tin nhắn khách hàng';
-    protected static ?int    $navigationSort   = 98;
+    protected static ?int    $navigationSort   = 14;
 
     public ?string $selectedId           = null;
     public ?array  $selectedConversation = null;

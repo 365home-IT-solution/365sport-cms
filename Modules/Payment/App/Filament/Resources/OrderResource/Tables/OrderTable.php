@@ -3,12 +3,11 @@
 namespace Modules\Payment\App\Filament\Resources\OrderResource\Tables;
 
 use App\Filament\Support\PartnerTableHelpers;
-use App\Services\TTLockService;
 use Filament\Notifications\Notification;
 use Filament\Support\Enums\FontWeight;
 use Filament\Tables\Actions\Action;
-use Modules\Payment\App\Filament\Resources\OrderResource\Tables\Actions\AssignAccessCodeAction;
-use Modules\Payment\App\Filament\Resources\OrderResource\Tables\Actions\OpenGateAction;
+use Modules\Payment\App\Filament\Resources\OrderResource\Tables\Actions\MarkNoShowAction;
+use Modules\Payment\App\Filament\Resources\OrderResource\Tables\Actions\WeatherPolicyAction;
 use PayOS\PayOS;
 use Filament\Tables\Columns\BadgeColumn;
 use Filament\Tables\Columns\IconColumn;
@@ -18,6 +17,7 @@ use Filament\Tables\Enums\ActionsPosition;
 use Filament\Tables\Table;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\HtmlString;
 use Modules\AuditLog\Services\AuditLogger;
 use Modules\Payment\Traits\GHNServiceTrait;
@@ -37,7 +37,8 @@ class OrderTable
     {
         return $table
             ->modifyQueryUsing(function ($query) {
-                $query->with(['items.product', 'services', 'accessCodes']);
+                $query->with(['items.product', 'services'])
+                    ->withCount('activePackageRedemptions');
                 if (! (auth()->user()?->isSuperAdmin() ?? false)) {
                     $query->where('exclude_from_stats', false);
                 }
@@ -70,11 +71,12 @@ class OrderTable
 
                 PartnerTableHelpers::column(),
 
-                TextColumn::make('amount')
+                TextColumn::make('booking_payment_total')
                     ->label('Tổng tiền')
                     ->weight(FontWeight::Bold)
-                    ->formatStateUsing(fn ($state) => number_format((int)$state, 0, ',', '.') . ' ₫')
-                    ->sortable(),
+                    ->getStateUsing(fn (Order $record) => $record->active_package_redemptions_count > 0
+                        ? 'Dùng gói (' . $record->active_package_redemptions_count . ' buổi)'
+                        : number_format((int) $record->amount, 0, ',', '.') . ' ₫'),
 
                 TextColumn::make('created_at')
                     ->label(__('payment::order.table.label.created_at'))
@@ -142,17 +144,20 @@ class OrderTable
                     ->alignCenter()
                     ->badge()
                     ->color('primary'),
-                TextColumn::make('payment_method')
+                TextColumn::make('booking_payment_method')
                     ->label(__('payment::order.table.label.payment_method'))
-                    ->sortable()
                     ->weight(FontWeight::Bold)
-                    ->formatStateUsing(function ($state) {
+                    ->getStateUsing(function (Order $record) {
+                        if ($record->active_package_redemptions_count > 0) {
+                            return 'Gói đã mua';
+                        }
+
                         // 'PayOS' (viết hoa) là giá trị CŨ trước khi có luồng chuyển khoản thủ công —
                         // 'payos' (thường) là giá trị hiện tại do
                         // ProductDetail::resolveEffectivePaymentMethod() lưu, giữ cả 2 để không đổi
                         // nhãn hiển thị của các đơn cũ. 'bank_transfer' trước đây KHÔNG có case nào,
                         // rơi vào default "Không xác định" dù đơn đó hoàn toàn hợp lệ — bug đã gặp.
-                        return match ($state) {
+                        return match ($record->payment_method) {
                             'PayOS', 'payos' => 'PayOS (QR)',
                             'bank_transfer' => 'Chuyển khoản',
                             'cod' => 'Cod',
@@ -228,23 +233,6 @@ class OrderTable
                     ->toggleable(isToggledHiddenByDefault: true)
                     ->sortable(),
 
-                // Tạm ẩn theo yêu cầu — chưa dùng mã cửa/TTLock trong giai đoạn hiện tại. Ẩn bằng
-                // isToggledHiddenByDefault(true) (không xoá cột) — admin vẫn tự bật lại được qua
-                // nút tuỳ chỉnh cột nếu cần đối chiếu dữ liệu.
-                TextColumn::make('access_code_display')
-                    ->label('Mã cổng')
-                    ->getStateUsing(function ($record) {
-                        $record->loadMissing('accessCodes');
-                        $code = $record->accessCodes->first();
-                        return $code ? $code->code : null;
-                    })
-                    ->placeholder('— chưa có —')
-                    ->copyable()
-                    ->icon('heroicon-o-key')
-                    ->badge()
-                    ->color(fn($state) => $state ? 'success' : 'gray')
-                    ->toggleable(isToggledHiddenByDefault: true),
-
                 // Ẩn theo yêu cầu (giữ lại code, chỉ tắt hiển thị).
                 IconColumn::make('exclude_from_stats')
                     ->label('Thống kê')
@@ -256,20 +244,6 @@ class OrderTable
                     ->tooltip(fn ($record) => $record->exclude_from_stats ? 'Đang loại khỏi thống kê & xuất Excel' : 'Đang tính vào thống kê & xuất Excel')
                     ->hidden()
                     ->visible(fn () => auth()->user()?->isSuperAdmin() ?? false)
-                    ->toggleable(isToggledHiddenByDefault: false),
-
-                IconColumn::make('unlock_anytime')
-                    ->label('Mở cổng tự do')
-                    ->boolean()
-                    ->trueIcon('heroicon-o-lock-open')
-                    ->falseIcon('heroicon-o-lock-closed')
-                    ->trueColor('warning')
-                    ->falseColor('gray')
-                    ->tooltip(fn ($record) => $record->unlock_anytime ? 'Khách có thể mở cổng bất kỳ lúc nào' : 'Mở cổng giới hạn theo giờ đặt sân')
-                    // Tạm ẩn hẳn theo yêu cầu — chưa dùng TTLock trong giai đoạn hiện tại (trước đây
-                    // chỉ ẩn khi chi nhánh chưa có tài khoản TTLock, xem TTLockService::
-                    // hasAccountForCategory()).
-                    ->visible(false)
                     ->toggleable(isToggledHiddenByDefault: false),
             ])
             ->defaultSort('created_at', 'desc')
@@ -560,17 +534,6 @@ class OrderTable
                                                 'remaining_payment_method' => 'cash',
                                             ]);
 
-                                            $record->load('items.product');
-                                            $firstItem    = $record->items->sortBy('checkin_date')->first();
-                                            $checkinDate  = $record->items->min('checkin_date');
-                                            $checkoutDate = $record->items->max('checkout_date');
-                                            $product      = $firstItem?->product;
-
-                                            if (! $record->hasAccessCode()) {
-                                                app(\Modules\BladeThemeV1\Services\AccessCode\AccessCodeService::class)
-                                                    ->assignCodeToOrder($record->id, $record->category_id, $checkinDate, $checkoutDate, $product);
-                                            }
-
                                             AuditLogger::log(
                                                 'update', 'Order', $record,
                                                 ['status' => 'deposit', 'remaining_payment_method' => null],
@@ -580,7 +543,7 @@ class OrderTable
 
                                             Notification::make()
                                                 ->success()
-                                                ->title('Đã xác nhận và cấp mã truy cập')
+                                                ->title('Đã xác nhận thanh toán')
                                                 ->send();
 
                                         } catch (\Throwable $e) {
@@ -835,16 +798,36 @@ class OrderTable
                                     return;
                                 }
 
-                                $record->update([
-                                    'cancelled_at'  => now(),
-                                    'cancelled_by'  => 'admin',
-                                    'cancel_reason' => $data['reason'],
-                                ]);
+                                $refundAmount = DB::transaction(function () use ($record, $data): int {
+                                    $locked = Order::query()->lockForUpdate()->findOrFail($record->getKey());
+                                    if (! is_null($locked->cancelled_at)) {
+                                        throw new \RuntimeException('Đơn này đã được huỷ trước đó.');
+                                    }
 
-                                $refundAmount = (int) $data['refund_amount'];
-                                if ($refundAmount > 0) {
-                                    app(\App\Services\ExtraChargeService::class)->recordPendingRefund($record, $refundAmount);
-                                }
+                                    $paidByPackage = \App\Models\PackageRedemption::query()
+                                        ->where('order_id', $locked->id)
+                                        ->whereNull('refunded_at')
+                                        ->exists();
+
+                                    $locked->update([
+                                        'cancelled_at'  => now(),
+                                        'cancelled_by'  => 'admin',
+                                        'cancel_reason' => $data['reason'],
+                                    ]);
+
+                                    if ($paidByPackage) {
+                                        \App\Models\CustomerPackage::refundRedemptionsForOrder($locked);
+                                        return 0;
+                                    }
+
+                                    $amount = (int) $data['refund_amount'];
+                                    if ($amount > 0) {
+                                        app(\App\Services\ExtraChargeService::class)->recordPendingRefund($locked, $amount);
+                                    }
+                                    return $amount;
+                                });
+
+                                $record->refresh();
 
                                 $record->loadMissing('items');
                                 $itemsByProduct = $record->items->whereNotNull('product_id')->groupBy('product_id');
@@ -880,22 +863,18 @@ class OrderTable
                                 Notification::make()->danger()->title('Lỗi: ' . $e->getMessage())->send();
                             }
                         }),
+
+                    // Khách đã thanh toán nhưng không đến nhận sân — KHÁC "Huỷ đơn" ở trên (huỷ là
+                    // chủ động TRƯỚC giờ nhận). Xem docblock MarkNoShowAction/Order::markNoShow().
+                    MarkNoShowAction::make(),
+
+                    // Hoãn/hoàn tiền do THỜI TIẾT cho sân ngoài trời (products.is_outdoor) — xem
+                    // App\Services\WeatherPolicyService.
+                    WeatherPolicyAction::make(),
                 ],
-                OrderAction::action(static::gateActions())
+                OrderAction::action()
             ), position: ActionsPosition::BeforeCells)
             ->bulkActions(OrderBulkAction::bulkActions());
-    }
-
-    // 3 action liên quan mã cổng/khoá cửa — gộp CHUNG vào đúng 1 ActionGroup "..." với "Xem chi
-    // tiết/Cập nhật/Xóa" (xem OrderAction::action($extraGroupActions)), KHÔNG tách riêng thành 1
-    // icon/ActionGroup khác nằm cạnh (theo yêu cầu — 1 dòng chỉ nên có 1 nút "..." duy nhất).
-    // Tạm ẩn hẳn 3 action liên quan mã cổng/khoá cửa (Gán mã truy cập/Mở cổng/Cho mở cổng tự do)
-    // theo yêu cầu — chưa dùng mã cửa/TTLock trong giai đoạn hiện tại. Code implementation gốc còn
-    // nguyên trong lịch sử git (AssignAccessCodeAction/OpenGateAction + action 'toggle_unlock_anytime'),
-    // bật lại bằng cách khôi phục nội dung hàm này.
-    private static function gateActions(): array
-    {
-        return [];
     }
 
     // Action "Duyệt chuyển khoản" — xem ảnh biên lai + Xác nhận/Từ chối cho đơn
@@ -1000,9 +979,6 @@ class OrderTable
                                 app(\App\Services\BankTransferConfirmationService::class)
                                     ->confirm($record, auth()->id());
 
-                                // Mã cửa/TTLock đang tắt hẳn (xem BankTransferConfirmationService::
-                                // ACCESS_CODE_ASSIGNMENT_ENABLED) — không còn kiểm tra/nhắc gì về mã
-                                // truy cập ở đây nữa, tránh nhắc tới 1 tính năng đang bị ẩn khỏi UI.
                                 Notification::make()->success()->title('Đã xác nhận thanh toán')->send();
 
                                 // Xem giải thích ở action 'reject_bank_transfer' phía trên (url()->

@@ -2,8 +2,8 @@
 
 namespace Modules\Category\Entities;
 
+use App\Models\Concerns\LogsAuditTrail;
 use Illuminate\Database\Eloquent\Model;
-use Modules\AccessCode\Entities\AccessCode;
 use Modules\DataPermission\Entities\UserBranchPermission;
 use Modules\Post\Entities\Post;
 use Modules\Product\App\Models\Product;
@@ -11,6 +11,12 @@ use Modules\Payment\Entities\Order;
 
 class Category extends Model
 {
+    // CategoryObserver (app/Observers/CategoryObserver.php, đăng ký ở EventServiceProvider) tồn
+    // tại nhưng KHÔNG gọi AuditLogger::log() — Category thực chất chưa từng được audit trước đây.
+    // Gắn trait ở đây để lấp đúng lỗ hổng đó, không đụng gì tới CategoryObserver (observer đó vẫn
+    // đang lo việc khác, xem file đó).
+    use LogsAuditTrail;
+
     protected $fillable = [
         'name',
         'slug',
@@ -62,11 +68,6 @@ class Category extends Model
     public function products()
     {
         return $this->morphedByMany(Product::class, 'categorizable');
-    }
-
-    public function accessCodes()
-    {
-        return $this->hasMany(AccessCode::class);
     }
 
     public function orders()

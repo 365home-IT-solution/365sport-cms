@@ -41,7 +41,7 @@ class CccdDeclarationResource extends Resource
     protected static ?string $navigationLabel  = 'Khai báo lưu trú';
     protected static ?string $modelLabel       = 'Khai báo lưu trú';
     protected static ?string $pluralModelLabel = 'Khai báo lưu trú';
-    protected static ?int    $navigationSort   = 30;
+    protected static ?int    $navigationSort   = 4;
 
     // Ẩn khỏi menu Admin theo yêu cầu người dùng — tính năng khai báo lưu trú (dành cho
     // homestay/lưu trú qua đêm) không liên quan tới nghiệp vụ đặt sân thể thao theo giờ của hệ

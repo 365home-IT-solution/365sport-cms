@@ -153,12 +153,6 @@ class ProductForm
                 ->placeholder('Nhập mật khẩu wifi')
                 ->inlineLabel(),
 
-            TextInput::make('home_code')
-                ->label('Mã mở khóa')
-                ->maxLength(255)
-                ->placeholder('Nhập mã mở khóa')
-                ->inlineLabel(),
-
             TextInput::make('address')
                 ->label('Địa chỉ')
                 ->maxLength(100)

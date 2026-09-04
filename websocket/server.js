@@ -258,34 +258,6 @@ app.post('/internal/order-update', (req, res) => {
     return res.json({ ok: true });
 });
 
-// ── Access code changed — thông báo mã cổng/sân thay đổi ───────────────────
-app.post('/internal/order-code-changed', (req, res) => {
-    const key = req.headers['x-internal-key'];
-    if (key !== INTERNAL_KEY) {
-        return res.status(403).json({ error: 'Forbidden' });
-    }
-
-    const { order_code, customer_id, new_code, type } = req.body;
-    if (!order_code || !new_code) {
-        return res.status(422).json({ error: 'Missing order_code or new_code' });
-    }
-
-    // type: 'manual' | 'ttlock'
-    const payload = { order_code, new_code, type: type || 'manual' };
-
-    io.to(`order:${order_code}`).emit('order.code_changed', payload);
-
-    if (customer_id) {
-        const sockets = connections.get(String(customer_id));
-        if (sockets && sockets.size > 0) {
-            sockets.forEach((s) => s.emit('order.code_changed', payload));
-        }
-    }
-
-    console.log(`[WS] Code changed: order=${order_code} type=${type} customer=${customer_id || 'guest'}`);
-    return res.json({ ok: true });
-});
-
 // ── Chat message — broadcast đến cả khách và admin đang xem conversation ─────
 app.post('/internal/chat-message', (req, res) => {
     const key = req.headers['x-internal-key'];

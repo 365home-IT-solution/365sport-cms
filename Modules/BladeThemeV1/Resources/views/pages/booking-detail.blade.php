@@ -60,9 +60,6 @@
 
                 @php
                 // Order-level data
-                $accessCode = $order->getPrimaryAccessCode();
-                $unlockCode = $accessCode ? $accessCode->code : '....';
-                $gateLocation = $accessCode && $accessCode->gate_location ? $accessCode->gate_location : '';
                 $branchName = $order->category ? $order->category->name : 'Chi nhánh';
                 $create_at = $order->created_at ? \Carbon\Carbon::parse($order->created_at)->format('d/m/Y H:i') :
                 'N/A';
@@ -84,10 +81,6 @@
                 $firstItem = $order->items->first();
                 $firstProduct = $firstItem ? $firstItem->product : null;
                 $checkinDate = $firstItem && $firstItem->checkin_date ? \Carbon\Carbon::parse($firstItem->checkin_date) : null;
-                $pwdAnchorDate = $order->paid_at ?? $order->deposit_paid_at ?? $order->created_at;
-                $manualLockPassword = $firstProduct && $firstProduct->has_manual_lock
-                    ? \Modules\Product\App\Models\ManualLockPassword::getForProductAndDate($firstProduct, $pwdAnchorDate)
-                    : null;
                 $branchAddress = $firstProduct ? $firstProduct->address : 'Địa chỉ chi nhánh không xác định';
                 // Cột map_url đã bị xoá khỏi bảng products (migration 2026_06_04_000002) — ưu tiên
                 // dùng toạ độ latitude/longitude (nếu có) để ghim đúng vị trí thay vì chỉ tìm theo
@@ -114,8 +107,14 @@
                 // khung giờ 1 giờ lại vẽ lại NGUYÊN 1 thẻ đầy đủ ảnh/badge/timeline riêng — đặt 2-3
                 // khung giờ liên tiếp cho cùng 1 sân trước đây hiện lặp lại rất rối mắt). Hiển thị
                 // gộp: 1 ảnh, 1 tên sân, khung giờ SỚM NHẤT → MUỘN NHẤT trong nhóm.
-                $groupedBookingItems = $order->items
-                    ->groupBy(function ($item) {
+                $groupedBookingItems = $isPackageBooking
+                    // Dùng gói tính mỗi order_item là đúng 1 buổi, vì vậy phải hiện đủ từng
+                    // khung thay vì gộp thành một khoảng giờ làm khách tưởng bị thiếu buổi.
+                    ? $order->items
+                        ->whereNotNull('product_id')
+                        ->sortBy('checkin_date')
+                        ->values()
+                    : $order->items->groupBy(function ($item) {
                         $date = $item->checkin_date ? \Carbon\Carbon::parse($item->checkin_date)->format('Y-m-d') : 'unknown';
                         return $item->product_id . '|' . $date;
                     })
@@ -277,7 +276,7 @@
 
                     <div class="p-6">
                         @if ($isPackagePurchase)
-                        {{-- Đơn mua gói nhiều buổi — không có khung giờ/mã cổng thật để hiện. CHỈ
+                        {{-- Đơn mua gói nhiều buổi — không có khung giờ thật để hiện. CHỈ
                              hiện thẻ "đã kích hoạt" khi $customerPackage THỰC SỰ tồn tại (được tạo
                              qua CustomerPackage::activateFromOrder() sau khi PayOS báo paid HOẶC
                              admin xác nhận chuyển khoản — xem BankTransferConfirmationService).
@@ -378,88 +377,6 @@
                         </div>
                         @endforeach
 
-                        {{-- Tạm ẩn hẳn khối "Mã mở khóa/Pass Cổng-Sân" theo yêu cầu — chưa dùng mã
-                             cửa/TTLock trong giai đoạn hiện tại. Giữ nguyên code, chỉ đổi @if(false)
-                             thành @if(true) để bật lại sau. --}}
-                        @if (false)
-                        <div
-                            class="mt-6 bg-slate-50/80 rounded-xl border border-dashed border-gray-300 p-4 flex sm:flex-row gap-4 sm:items-center justify-between">
-                            @if($isDepositPaid)
-                            {{-- Chưa thanh toán đủ: ẩn mã cổng --}}
-                            <div class="flex items-center gap-3">
-                                <div
-                                    class="w-10 h-10 bg-amber-50 rounded-lg border border-amber-200 flex items-center justify-center text-amber-600 shadow-sm shrink-0">
-                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2"
-                                        viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round"
-                                            d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                                    </svg>
-                                </div>
-                                <div>
-                                    <p class="text-sm text-amber-700 font-semibold">Mã mở khóa chưa khả dụng</p>
-                                    <p class="text-xs text-gray-500 mt-0.5">Thanh toán phần còn lại để nhận mã cổng</p>
-                                </div>
-                            </div>
-                            @elseif($firstProduct && $firstProduct->has_manual_lock)
-                            {{-- Sân khóa thủ công: hiển thị pass cổng + pass sân --}}
-                            <div class="flex items-start gap-3 flex-1 flex-wrap">
-                                <div
-                                    class="w-10 h-10 bg-white rounded-lg border border-gray-200 flex items-center justify-center text-gray-700 shadow-sm shrink-0">
-                                    <x-filament::icon-button icon="heroicon-m-key" color="black" size="sm" />
-                                </div>
-                                @if($manualLockPassword)
-                                <div class="flex gap-6 flex-wrap">
-                                    <div>
-                                        <p class="text-xs font-semibold uppercase tracking-wider text-gray-400">Pass Cổng</p>
-                                        <span class="text-lg font-bold font-mono tracking-widest text-gray-900">{{ $manualLockPassword->gate_password }}</span>
-                                    </div>
-                                    @if($manualLockPassword->room_password)
-                                    <div class="border-l border-dashed border-blue-400 pl-4">
-                                        <p class="text-xs font-semibold uppercase tracking-wider text-gray-400">Pass Sân</p>
-                                        <span class="text-lg font-bold font-mono tracking-widest text-gray-900">{{ $manualLockPassword->room_password }}</span>
-                                    </div>
-                                    @endif
-                                </div>
-                                @else
-                                <div>
-                                    <p class="text-sm text-gray-500 mt-0.5">Vui lòng liên hệ để nhận mật khẩu sân</p>
-                                </div>
-                                @endif
-                            </div>
-                            @else
-                            {{-- TTLock: hiển thị mã cổng điện tử --}}
-                            <div class="flex items-center gap-3">
-                                <div
-                                    class="w-10 h-10 bg-white rounded-lg border border-gray-200 flex items-center justify-center text-gray-700 shadow-sm shrink-0">
-                                    <x-filament::icon-button icon="heroicon-m-key" color="black" size="sm" />
-                                </div>
-                                <div>
-                                    <div class="gap-2">
-                                        <p class="text-sm text-gray-500 truncate mt-0.5">Mã mở khóa</p>
-                                        <span class="text-lg font-bold font-mono tracking-widest text-gray-900">{{ $unlockCode }}#</span>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="border-l border-1 border-blue-400 border-dashed h-12"></div>
-                            <div class="flex items-center gap-3 pl-0 sm:pl-4 hidden">
-                                <div>
-                                    <div class="text-[10px] font-semibold uppercase tracking-wider text-gray-500">Lượt
-                                        dùng</div>
-                                    <div class="flex items-center gap-1.5 mt-0.5">
-                                        <span class="text-sm text-gray-900 font-normal">/ {{ $accessCode->max_uses ?? '4' }} lượt</span>
-                                    </div>
-                                </div>
-                                <div class="mx-auto sm:ml-0">
-                                    <span class="flex relative">
-                                            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-500 opacity-75"></span>
-                                    <span style="width: 10px; height: 10px;" class="relative inline-flex rounded-full bg-green-500"></span>
-                                    </span>
-                                </div>
-                            </div>
-                            @endif
-                        </div>
-                        @endif {{-- /Tạm ẩn khối Mã mở khóa --}}
-
                         {{-- Khung địa chỉ --}}
                         <div
                             class="mt-4 bg-slate-50/80 rounded-xl border border-dashed border-gray-300 p-4 flex sm:flex-row gap-4 sm:items-center justify-between">
@@ -488,13 +405,6 @@
                                     <a class="text-primary underline font-semibold" href="{{ url('noi-quy-va-quy-dinh') }}">Xem nội quy tại đây</a>
                                 </span>
                             </div>
-                            <div class="flex justify-between text-sm">
-                                <span class="text-gray-500">Hướng dẫn check-in</span>
-                                <span class="font-medium text-primary">
-                                    <a class="text-primary underline font-semibold" href="{{ url('huong-dan-tu-check-in') }}">Xem hướng dẫn ngay</a>
-                                </span>
-                            </div>
-
                             @if($hasDeposit)
                             @php
                             $fullAmt2 = (int)($order->full_amount ?? $order->amount);
@@ -525,6 +435,17 @@
                                 <span class="font-bold text-green-700">✓ Hoàn tất</span>
                             </div>
                             @endif
+                            @elseif($isPackageBooking)
+                            <div class="flex justify-between text-base pt-2">
+                                <span class="font-semibold text-gray-900">Thanh toán bằng gói</span>
+                                <span class="font-bold text-emerald-700 tracking-tight">
+                                    {{ $packageRedemptions->count() }} buổi{{ $redeemedPackage ? ' — ' . $redeemedPackage->name : '' }}
+                                </span>
+                            </div>
+                            <div class="flex justify-between text-sm">
+                                <span class="text-gray-500">Số tiền cần thanh toán</span>
+                                <span class="font-semibold text-emerald-700">0đ</span>
+                            </div>
                             @else
                             <div class="flex justify-between text-base pt-2">
                                 <span class="font-semibold text-gray-900">Tổng thanh toán</span>

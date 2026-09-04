@@ -18,13 +18,11 @@
     "Payment": true,
     "QA": true,
     "Promotion": true,
-    "AccessCode": true,
     "Zns": true,
     "Book": true,
     "Coupon": true,
     "DataPermission": true,
     "AppPage": true,
-    "TTLock": true,
     "Employee": true,
     "Warehouse": true
 }

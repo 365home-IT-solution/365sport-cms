@@ -7,7 +7,6 @@ namespace App\Services;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Modules\AuditLog\Services\AuditLogger;
-use Modules\BladeThemeV1\Services\AccessCode\AccessCodeService;
 use Modules\Payment\Entities\Order;
 
 // Logic DUY NHẤT để xác nhận 1 đơn "chuyển khoản ngân hàng thủ công" đã nhận được tiền — dùng
@@ -18,12 +17,6 @@ use Modules\Payment\Entities\Order;
 // lại/lệch logic.
 class BankTransferConfirmationService
 {
-    // Tạm tắt hẳn theo yêu cầu — mã cửa/TTLock đang bị ẩn khỏi admin (xem OrderTable::gateActions(),
-    // AccessCodeResource/TtlockAccountResource). Cố gán mã rồi cảnh báo "chưa cấp được mã truy cập"
-    // (khi chi nhánh hết mã khả dụng) chỉ gây nhiễu — admin không còn công cụ nào trong UI để xử lý
-    // cảnh báo đó nữa (nút "Gán mã truy cập" cũng đã ẩn). Đổi thành true để bật lại cả 2 cùng lúc.
-    private const ACCESS_CODE_ASSIGNMENT_ENABLED = false;
-
     /**
      * @param string|null $confirmedByUserId  null = hệ thống tự xác nhận (webhook SePay/Casso),
      *                                         khác null = admin/nhân viên bấm tay xác nhận.
@@ -61,17 +54,6 @@ class BankTransferConfirmationService
             return;
         }
 
-        // Chỉ bọc transaction quanh phần "trạng thái thanh toán" (status/bank_transfer_status/audit
-        // log) — đây là phần KHÔNG được phép nửa vời, nhưng KHÔNG bao gồm bước cấp mã truy cập.
-        //
-        // TRƯỚC ĐÂY cả 2 bước cùng nằm trong 1 transaction để tránh đơn bị kẹt "đã thanh toán"
-        // nhưng không có mã vào cửa — nhưng thực tế lại gây ra lỗi NẶNG HƠN: hết mã truy cập khả
-        // dụng cho chi nhánh/khung giờ (vấn đề tồn kho mã cửa, KHÔNG liên quan gì tới việc đã nhận
-        // tiền hay chưa) khiến toàn bộ transaction rollback — admin xác nhận đã nhận tiền bao nhiêu
-        // lần cũng không đổi được trạng thái đơn, chặn đứng việc ghi nhận doanh thu chỉ vì hết mã
-        // cửa (bug thật đã gặp). Tách riêng: xác nhận thanh toán LUÔN thành công nếu tiền đã đúng,
-        // cấp mã truy cập thất bại thì chỉ báo riêng để admin tự cấp mã tay sau
-        // (AssignAccessCodeAction, xem OrderTable.php) — không rollback phần thanh toán.
         DB::transaction(function () use ($order, $confirmedByUserId, $isDepositPayment) {
             if ($isDepositPayment) {
                 $order->update([
@@ -120,28 +102,6 @@ class BankTransferConfirmationService
         if ($order->order_type === 'package_purchase') {
             \App\Models\CustomerPackage::activateFromOrder($order);
             return;
-        }
-
-        if (! self::ACCESS_CODE_ASSIGNMENT_ENABLED || $order->hasAccessCode()) {
-            return;
-        }
-
-        $order->load('items.product');
-        $checkinDate  = $order->items->min('checkin_date');
-        $checkoutDate = $order->items->max('checkout_date');
-        $product      = $order->items->first()?->product;
-
-        try {
-            app(AccessCodeService::class)
-                ->assignCodeToOrder($order->id, $order->category_id, $checkinDate, $checkoutDate, $product);
-        } catch (\Throwable $e) {
-            // Thanh toán ĐÃ được ghi nhận (status='paid') dù bước này lỗi — chỉ log lại để admin
-            // biết cần cấp mã truy cập TAY cho đơn này (không throw lại, tránh action gọi hàm này
-            // hiểu nhầm là "xác nhận thanh toán" thất bại).
-            Log::warning('BankTransferConfirmationService: đơn đã xác nhận thanh toán nhưng cấp mã truy cập tự động thất bại — cần cấp tay', [
-                'order_code' => $order->order_code,
-                'error'      => $e->getMessage(),
-            ]);
         }
     }
 }

@@ -26,6 +26,11 @@ class AuditLogResource extends Resource
         return 'Phân quyền';
     }
 
+    public static function getNavigationSort(): ?int
+    {
+        return 5;
+    }
+
     public static function getNavigationLabel(): string
     {
         return 'Lịch sử thao tác';

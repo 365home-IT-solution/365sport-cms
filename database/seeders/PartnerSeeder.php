@@ -3,11 +3,9 @@
 namespace Database\Seeders;
 
 use App\Models\Partner;
-use App\Models\TtlockAccount;
 use App\Models\User;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
-use Modules\AccessCode\Entities\AccessCode;
 use Modules\AuditLog\Entities\AuditLog;
 use Modules\Category\Entities\Category;
 use Modules\Employee\Entities\Department;
@@ -28,7 +26,7 @@ class PartnerSeeder extends Seeder
 {
     // Tạo N đối tác mẫu, mỗi đối tác có đủ dữ liệu nghiệp vụ (≥2 bản ghi/loại) thuộc phạm vi đã
     // lọc theo partner_id — để kiểm tra toàn diện việc cô lập dữ liệu giữa các đối tác:
-    // chi nhánh, sân, nhân viên, coupon, khuyến mãi, đơn hàng, mã mở cửa, tài khoản TTLock, audit log.
+    // chi nhánh, sân, nhân viên, coupon, khuyến mãi, đơn hàng, audit log.
     //
     // Tên các bản ghi nghiệp vụ (sân/chi nhánh/coupon/dịch vụ...) KHÔNG gắn tên đối tác vào —
     // việc phân biệt dữ liệu của đối tác nào đã có badge màu riêng theo từng đối tác ở trang
@@ -294,39 +292,6 @@ class PartnerSeeder extends Seeder
                 );
             }
 
-            // 2 mã mở cửa, mỗi mã gắn với 1 chi nhánh
-            for ($a = 1; $a <= 2; $a++) {
-                AccessCode::updateOrCreate(
-                    ['code' => "AC{$n}{$a}"],
-                    [
-                        'partner_id'  => $partner->id,
-                        'category_id' => $branches[$a - 1]->id ?? $branches[0]->id,
-                        'status'      => 'active',
-                        'valid_from'  => now(),
-                        'valid_until' => now()->addDays(30),
-                        'gate_location' => "Cổng chính chi nhánh {$a}",
-                        'notes'       => "Mã mở cửa số {$a}",
-                    ]
-                );
-            }
-
-            // 2 tài khoản TTLock/đối tác
-            // Lưu ý: DB hiện tại của bảng ttlock_accounts chưa có cột category_id/is_default dù
-            // migration nguồn có khai báo — có vẻ migration đã chạy trước khi các cột này được
-            // thêm vào file (thiếu 1 migration "add column" tương ứng, không thuộc phạm vi sửa ở đây).
-            for ($t = 1; $t <= 2; $t++) {
-                TtlockAccount::updateOrCreate(
-                    ['client_id' => "partner{$n}-client-{$t}"],
-                    [
-                        'partner_id'    => $partner->id,
-                        'name'          => "TTLock {$t}",
-                        'client_secret' => "secret-partner{$n}-{$t}",
-                        'username'      => "ttlock_partner{$n}_{$t}",
-                        'password_md5'  => md5("password-partner{$n}-{$t}"),
-                        'is_active'     => true,
-                    ]
-                );
-            }
 
             // 2 audit log mẫu (thao tác của chủ đối tác)
             foreach ($rooms as $l => $room) {

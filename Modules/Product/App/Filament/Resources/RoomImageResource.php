@@ -7,6 +7,7 @@ namespace Modules\Product\App\Filament\Resources;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 use Modules\Product\App\Filament\Resources\RoomImageResource\Forms\RoomImageForm;
 use Modules\Product\App\Filament\Resources\RoomImageResource\Pages;
 use Modules\Product\App\Filament\Resources\RoomImageResource\Tables\RoomImageTable;
@@ -24,6 +25,33 @@ class RoomImageResource extends Resource
     public static function canDelete(\Illuminate\Database\Eloquent\Model $record): bool { return auth()->user()?->can('delete_room::image') ?? false; }
     public static function canDeleteAny(): bool { return auth()->user()?->can('delete_any_room::image') ?? false; }
 
+    // RoomImage KHÔNG có partner_id/branch_id riêng — gắn chi nhánh GIÁN TIẾP qua room_id ->
+    // Product::categories(). TRƯỚC ĐÂY không có getEloquentQuery() nào, lộ ảnh sân của MỌI đối
+    // tác cho bất kỳ ai có permission Shield chung (view_any_room::image không tách theo đối tác).
+    public static function getEloquentQuery(): Builder
+    {
+        $query = parent::getEloquentQuery();
+        $user  = auth()->user();
+
+        if (! $user) {
+            return $query;
+        }
+
+        $branchIds = $user->effectiveBranchIds();
+
+        if (empty($branchIds)) {
+            return $user->isSuperAdmin() ? $query : $query->whereRaw('1 = 0');
+        }
+
+        $categoryIds = $user->visibleProductCategoryIds($branchIds);
+
+        if (empty($categoryIds)) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        return $query->whereHas('room.categories', fn (Builder $q) => $q->whereIn('categories.id', $categoryIds));
+    }
+
     public static function getNavigationIcon(): string
     {
         return 'heroicon-o-photo';
@@ -31,7 +59,12 @@ class RoomImageResource extends Resource
 
     public static function getNavigationGroup(): ?string
     {
-        return 'Quản lý API';
+        return 'Quản lý';
+    }
+
+    public static function getNavigationSort(): ?int
+    {
+        return 5;
     }
 
     public static function getNavigationLabel(): string

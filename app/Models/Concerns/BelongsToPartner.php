@@ -11,7 +11,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 // Áp dụng vào các model dữ liệu nghiệp vụ thuộc riêng từng đối tác (products, orders, coupons,
-// promotions, access_codes, ttlock_accounts, audit_logs, employees...). Super_admin luôn xem được
+// promotions, audit_logs, employees...). Super_admin luôn xem được
 // toàn bộ; các user khác chỉ thấy dữ liệu của đối tác mình (users.partner_id).
 trait BelongsToPartner
 {

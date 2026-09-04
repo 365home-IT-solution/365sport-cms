@@ -32,11 +32,11 @@ class NotificationFcmResource extends Resource
     protected static ?string $model = NotificationFcm::class;
 
     protected static ?string $navigationIcon   = 'heroicon-o-bell-alert';
-    protected static ?string $navigationGroup  = 'Quản lý API';
+    protected static ?string $navigationGroup  = 'Cấu hình web';
     protected static ?string $navigationLabel  = 'Push Notification';
     protected static ?string $modelLabel       = 'Thông báo';
     protected static ?string $pluralModelLabel = 'Push Notifications';
-    protected static ?int    $navigationSort   = 10;
+    protected static ?int    $navigationSort   = 12;
 
     // Trước đây hardcode isSuperAdmin() — bỏ qua NotificationFcmPolicy (đã đúng, kiểm tra
     // view_any_notification::fcm), khiến tick/bỏ tick quyền này ở Roles & Permissions vô tác dụng.

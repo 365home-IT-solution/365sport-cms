@@ -310,7 +310,7 @@ class OrderCalendarWidget extends CalendarWidget
             ->icon('heroicon-m-eye')
             ->modalWidth('7xl')
             ->modalHeading(fn($record) => 'Chi tiết đơn hàng: ' . ($record->order_code ?? '#' . $record->id))
-            ->record(fn($arguments) => Order::with(['items.product', 'accessCodes'])->find($arguments['event']['extendedProps']['id'] ?? null))
+            ->record(fn($arguments) => Order::with(['items.product'])->find($arguments['event']['extendedProps']['id'] ?? null))
             ->form([
                 Tabs::make('OrderTabs')
                     ->tabs([
@@ -369,25 +369,6 @@ class OrderCalendarWidget extends CalendarWidget
                         Tabs\Tab::make('Thông tin đơn đặt sân')
                             ->icon('heroicon-m-home-modern')
                             ->schema([
-                                Section::make('Mã cổng')
-                                    ->schema([
-                                        Placeholder::make('access_code_info')
-                                            ->label('')
-                                            ->content(function ($record) {
-                                                if (!$record || !$record->accessCode) {
-                                                    return 'Chưa có mã cổng';
-                                                }
-
-                                                $code = $record->accessCode;
-
-                                                return view('payment::components.access-code-info', [
-                                                    'code' => $code,
-                                                ]);
-                                            }),
-                                    ])
-                                    ->visible(fn($record) => $record && $record->status === 'paid')
-                                    ->collapsible(),
-
                                 Grid::make(2)->schema([
                                     Section::make('Chi tiết đặt sân')
                                         ->icon('heroicon-m-calendar-days')

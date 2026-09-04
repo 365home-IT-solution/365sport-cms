@@ -32,7 +32,7 @@ class PartnerResource extends Resource
 
     protected static ?string $slug = 'partners';
 
-    protected static ?int $navigationSort = 0;
+    protected static ?int $navigationSort = 5;
 
     public static function form(Form $form): Form
     {

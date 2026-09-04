@@ -10,10 +10,6 @@ use Modules\Payment\App\Filament\Resources\OrderResource\Forms\OrderForm;
 
 class OrderAction
 {
-    // $extraGroupActions — action bổ sung (vd AssignAccessCodeAction/OpenGateAction/
-    // toggle_unlock_anytime ở OrderTable.php) gộp CHUNG vào đúng ActionGroup "..." này (theo yêu
-    // cầu — không tạo thêm 1 icon/ActionGroup riêng nằm cạnh, tất cả action của 1 dòng phải nằm
-    // trong CÙNG 1 dropdown "Xem chi tiết/Cập nhật/Xóa").
     public static function action(array $extraGroupActions = [])
     {
         return [

@@ -12,9 +12,6 @@ use Modules\BladeThemeV1\Traits\CartTrait;
 use Modules\BladeThemeV1\Traits\GHNServiceTrait;
 use Modules\BladeThemeV1\Traits\ValidationRulesTrait;
 
-//use Modules\ThemeTHS\Traits\GHTKServiceTrait;
-
-
 class Payment extends Component
 {
     use CartTrait, AddressHandlerTrait, GHNServiceTrait, ValidationRulesTrait;

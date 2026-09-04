@@ -1234,14 +1234,9 @@ window.rcCalOpenOrderPopup = function(orderId) {
                     + '</span>';
             }
 
-            // Cột trái: mã cổng (nếu có — CHỈ hiện khi server đã xác định đơn thuộc chi nhánh có
-            // TTLock hoặc sân dùng khóa thủ công, xem routes/web.php orders/{id}/quick-info,
-            // cùng luật OrderForm::hasAccessCodeSection()) NẰM ĐẦU, rồi tới thông tin khách + ghi
-            // chú (sửa được tại chỗ — rcCalSaveOrderNote()) + nút điều hướng. Cột phải:
-            // 'amount_html' (component total-amount-card render sẵn).
-            var left = o.access_code ? window._rcBuildAccessCodeHtml(o.access_code) : '';
-
-            left += '<div class="ta-rc-order-popup-field"><span class="ta-rc-order-popup-field-label">Khách hàng</span>'
+            // Cột trái: thông tin khách + ghi chú (sửa được tại chỗ — rcCalSaveOrderNote()) + nút
+            // điều hướng. Cột phải: 'amount_html' (component total-amount-card render sẵn).
+            var left = '<div class="ta-rc-order-popup-field"><span class="ta-rc-order-popup-field-label">Khách hàng</span>'
                 + '<span class="ta-rc-order-popup-field-value">' + window._escAttr(o.buyer_name || 'Khách') + '</span></div>';
             left += '<div class="ta-rc-order-popup-field"><span class="ta-rc-order-popup-field-label">Số điện thoại</span>'
                 + '<span class="ta-rc-order-popup-field-value">' + (o.buyer_phone
@@ -1276,60 +1271,6 @@ window.rcCalOpenOrderPopup = function(orderId) {
         .catch(function() {
             body.innerHTML = '<div class="ta-rc-order-popup-error">Không tải được thông tin đơn.</div>';
         });
-};
-
-// Khung "Mã cổng" GỌN riêng cho popup này (KHÔNG tái dùng access-code-info.blade.php/
-// manual-lock-info.blade.php nguyên bản — 2 component đó thiết kế cho khung RỘNG của orderform,
-// chữ mã cỡ 3xl/4xl + lưới hiệu lực 2 cột + padding lớn, nhồi vào cột trái hẹp ~230px của popup
-// sẽ vỡ layout) — chỉ đọc dữ liệu thô 'access_code' từ quick-info (routes/web.php).
-window._rcBuildAccessCodeHtml = function(ac) {
-    var colorMap = { success: '#10b981', danger: '#ef4444', warning: '#f59e0b', gray: '#94a3b8' };
-    var col = colorMap[ac.status_color] || '#94a3b8';
-    var svgCopy = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>';
-
-    // suffix: ký tự dính liền ngay sau mã (vd '#' cho mã TTLock) — CÙNG màu với mã, và tính LUÔN
-    // vào chuỗi khi bấm Sao chép (không tách riêng như trước).
-    function codeRow(label, code, suffix) {
-        if (!code) return '';
-        var full = code + (suffix || '');
-        return '<div class="ta-rc-order-popup-access-code-row">'
-            + (label ? '<span class="ta-rc-order-popup-access-code-tag">' + window._escAttr(label) + '</span>' : '')
-            + '<span class="ta-rc-order-popup-access-code">' + window._escAttr(full) + '</span>'
-            + '<button type="button" class="ta-rc-order-popup-access-copy-btn" title="Sao chép" onclick="rcCalCopyAccessCode(this, \'' + window._escAttr(full) + '\')">' + svgCopy + '</button>'
-            + '</div>';
-    }
-
-    var codesHtml = ac.type === 'manual'
-        ? codeRow('Cổng', ac.gate_password) + codeRow('Sân', ac.room_password)
-        : (ac.code ? codeRow(null, ac.code, '#') : '<div class="ta-rc-order-popup-access-empty">Chưa có mã cổng</div>');
-
-    // Vị trí cổng (nếu có) — đã bỏ dòng "Hiệu lực" theo yêu cầu.
-    var metaHtml = ac.gate_location
-        ? '<div class="ta-rc-order-popup-access-meta">Vị trí: ' + window._escAttr(ac.gate_location) + '</div>'
-        : '';
-
-    // Trạng thái: chỉ 1 chấm tròn màu, không còn chữ ("Hoạt động"/...) — hover (title) vẫn đọc
-    // được nhãn đầy đủ cho ai cần.
-    var statusDot = ac.status_label
-        ? '<span class="ta-rc-order-popup-access-dot" style="background:' + col + ';" title="' + window._escAttr(ac.status_label) + '"></span>'
-        : '';
-
-    return '<div class="ta-rc-order-popup-access">'
-        + '<div class="ta-rc-order-popup-access-top">'
-        +     '<span class="ta-rc-order-popup-field-label">' + (ac.type === 'manual' ? 'Mã cổng (thủ công)' : 'Mã cổng') + '</span>'
-        +     statusDot
-        + '</div>'
-        + codesHtml
-        + metaHtml
-        + '</div>';
-};
-
-window.rcCalCopyAccessCode = function(btn, code) {
-    navigator.clipboard.writeText(code).then(function () {
-        var original = btn.innerHTML;
-        btn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>';
-        setTimeout(function () { btn.innerHTML = original; }, 1200);
-    });
 };
 
 window.rcCalCloseOrderPopup = function() {

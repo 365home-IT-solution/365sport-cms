@@ -16,7 +16,7 @@ class WarehouseCategoryResource extends Resource
 {
     protected static ?string $model = WarehouseCategory::class;
 
-    protected static ?int $navigationSort = 6;
+    protected static ?int $navigationSort = 8;
 
     // Cả module Kho khoá chung theo 1 tính năng gói 'warehouse' (Partner::hasFeature(), xem
     // PartnerPlanResource::FEATURE_OPTIONS) — không tách nhỏ từng resource con vì luôn dùng cùng

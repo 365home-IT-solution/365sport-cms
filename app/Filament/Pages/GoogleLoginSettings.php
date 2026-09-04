@@ -26,6 +26,8 @@ class GoogleLoginSettings extends Page implements HasForms
 
     protected static ?string $navigationGroup = 'Cấu hình web';
 
+    protected static ?int $navigationSort = 9;
+
     protected static ?string $navigationLabel = 'Đăng nhập Google';
 
     protected static ?string $title = 'Đăng nhập Google (khách hàng)';

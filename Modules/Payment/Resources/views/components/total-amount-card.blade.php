@@ -357,7 +357,7 @@
 @endphp
 
 {{--
-    Bảng màu "boulder" (trung tính, sang trọng) — dùng CHUNG với order-form.css/access-code-info,
+    Bảng màu "boulder" (trung tính, sang trọng) — dùng CHUNG với order-form.css,
     xem style="..." bên dưới. Màu NGỮ NGHĨA thật (xanh=đã thu/đã trả đủ, đỏ=còn nợ/cảnh báo, hổ
     phách=đang chờ xử lý) vẫn giữ nguyên — CHỈ trung hoà các mảng màu KHÔNG mang nghĩa cảnh báo gì
     (dịch vụ/giảm giá/ghi chú trước đây tô cam/xanh dương/xanh da trời tuỳ ý) về đúng 1 bảng màu

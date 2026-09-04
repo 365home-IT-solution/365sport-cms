@@ -38,12 +38,6 @@ class TelegramService
         ]);
     }
 
-public function sendLockMessage(string $message): void
-{
-    $lockChatId = config('services.telegram.lock_chat_id') ?: $this->chatId;
-    $this->sendMessage($message, $lockChatId);
-}
-
 /**
  * Gửi thông báo liên quan đến cọc sân (style=2) sang nhóm Telegram riêng.
  * Nếu chưa cấu hình TELEGRAM_DEPOSIT_CHAT_ID thì fallback về chat_id chính.
