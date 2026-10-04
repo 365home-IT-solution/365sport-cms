@@ -36,7 +36,7 @@ class FormSubmissionForm
                     ->disableDeletingRows()
                     ->disableEditingKeys()
                     ->columnSpanFull()
-                    ->formatStateUsing(fn(FormSubmission $record) => $record->formFieldValues->mapWithKeys(
+                    ->formatStateUsing(fn(?FormSubmission $record) => ($record?->formFieldValues ?? collect())->mapWithKeys(
                         fn($fieldValue) => [
                             $fieldValue->field->label ?? $fieldValue->field->name ?? 'Thông tin bổ sung' => $fieldValue->value
                         ]

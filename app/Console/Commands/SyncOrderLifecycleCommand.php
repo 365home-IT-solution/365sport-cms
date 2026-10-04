@@ -6,6 +6,7 @@ use App\Services\OrderRealtimeService;
 use Illuminate\Console\Command;
 use Modules\Payment\Entities\Order;
 use Modules\Payment\Entities\OrderItem;
+use Modules\Warehouse\App\Services\WarehouseRentalService;
 
 /**
  * Safety-net: tự động trả sân (order_status = checked_out) khi khách quá giờ
@@ -16,7 +17,7 @@ class SyncOrderLifecycleCommand extends Command
     protected $signature   = 'orders:sync-lifecycle';
     protected $description = 'Tự động chuyển order_status sang checked_out khi quá giờ checkout mà khách chưa tự trả sân';
 
-    public function handle(OrderRealtimeService $realtime): int
+    public function handle(OrderRealtimeService $realtime, WarehouseRentalService $rentals): int
     {
         $overdueOrderIds = OrderItem::where('extra_fee', 0)
             ->whereNotNull('checkout_date')
@@ -31,6 +32,11 @@ class SyncOrderLifecycleCommand extends Command
 
         foreach ($orders as $order) {
             $order->update(['order_status' => 'checked_out', 'checked_out_at' => now()]);
+
+            // Hết giờ chơi — coi như buổi thuê dụng cụ (nếu có) đã kết thúc, tự trả lại kho. Nhân
+            // viên vẫn có thể tự tay báo "mất" sau đó nếu khách không trả thật (xem
+            // WarehouseItemRentalResource).
+            $rentals->releaseForOrder($order);
 
             $realtime->broadcastOrderUpdate(
                 (string) $order->order_code,

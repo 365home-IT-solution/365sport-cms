@@ -8,7 +8,9 @@ return new class extends Migration
 {
     public function up(): void
     {
-        if (Schema::hasColumn('access_codes', 'partner_id')) {
+        // Bảng thuộc module AccessCode/TTLock đã gỡ (bị drop ở các migration 2026_09_03_9000xx) —
+        // cài mới từ đầu thì bảng chưa từng được tạo, bỏ qua thay vì lỗi.
+        if (! Schema::hasTable('access_codes') || Schema::hasColumn('access_codes', 'partner_id')) {
             return;
         }
 
@@ -20,7 +22,7 @@ return new class extends Migration
 
     public function down(): void
     {
-        if (! Schema::hasColumn('access_codes', 'partner_id')) {
+        if (! Schema::hasTable('access_codes') || ! Schema::hasColumn('access_codes', 'partner_id')) {
             return;
         }
 

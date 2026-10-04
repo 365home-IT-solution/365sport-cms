@@ -68,6 +68,7 @@ class Product extends Model implements HasMedia, Resourceable
         'room_config',
         'setting_video_room',
         'room_type_id',
+        'employee_id',
         'thumbnail_color',
         'price_unit',
         'rating_score',
@@ -114,11 +115,45 @@ class Product extends Model implements HasMedia, Resourceable
         static::deleting(function ($product) {
             $product->comments()->delete();
         });
+
+        // KHÔNG dùng global scope để ẩn coach khỏi danh sách sân — global scope sẽ chặn LUÔN cả
+        // Product::find($id) ở khắp luồng đặt chỗ hiện có (BuildsRoomBooking, RoomController,
+        // OrderItem...), phá vỡ đúng mục tiêu "tái dùng nguyên engine đặt chỗ cho coach". Thay vào
+        // đó, CHỈ các endpoint LIỆT KÊ/TÌM KIẾM sân cho khách (Home/Search/Branch) tự thêm
+        // ->where('type', '!=', 'coach') — xem từng controller đó.
     }
 
     public function roomType()
     {
         return $this->belongsTo(RoomType::class);
+    }
+
+    // Coach thuê theo giờ (type='coach') là nhân viên THẬT (quản lý lương/chấm công qua module
+    // Employee) — tách biệt với Product (đơn vị BÁN giờ dạy cho khách, tái dùng nguyên
+    // RoomTimeSlot/PriceBoard/Book/Order như sân). Null với product thường (sân).
+    public function employee()
+    {
+        return $this->belongsTo(Employee::class);
+    }
+
+    public function isCoach(): bool
+    {
+        return $this->type === 'coach';
+    }
+
+    // Sân/phòng bình thường — dùng ở các trang LIỆT KÊ cho khách (trang chủ, tìm kiếm, chi nhánh)
+    // để loại coach ra khỏi danh sách duyệt sân. KHÔNG áp dụng cho tra cứu trực tiếp theo ID (đặt
+    // chỗ/xem chi tiết) — những chỗ đó cố tình dùng chung engine với coach, không được lọc.
+    public function scopeExcludingCoaches($query)
+    {
+        return $query->where(function ($q) {
+            $q->where('type', '!=', 'coach')->orWhereNull('type');
+        });
+    }
+
+    public function scopeCoaches($query)
+    {
+        return $query->where('type', 'coach');
     }
 
     // Sân ngoài trời hay không — suy ra từ room_types.is_outdoor (xem migration

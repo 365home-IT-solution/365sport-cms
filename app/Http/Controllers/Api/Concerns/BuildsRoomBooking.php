@@ -267,7 +267,8 @@ trait BuildsRoomBooking
             return [0, []];
         }
 
-        $availableServices = $room->additionalServices->keyBy('id');
+        $room->loadMissing('additionalServices.warehouseItem');
+        $availableServices = $room->additionalServices->filter(fn ($service) => is_null($service->warehouse_item_id))->keyBy('id');
         $total = 0;
         $data  = [];
 
@@ -290,6 +291,43 @@ trait BuildsRoomBooking
                 'price'        => (int) $service->price,
                 'quantity'     => $quantity,
                 'subtotal'     => (int) $subtotal,
+            ];
+        }
+
+        return [$total, $data];
+    }
+
+    // ── Equipment rental (tách hoàn toàn khỏi payload services) ─────────────
+
+    private function buildEquipment(Request $request, Product $room): array
+    {
+        $requested = collect($request->input('equipment', []));
+        if ($requested->isEmpty()) return [0, []];
+
+        $room->loadMissing('additionalServices.warehouseItem');
+        $available = $room->additionalServices
+            ->filter(fn ($item) => ! is_null($item->warehouse_item_id) && $item->warehouseItem)
+            ->keyBy('id');
+        $total = 0;
+        $data = [];
+
+        foreach ($requested as $index => $entry) {
+            $id = (int) $entry['equipment_id'];
+            $quantity = (int) $entry['quantity'];
+            $item = $available->get($id);
+            if (! $item || ! $item->is_active) {
+                throw ValidationException::withMessages(["equipment.{$index}.equipment_id" => ['Vật tư không khả dụng cho sân này.']]);
+            }
+            if ($quantity > $item->warehouseItem->quantity_reserve) {
+                throw ValidationException::withMessages(["equipment.{$index}.quantity" => ["{$item->name} không đủ tồn kho khả dụng."]]);
+            }
+            $subtotal = $item->price * $quantity;
+            $total += $subtotal;
+            // Lưu chứng từ giá vào order_services để observer WarehouseRentalService tạo rental;
+            // API/UI vẫn dùng payload equipment riêng và vòng đời kho nằm ở warehouse_item_rentals.
+            $data[] = [
+                'service_id' => $item->id, 'service_name' => $item->name,
+                'price' => (int) $item->price, 'quantity' => $quantity, 'subtotal' => (int) $subtotal,
             ];
         }
 

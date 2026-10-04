@@ -19,7 +19,11 @@ Route::name('filament.')
                             $route = $hasTenancy ? '/{tenant}/two-factor-authentication' : '/two-factor-authentication';
                             $action = filament('filament-breezy')->getTwoFactorRouteAction();
 
-                            Route::get($route, $action)->name('auth.two-factor');
+                            // 2FA chưa bật (enableTwoFactorAuthentication() không được gọi) thì action
+                            // = null — đăng ký route sẽ gây 500 "Route has no action" khi bị truy cập.
+                            if ($action !== null) {
+                                Route::get($route, $action)->name('auth.two-factor');
+                            }
                         }
                     });
             }

@@ -37,6 +37,19 @@ class Kernel extends ConsoleKernel
             ->withoutOverlapping()
             ->appendOutputTo(storage_path('logs/link-registered-guests.log'));
 
+        // Gói dịch vụ đối tác: nhắc hạn, báo hết hạn, link tự gia hạn, dọn giao dịch quá hạn.
+        $schedule->command('subscriptions:process')
+            ->dailyAt('08:00')
+            ->timezone('Asia/Ho_Chi_Minh')
+            ->withoutOverlapping()
+            ->appendOutputTo(storage_path('logs/subscriptions-process.log'));
+
+        $schedule->command('camera-alerts:poll')
+            ->everyFiveMinutes()
+            ->timezone('Asia/Ho_Chi_Minh')
+            ->withoutOverlapping()
+            ->appendOutputTo(storage_path('logs/camera-alerts-poll.log'));
+
         $schedule->command('housekeeping:mark-cleaning')
             ->everyFiveMinutes()
             ->timezone('Asia/Ho_Chi_Minh')

@@ -18,7 +18,7 @@ class HousekeepingSummaryService
             $user = auth()->user();
         }
 
-        $query = Product::where('is_activated', true);
+        $query = Product::where('is_activated', true)->excludingCoaches();
 
         if ($user && ! $user->isSuperAdmin() && ! $user->isPartnerOwner()) {
             $employee = $user->employee;

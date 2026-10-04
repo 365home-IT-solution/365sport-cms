@@ -68,7 +68,7 @@ return [
     ],
 
     'generator' => [
-        'option' => 'policies_and_permissions',
+        'option' => 'permissions', // chỉ sinh QUYỀN: sinh lại policy sẽ ghi đè policy đã chỉnh tay (model dùng chung nhiều resource bị đổi sai tên quyền)
         'policy_directory' => 'Policies',
         'policy_namespace' => 'Policies',
     ],

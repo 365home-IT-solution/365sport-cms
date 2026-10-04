@@ -16,7 +16,6 @@ class MailSettings extends Settings
     public ?string $password;
     public ?int $timeout;
     public ?string $local_domain;
-    public array $lock_notify_emails;
 
     public static function group(): string
     {

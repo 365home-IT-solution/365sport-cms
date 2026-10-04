@@ -6,7 +6,6 @@ use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
-use Faker\Factory as Faker;
 use Illuminate\Support\Facades\Artisan;
 
 class UsersTableSeeder extends Seeder
@@ -26,8 +25,6 @@ class UsersTableSeeder extends Seeder
             return;
         }
 
-        $faker = Faker::create();
-
         $sid = Str::uuid();
         DB::table('users')->insert([
             'id' => $sid,
@@ -41,25 +38,25 @@ class UsersTableSeeder extends Seeder
 
         Artisan::call('shield:super-admin', ['--user' => $sid]);
 
-        $roles = DB::table('roles')->whereNot('name', 'super_admin')->get();
+        // Mỗi vai trò (trừ super_admin) 1 tài khoản demo CỐ ĐỊNH (email theo tên vai trò, mật khẩu
+        // 'password') — trước đây sinh 10 user ngẫu nhiên (faker) cho mỗi vai trò làm bẩn dữ liệu test.
+        $roles = DB::table('roles')->whereNot('name', 'super_admin')->orderBy('name')->get();
         foreach ($roles as $role) {
-            for ($i = 0; $i < 10; $i++) {
-                $userId = Str::uuid();
-                DB::table('users')->insert([
-                    'id' => $userId,
-                    'fullname' => $faker->firstName,
-                    'email' => $faker->unique()->safeEmail,
-                    'email_verified_at' => now(),
-                    'password' => Hash::make('password'),
-                    'created_at' => now(),
-                    'updated_at' => now(),
-                ]);
-                DB::table('model_has_roles')->insert([
-                    'role_id' => $role->id,
-                    'model_type' => 'App\Models\User',
-                    'model_id' => $userId,
-                ]);
-            }
+            $userId = Str::uuid();
+            DB::table('users')->insert([
+                'id' => $userId,
+                'fullname' => 'Demo ' . $role->name,
+                'email' => 'demo.' . Str::slug($role->name) . '@365sport.test',
+                'email_verified_at' => now(),
+                'password' => Hash::make('password'),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+            DB::table('model_has_roles')->insert([
+                'role_id' => $role->id,
+                'model_type' => 'App\Models\User',
+                'model_id' => $userId,
+            ]);
         }
     }
 }

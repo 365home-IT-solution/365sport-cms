@@ -54,7 +54,7 @@ class ListRoomAmenityAssign extends ListRecords
                         Select::make('room_id')
                             ->label('Sân')
                             ->options(
-                                Product::where('is_activated', true)
+                                Product::where('is_activated', true)->excludingCoaches()
                                     ->orderBy('name')
                                     ->pluck('name', 'id')
                             )

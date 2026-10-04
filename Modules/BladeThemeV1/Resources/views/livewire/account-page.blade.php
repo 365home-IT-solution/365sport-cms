@@ -763,7 +763,7 @@
                         <button
                             type="button"
                             wire:click="cancelOrder({{ $order['id'] }})"
-                            wire:confirm="Huỷ đơn {{ $order['order_code'] }}? Bạn sẽ được hoàn {{ number_format($order['cancel_refund_amount'], 0, ',', '.') }}đ (70% đã trừ phí xử lý). Không thể hoàn tác."
+                            wire:confirm="Huỷ đơn {{ $order['order_code'] }}? Bạn sẽ nhận lại đúng {{ number_format($order['cancel_refund_amount'], 0, ',', '.') }}đ, tương đương 70% số tiền đã thanh toán. 30% còn lại là phí huỷ và xử lý. Không thể hoàn tác."
                             class="inline-flex items-center gap-1 text-xs font-medium text-red-600 hover:text-red-700 transition-colors px-2.5 py-1.5 rounded-lg hover:bg-red-50"
                         >
                             <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">

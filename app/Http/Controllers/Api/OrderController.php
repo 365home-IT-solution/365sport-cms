@@ -9,12 +9,14 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Config;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 use Modules\Payment\App\Services\CccdScannerService;
 use Modules\Payment\Entities\Order;
 use Modules\Promotion\App\Models\Coupon;
+use Modules\Warehouse\App\Services\WarehouseRentalService;
 use PayOS\PayOS;
 
 class OrderController extends Controller
@@ -348,10 +350,16 @@ class OrderController extends Controller
 
             $oldServicesTotal = (int) $order->services->sum('subtotal');
 
-            $order->services()->delete();
-            foreach ($servicesData as $svc) {
-                $order->services()->create($svc);
-            }
+            // Atomic: trả dụng cụ cũ → xoá → tạo lại → mượn dụng cụ mới (xem giải thích đầy đủ ở
+            // OrderServiceController::store()).
+            DB::transaction(function () use ($order, $servicesData) {
+                app(WarehouseRentalService::class)->releaseForOrder($order);
+
+                $order->services()->delete();
+                foreach ($servicesData as $svc) {
+                    $order->services()->create($svc);
+                }
+            });
 
             $currentAmountBase = isset($updates['amount']) ? (int) $updates['amount'] : (int) $order->amount;
             $roomBaseAmount    = max(0, $currentAmountBase - $oldServicesTotal);
@@ -1122,12 +1130,28 @@ class OrderController extends Controller
             ];
         })->values()->toArray();
 
-        $services = $order->services->map(fn ($s) => [
+        // 'services' giữ nguyên (gồm cả vật tư, app cũ đang cộng theo mảng này) nhưng gắn thêm
+        // 'type' để phân biệt; 'equipment'/'coaches' tách riêng giống trang chi tiết đơn phía web.
+        $addons = $order->addonBreakdown();
+        $equipmentIds = $addons['equipment']->pluck('service_id')->map(fn ($id) => (int) $id)->all();
+        $mapService = fn ($s) => [
             'service_id'   => $s->service_id,
             'service_name' => $s->service_name,
             'price'        => $s->price,
             'quantity'     => $s->quantity,
             'subtotal'     => $s->subtotal,
+            'type'         => in_array((int) $s->service_id, $equipmentIds, true) ? 'equipment' : 'service',
+        ];
+        $services = $order->services->map($mapService)->values()->toArray();
+        $equipment = $addons['equipment']->map($mapService)->values()->toArray();
+        $coaches = $addons['coaches']->map(fn ($c) => [
+            'coach_id'    => $c->coach_id,
+            'coach_name'  => $c->coach_name,
+            'hourly_rate' => $c->hourly_rate,
+            'minutes'     => $c->minutes,
+            'subtotal'    => $c->subtotal,
+            'starts_at'   => $c->starts_at?->format('Y-m-d H:i'),
+            'ends_at'     => $c->ends_at?->format('Y-m-d H:i'),
         ])->values()->toArray();
 
         [$promotions, $promotionDiscount] = $this->recomputePromotions($order->items, $rtsMap);
@@ -1198,6 +1222,8 @@ class OrderController extends Controller
             ],
             'slots'           => $slots,
             'services'        => $services,
+            'equipment'       => $equipment,
+            'coaches'         => $coaches,
             'guest_surcharge' => $guestSurchargeInfo,
             'promotions'      => $promotions,
             'system_discount' => $sysDelta > 0 ? ['discount_amount' => $sysDelta] : null,
@@ -1219,6 +1245,9 @@ class OrderController extends Controller
                 'slots_final'          => $slotsFinal,
                 'guest_surcharge'      => $guestSurchargeTotal,
                 'services_total'       => $servicesTotal,
+                'pure_services_total'  => $addons['services_total'],
+                'equipment_total'      => $addons['equipment_total'],
+                'coaches_total'        => $addons['coaches_total'],
                 'total_after_discount' => $realFinalDetail,
                 'final_amount'         => (int) $order->full_amount,
                 'grand_total'          => $realFinalDetail + (int) ($order->extra_charge_amount ?? 0),

@@ -6,6 +6,7 @@ namespace Modules\Product\App\Filament\Resources;
 
 use App\Filament\Support\PartnerTableHelpers;
 use Filament\Forms\Components\FileUpload;
+use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Forms\Form;
@@ -19,6 +20,7 @@ use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Modules\BladeThemeV1\App\Models\AdditionService;
 use Modules\Product\App\Filament\Resources\AdditionServiceResource\Pages;
+use Modules\Warehouse\App\Models\WarehouseItem;
 
 // Dịch vụ bổ sung được lọc theo partner_id qua BelongsToPartner (global scope trên
 // AdditionService model) — mỗi đối tác tự tạo dịch vụ của riêng mình, không dùng chung nữa. Vẫn
@@ -129,6 +131,14 @@ class AdditionServiceResource extends Resource
                 ->required()
                 ->minValue(0),
 
+            Select::make('warehouse_item_id')
+                ->label('Vật tư kho (nếu là dịch vụ cho thuê dụng cụ)')
+                ->helperText('Chỉ chọn khi dịch vụ này là CHO THUÊ dụng cụ (vợt, giày, bóng...) — mỗi lần khách chọn dịch vụ này khi đặt sân sẽ tự trừ tồn kho khả dụng và trả lại khi kết thúc/huỷ. Dịch vụ tính tiền thuần (nước uống...) để trống.')
+                ->options(fn () => WarehouseItem::where('status', true)->orderBy('name')->pluck('name', 'id'))
+                ->searchable()
+                ->preload()
+                ->nullable(),
+
             Toggle::make('is_active')
                 ->label('Kích hoạt')
                 ->default(true)
@@ -165,6 +175,13 @@ class AdditionServiceResource extends Resource
                     ->counts('products')
                     ->badge()
                     ->color('info'),
+
+                TextColumn::make('warehouseItem.name')
+                    ->label('Dụng cụ kho')
+                    ->badge()
+                    ->color('warning')
+                    ->placeholder('—')
+                    ->toggleable(),
 
                 ToggleColumn::make('is_active')
                     ->label('Kích hoạt'),

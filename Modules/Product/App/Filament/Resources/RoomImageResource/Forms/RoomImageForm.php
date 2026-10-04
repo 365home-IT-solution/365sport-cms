@@ -26,7 +26,7 @@ class RoomImageForm
                 Group::make([
                     Select::make('room_id')
                         ->label('Sân')
-                        ->options(Product::where('is_activated', true)->orderBy('name')->pluck('name', 'id'))
+                        ->options(Product::where('is_activated', true)->excludingCoaches()->orderBy('name')->pluck('name', 'id'))
                         ->searchable()
                         ->required(),
 

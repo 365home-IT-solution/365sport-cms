@@ -65,7 +65,8 @@ trait HasOrderServicesManagement
     {
         $this->data['amount'] = OrderForm::computeOrderTotal(
             $this->data['orderItems'] ?? [],
-            $this->data['orderServices'] ?? []
+            $this->data['orderServices'] ?? [],
+            $this->data['orderCoaches'] ?? []
         ) + (float) ($this->data['surcharge'] ?? 0);
     }
 }

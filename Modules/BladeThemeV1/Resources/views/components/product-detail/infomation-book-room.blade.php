@@ -705,7 +705,7 @@
                     Tôi xác nhận đã đủ 18 tuổi (hoặc có người giám hộ đi cùng), đã đọc và đồng ý với
                     <a href="{{ url('noi-quy-va-quy-dinh') }}" target="_blank" rel="noopener" class="font-semibold text-red-600 underline">Nội quy</a> và
                     <a href="{{ url('privacy') }}" target="_blank" rel="noopener" class="font-semibold text-red-600 underline">Chính sách</a>
-                    của 365Home, bao gồm điều kiện hoàn tiền (hoàn từ 70% khi hủy, 10% phí xử lý). Sau khi thanh toán, vui lòng quay lại đây để hoàn tất.
+                    của 365Home, bao gồm điều kiện hoàn tiền khi khách tự hủy (nhận lại đúng 70% số tiền đã thanh toán; 30% còn lại là phí huỷ và xử lý). Sau khi thanh toán, vui lòng quay lại đây để hoàn tất.
                 </span>
             </label>
             @if ($errors->has('accept1') || $errors->has('accept2') || $errors->has('acceptRefundPolicy'))

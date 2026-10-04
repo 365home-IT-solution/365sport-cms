@@ -10,14 +10,14 @@ class SettingsSeeder extends Seeder
     public function run(): void
     {
         $settings = [
-            ['group' => 'general', 'name' => 'brand_name',              'payload' => '"365 Home - Homestay tá»± check in"'],
+            ['group' => 'general', 'name' => 'brand_name',              'payload' => '"365Sport - Đặt sân thể thao"'],
             ['group' => 'general', 'name' => 'brand_logo',              'payload' => 'null'],
             ['group' => 'general', 'name' => 'brand_logo_light_version','payload' => 'null'],
             ['group' => 'general', 'name' => 'brand_logoHeight',        'payload' => '"20"'],
             ['group' => 'general', 'name' => 'site_active',             'payload' => 'true'],
             ['group' => 'general', 'name' => 'site_favicon',            'payload' => 'null'],
             ['group' => 'general', 'name' => 'site_theme', 'payload' => json_encode([
-                'primary'     => '#2B5257',
+                'primary'     => '#0B6B3A',
                 'secondary'   => '#00ffdd',
                 'gray'        => '#485173',
                 'background'  => '#222831',

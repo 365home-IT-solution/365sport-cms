@@ -61,7 +61,8 @@ class ProductResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        $query = parent::getEloquentQuery();
+        // HLV đã chuyển sang module Coach độc lập, không còn xuất hiện/chỉnh sửa như một sân.
+        $query = parent::getEloquentQuery()->excludingCoaches();
         $user  = auth()->user();
 
         if (! $user || $user->isSuperAdmin()) {

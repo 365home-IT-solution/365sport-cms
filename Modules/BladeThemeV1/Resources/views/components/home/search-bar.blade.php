@@ -20,7 +20,8 @@
     $generalSettings = new \App\Settings\GeneralSettings();
     $siteLogo = $generalSettings->brand_logo ?? null;
     $filterRoomTypes = \Modules\Product\App\Models\RoomType::orderBy('name')->get(['id', 'name', 'slug']);
-    $filterProvinces = \App\Models\Province::whereHas('branches')->orderBy('name')->get(['id', 'name', 'slug', 'code']);
+    // Chỉ tỉnh CÓ SÂN THẬT (chi nhánh bật + có sân đang bán) — cùng quy tắc với chip tỉnh trang chủ và API /provinces.
+    $filterProvinces = \App\Models\Province::withCourts()->orderBy('name')->get(['id', 'name', 'slug', 'code']);
     // Phường/Xã thật (App\Models\Ward, ward_code trên ProvinceBranch — RoomSearchService::search()
     // và SearchSchema.php ĐÃ hỗ trợ sẵn lọc theo ward_code, chỉ chưa có ở giao diện) — chỉ lấy
     // phường thuộc các tỉnh đang có chi nhánh thật (province_code khớp $filterProvinces) để danh
@@ -116,8 +117,7 @@
                   class="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-[#0B6B3A] ring-2 ring-white"></span>
         </button>
 
-        {{-- "Sân đã đặt"/"Yêu thích" đã chuyển vào dropdown thông tin khách hàng (avatar hover ở
-             top-bar, components/home/top-bar.blade.php) — chỉ còn "Bản đồ" ở đây. --}}
+        {{-- "Sân đã đặt"/"Yêu thích" nằm trong dropdown tài khoản (top-bar) — chỉ còn "Bản đồ" ở đây. --}}
         <div class="hidden shrink-0 items-center gap-5 md:flex">
             <a href="{{ route('map.page') }}" class="flex items-center gap-1.5 text-sm font-medium text-gray-700 hover:text-[#0B6B3A]">
                 <x-heroicon-o-map class="h-5 w-5" />

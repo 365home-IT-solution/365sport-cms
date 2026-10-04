@@ -20,6 +20,7 @@ use Filament\Forms\Set;
 use Illuminate\Support\Number;
 use Modules\Category\Entities\Category;
 use Modules\Warehouse\App\Filament\Support\CurrentUserDisplay;
+use Modules\Warehouse\App\Filament\Support\WarehouseBarcodeScan;
 use Modules\Warehouse\App\Filament\Support\WarehouseCardStyle;
 use Modules\Warehouse\App\Models\WarehouseItem;
 
@@ -82,6 +83,13 @@ class WarehouseStockCheckForm
                     Placeholder::make('warehouse_check_search')
                         ->hiddenLabel()
                         ->content(WarehouseCardStyle::searchBox('fi-warehouse-check-repeater')),
+
+                    WarehouseBarcodeScan::field(fn (WarehouseItem $item) => [
+                        'warehouse_item_id' => $item->id,
+                        'system_quantity'   => $item->quantity,
+                        'actual_quantity'   => $item->quantity,
+                        'note'              => null,
+                    ], quantityField: 'actual_quantity'),
 
                     Repeater::make('items')
                         ->relationship()

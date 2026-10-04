@@ -2344,25 +2344,39 @@
                                     </div>
                                 @endif
 
-                                {{-- Dịch vụ thêm --}}
-                                @php
-                                    $serviceTotal = 0;
-                                    if (!empty($selectedServices) && $additionalServices) {
-                                        foreach ($selectedServices as $id => $qty) {
-                                            $service = $additionalServices->firstWhere('id', $id);
-                                            if ($service && $qty > 0) {
-                                                $serviceTotal += $service->price * $qty;
-                                            }
-                                        }
-                                    }
-                                    $serviceCount = array_sum($selectedServices ?? []);
-                                @endphp
-                                @if ($serviceTotal > 0)
+                                {{-- Giảm giá khách quen --}}
+                                @if (($loyaltyDiscountAmount ?? 0) > 0)
                                     <div class="flex items-center justify-between">
-                                        <span class="text-[#717171]">Dịch vụ thêm ({{ $serviceCount }})</span>
-                                        <span class="font-semibold text-[#222222]">+{{ number_format($serviceTotal, 0, ',', '.') }}đ</span>
+                                        <span class="text-[#717171]">Giảm giá khách quen</span>
+                                        <span class="font-semibold text-primary">-{{ number_format($loyaltyDiscountAmount, 0, ',', '.') }}đ</span>
                                     </div>
                                 @endif
+
+                                {{-- Dịch vụ thêm / Thuê vật tư / HLV — 3 dòng riêng, cùng cách tính với
+                                     ProductDetail::updatedSelectedSlots() (vật tư chỉ đọc selectedEquipment). --}}
+                                @php
+                                    $pdAddonLines = [];
+                                    foreach ([['Dịch vụ thêm', $selectedServices ?? [], false], ['Thuê vật tư', $selectedEquipment ?? [], true]] as [$pdLabel, $pdPicked, $pdIsEquipment]) {
+                                        $pdSum = 0; $pdCount = 0;
+                                        foreach ($pdPicked as $id => $qty) {
+                                            $svc = $additionalServices?->firstWhere('id', $id);
+                                            if ($svc && $qty > 0 && (bool) $svc->warehouseItem === $pdIsEquipment) {
+                                                $pdSum += $svc->price * $qty; $pdCount += $qty;
+                                            }
+                                        }
+                                        if ($pdSum > 0) $pdAddonLines[] = ["{$pdLabel} ({$pdCount})", $pdSum];
+                                    }
+                                    $pdCoach = $coaches?->firstWhere('id', $selectedCoachId);
+                                    if ($pdCoach && ($pdCoachTotal = $this->selectedCoachTotal()) > 0) {
+                                        $pdAddonLines[] = ['HLV ' . $pdCoach->name, $pdCoachTotal];
+                                    }
+                                @endphp
+                                @foreach ($pdAddonLines as [$pdLabel, $pdSum])
+                                    <div class="flex items-center justify-between gap-3">
+                                        <span class="min-w-0 truncate text-[#717171]">{{ $pdLabel }}</span>
+                                        <span class="shrink-0 font-semibold text-[#222222]">+{{ number_format($pdSum, 0, ',', '.') }}đ</span>
+                                    </div>
+                                @endforeach
 
                                 {{-- Tổng tiền --}}
                                 <div class="flex items-center justify-between pt-3 mt-2 border-t border-[#DDDDDD]">

@@ -19,6 +19,7 @@ use Illuminate\Support\HtmlString;
 use Illuminate\Support\Str;
 use Modules\Category\Entities\Category;
 use Modules\Warehouse\App\Filament\Support\CurrentUserDisplay;
+use Modules\Warehouse\App\Filament\Support\WarehouseBarcodeScan;
 use Modules\Warehouse\App\Filament\Support\WarehouseCardStyle;
 use Modules\Warehouse\App\Filament\Support\WarehouseItemOptions;
 use Modules\Warehouse\App\Models\WarehouseItem;
@@ -90,6 +91,13 @@ class WarehouseStockInForm
                         ->hiddenLabel()
                         ->content(WarehouseCardStyle::searchBox('fi-warehouse-stockin-repeater'))
                         ->visible(fn (Get $get) => filled($get('items'))),
+
+                    WarehouseBarcodeScan::field(fn (WarehouseItem $item) => [
+                        'warehouse_item_id' => $item->id,
+                        'quantity'          => 1,
+                        'unit_price'        => $item->unit_price ?? 0,
+                        'note'              => null,
+                    ]),
 
                     Repeater::make('items')
                         ->relationship()

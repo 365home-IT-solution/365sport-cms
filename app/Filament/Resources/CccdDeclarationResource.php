@@ -59,6 +59,17 @@ class CccdDeclarationResource extends Resource
     // đã sinh — hành vi mặc định của Filament khi KHÔNG override canViewAny() (nên thực chất viết
     // rõ ra ở đây chỉ để tài liệu hoá ý định, super_admin vẫn luôn bypass qua Gate::before ở
     // AuthServiceProvider như mọi permission khác).
+    // Lọc theo chi nhánh đang chọn ở header: khai báo thuộc đơn nào thì theo chi nhánh của đơn đó.
+    public static function getEloquentQuery(): Builder
+    {
+        $query = parent::getEloquentQuery();
+        $branchIds = auth()->user()?->effectiveBranchIds() ?? [];
+
+        return $branchIds
+            ? $query->whereHas('order', fn ($q) => $q->whereIn('orders.category_id', $branchIds))
+            : $query;
+    }
+
     public static function canViewAny(): bool
     {
         return auth()->user()?->can('view_any_cccd::declaration') ?? false;

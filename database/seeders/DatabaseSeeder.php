@@ -36,6 +36,11 @@ class DatabaseSeeder extends Seeder
         // dùng chung (không phải dữ liệu ảo/demo), cần cho MỌI trường hợp.
         $this->call([
             TbltAddressSeeder::class,
+            // Tỉnh/thành (lọc khu vực, GPS), hạng thành viên và gói dịch vụ đối tác — dữ liệu tham
+            // chiếu/cấu hình khởi đầu, idempotent nên an toàn chạy cả khi đã có dữ liệu thật.
+            ProvinceSeeder::class,
+            MembershipTierSeeder::class,
+            PartnerPlansSeeder::class,
         ]);
 
         if (! $isFreshInstall) {
@@ -71,8 +76,28 @@ class DatabaseSeeder extends Seeder
 
         // Thêm nhiều chi nhánh/sân mẫu hơn (đủ số lượng để lưới sân trang chủ hiển thị dày như
         // giao diện mẫu) — cần chạy sau PartnerSeeder (dùng chung 3 đối tác mẫu).
+        // Phường/xã lấy từ API công khai provinces.open-api.vn — mất mạng thì bỏ qua (cảnh báo), các sân
+        // demo vẫn tạo được, chỉ không gắn được phường (có thể chạy lại: php artisan db:seed --class=WardSeeder).
+        try {
+            $this->call(WardSeeder::class);
+        } catch (\Throwable $e) {
+            $this->command?->warn('WardSeeder bỏ qua (không gọi được API phường/xã): ' . $e->getMessage());
+        }
+
         $this->call([
             SportVenueDemoSeeder::class,
+            NeighboringProvinceBranchSeeder::class,
+        ]);
+
+        // Tài khoản khách test (đăng nhập SĐT + mật khẩu), khách cho luồng quỹ nhóm, đánh giá sao,
+        // lương nhân viên, huấn luyện viên, vật tư thể thao trong kho.
+        $this->call([
+            TestCustomerSeeder::class,
+            TestGroupCustomersSeeder::class,
+            RoomRatingSeeder::class,
+            EmployeeSalaryDataSeeder::class,
+            CoachDemoSeeder::class,
+            \Modules\Warehouse\Database\Seeders\SportsWarehouseItemSeeder::class,
         ]);
     }
 }

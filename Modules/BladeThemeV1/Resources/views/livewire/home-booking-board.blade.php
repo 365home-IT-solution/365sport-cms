@@ -4,7 +4,7 @@
  * thêm bộ chọn tỉnh/thành + chi nhánh phía trên. Đổi chi nhánh không remount lại Book — bắn sự
  * kiện 'load-branch' (cơ chế có sẵn từ Book::loadBranch()).
 --}}
-<section class="py-6 bg-white" x-data="homeBookingBoard()" x-init="init()" x-cloak>
+<section class="py-6 bg-white" x-data="homeBookingBoard()" x-cloak>
     <div class="w-full max-w-7xl mx-auto" x-show="provinces.length > 0">
 
         <div class="px-4 sm:px-6">
@@ -22,7 +22,7 @@
                  chuyển từ ẩn sang hiện khi branches có dữ liệu), không cần can thiệp thêm ở đây.
                  Nút "Xem tất cả chi nhánh" và nút prev/next cùng nằm 1 hàng phía trên track —
                  "Xem tất cả" ở đầu (trái), prev/next ở cuối (phải). --}}
-            <div x-data="carouselNav()" x-init="init()" x-show="branches.length" class="mb-6">
+            <div x-data="carouselNav()" x-show="branches.length" class="mb-6">
                 <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:10px;">
                     {{-- Xem tất cả chi nhánh của tỉnh đang chọn — trỏ sang panel chi nhánh của trang
                          tìm kiếm, cùng pattern '/s/{slug}' đã dùng ở hero-section/_script.blade.php. --}}

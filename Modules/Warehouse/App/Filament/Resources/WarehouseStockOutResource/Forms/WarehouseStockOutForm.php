@@ -22,6 +22,7 @@ use Illuminate\Support\Number;
 use Illuminate\Support\Str;
 use Modules\Category\Entities\Category;
 use Modules\Warehouse\App\Filament\Support\CurrentUserDisplay;
+use Modules\Warehouse\App\Filament\Support\WarehouseBarcodeScan;
 use Modules\Warehouse\App\Filament\Support\WarehouseCardStyle;
 use Modules\Warehouse\App\Filament\Support\WarehouseItemOptions;
 use Modules\Warehouse\App\Filament\Support\WarehouseRoomOptions;
@@ -101,6 +102,14 @@ class WarehouseStockOutForm
                         ->hiddenLabel()
                         ->content(WarehouseCardStyle::searchBox('fi-warehouse-stockout-repeater'))
                         ->visible(fn (Get $get) => filled($get('items'))),
+
+                    WarehouseBarcodeScan::field(fn (WarehouseItem $item) => [
+                        'warehouse_item_id'  => $item->id,
+                        'reason'             => null,
+                        'quantity'           => 1,
+                        'note'               => null,
+                        '_original_quantity' => 0,
+                    ]),
 
                     Repeater::make('items')
                         ->relationship()

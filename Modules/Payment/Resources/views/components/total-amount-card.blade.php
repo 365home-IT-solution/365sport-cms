@@ -44,7 +44,10 @@
             $finalPrice    = (float) ($item['price'] ?? 0);
 
             $timeslotDetails[] = [
-                'room'           => $item['name'] ?? '',
+                // Giờ đã hiện riêng ở đầu dòng — bỏ đuôi " - <khung giờ>" trong tên để không lặp lại.
+                'room'           => ! empty($item['slot_label']) && str_ends_with((string) ($item['name'] ?? ''), ' - ' . $item['slot_label'])
+                    ? substr($item['name'], 0, -strlen(' - ' . $item['slot_label']))
+                    : ($item['name'] ?? ''),
                 'start'          => $start,
                 'end'            => $end,
                 'over_night'     => $start->format('Y-m-d') !== $end->format('Y-m-d'),
@@ -194,6 +197,7 @@
                 $price    = (float)($s['price'] ?? 0);
                 $subtotal = (float)($s['subtotal'] ?? ($price * $qty));
                 $serviceItems->push((object)[
+                    'service_id'   => $s['service_id'] ?? null,
                     'service_name' => $name,
                     'quantity'     => $qty,
                     'price'        => $price,
@@ -208,11 +212,27 @@
         $serviceTotal = $serviceItems->sum('subtotal');
     }
 
+    // Tách "Thuê vật tư" (dịch vụ gắn warehouse_item) khỏi dịch vụ thuần — hiển thị 2 khối riêng,
+    // cùng quy ước Order::addonBreakdown() dùng cho trang chi tiết đơn phía khách.
+    $equipmentServiceIds = \Modules\Payment\Entities\Order::equipmentServiceIds($serviceItems->pluck('service_id'));
+    [$equipmentItems, $pureServiceItems] = $serviceItems->partition(fn ($s) => in_array((int) ($s->service_id ?? 0), $equipmentServiceIds, true));
+    $serviceGroups = collect([
+        ['title' => 'Dịch vụ thêm', 'icon' => 'heroicon-o-shopping-bag', 'rows' => $pureServiceItems->values(), 'totalLabel' => 'Tổng dịch vụ'],
+        ['title' => 'Thuê vật tư', 'icon' => 'heroicon-o-cube', 'rows' => $equipmentItems->values(), 'totalLabel' => 'Tổng thuê vật tư'],
+    ])->filter(fn ($g) => $g['rows']->isNotEmpty());
+
+    // Huấn luyện viên (order_coaches): ưu tiên form state, fallback DB — cùng nguồn với
+    // OrderForm::computeOrderTotal()/ExtraChargeService::calculateRealTotal().
+    $coachRows = collect(isset($coaches) && is_array($coaches)
+        ? $coaches
+        : \Modules\Payment\App\Filament\Resources\OrderResource\Forms\OrderForm::coachRowsForRecord($record ?? null));
+    $coachTotal = (float) $coachRows->sum('subtotal');
+
     // Phụ thu admin gõ tay ở field 'surcharge' (xem OrderForm.php) — cộng thẳng vào tổng, giống
     // cách dịch vụ thêm được cộng vào.
     $manualSurcharge = (float) ($surcharge ?? 0);
 
-    $computedLiveTotal = $totalAfterBulk + $totalGuestSurcharge + $serviceTotal + $manualSurcharge;
+    $computedLiveTotal = $totalAfterBulk + $totalGuestSurcharge + $serviceTotal + $coachTotal + $manualSurcharge;
 
     // 'displayTotal' (nếu được truyền vào — xem OrderForm.php) = giá trị HIỆN TẠI của field 'amount'
     // thật sự sẽ lưu vào đơn, kể cả khi admin đã gõ đè tay khác với số hệ thống tự tính — số cuối
@@ -538,18 +558,18 @@
         </div>
         @endif
 
-        {{-- ===== DỊCH VỤ ===== --}}
-        @if($serviceItems->count() > 0)
+        {{-- ===== DỊCH VỤ / THUÊ VẬT TƯ (2 khối riêng) ===== --}}
+        @foreach($serviceGroups as $group)
         <div style="margin-bottom:0.75rem;">
             <div style="display:flex; align-items:center; gap:0.4rem; margin-bottom:0.5rem;">
-                <x-heroicon-o-shopping-bag style="width:1rem; height:1rem; color:var(--boulder-50, #737882);" />
+                <x-dynamic-component :component="$group['icon']" style="width:1rem; height:1rem; color:var(--boulder-50, #737882);" />
                 <span style="font-size:0.75rem; font-weight:600; text-transform:uppercase; letter-spacing:0.05em; color:var(--boulder-50, #737882);">
-                    Dịch vụ thêm ({{ $serviceItems->count() }})
+                    {{ $group['title'] }} ({{ $group['rows']->count() }})
                 </span>
             </div>
 
             <div style="background:var(--boulder-99, #FBFCFD); border:1px solid var(--boulder-80, #E5E7EB); border-radius:0.75rem; padding:0.5rem 0.75rem;">
-                @foreach($serviceItems as $svc)
+                @foreach($group['rows'] as $svc)
                 <div style="display:flex; justify-content:space-between; align-items:center; padding:0.35rem 0;{{ !$loop->last ? ' border-bottom:1px dashed var(--boulder-80, #E5E7EB);' : '' }}">
                     <div style="display:flex; align-items:center; gap:0.35rem; min-width:0;">
                         <x-heroicon-o-check-circle style="width:0.75rem; height:0.75rem; color:var(--boulder-50, #737882); flex-shrink:0;" />
@@ -567,9 +587,54 @@
                 @endforeach
 
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-top:0.35rem; padding-top:0.35rem; border-top:1px solid var(--boulder-80, #E5E7EB);">
-                    <span style="font-size:0.75rem; font-weight:600; color:var(--boulder-30, #363B45);">Tổng dịch vụ</span>
+                    <span style="font-size:0.75rem; font-weight:600; color:var(--boulder-30, #363B45);">{{ $group['totalLabel'] }}</span>
                     <span style="font-size:0.8125rem; font-weight:700; color:var(--boulder-20, #272B35);">
-                        +{{ number_format($serviceTotal, 0, ',', '.') }} đ
+                        +{{ number_format($group['rows']->sum('subtotal'), 0, ',', '.') }} đ
+                    </span>
+                </div>
+            </div>
+        </div>
+        @endforeach
+
+        {{-- ===== HUẤN LUYỆN VIÊN ===== --}}
+        @if($coachRows->isNotEmpty())
+        <div style="margin-bottom:0.75rem;">
+            <div style="display:flex; align-items:center; gap:0.4rem; margin-bottom:0.5rem;">
+                <x-heroicon-o-academic-cap style="width:1rem; height:1rem; color:var(--boulder-50, #737882);" />
+                <span style="font-size:0.75rem; font-weight:600; text-transform:uppercase; letter-spacing:0.05em; color:var(--boulder-50, #737882);">
+                    Huấn luyện viên
+                </span>
+            </div>
+
+            <div style="background:var(--boulder-99, #FBFCFD); border:1px solid var(--boulder-80, #E5E7EB); border-radius:0.75rem; padding:0.5rem 0.75rem;">
+                @foreach($coachRows as $coachRow)
+                @php
+                    $coachStart = !empty($coachRow['starts_at']) ? \Carbon\Carbon::parse($coachRow['starts_at']) : null;
+                    $coachEnd   = !empty($coachRow['ends_at']) ? \Carbon\Carbon::parse($coachRow['ends_at']) : null;
+                @endphp
+                <div style="display:flex; justify-content:space-between; align-items:center; padding:0.35rem 0;{{ !$loop->last ? ' border-bottom:1px dashed var(--boulder-80, #E5E7EB);' : '' }}">
+                    <div style="display:flex; align-items:center; gap:0.35rem; min-width:0;">
+                        <x-heroicon-o-user style="width:0.75rem; height:0.75rem; color:var(--boulder-50, #737882); flex-shrink:0;" />
+                        <span style="font-size:0.75rem; color:var(--boulder-30, #363B45); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
+                            {{ $coachRow['coach_name'] ?? 'HLV' }}
+                            @if($coachStart && $coachEnd)
+                                <span style="color:var(--boulder-50, #737882);">— {{ $coachStart->format('H:i') }}–{{ $coachEnd->format('H:i') }} {{ $coachStart->format('d/m') }}</span>
+                            @endif
+                        </span>
+                        <span style="font-size:0.7rem; color:var(--boulder-50, #737882); background:var(--boulder-95, #F9FAFB); border:1px solid var(--boulder-80, #E5E7EB); border-radius:9999px; padding:0 0.35rem; white-space:nowrap; flex-shrink:0;">
+                            {{ number_format((float) ($coachRow['hourly_rate'] ?? 0), 0, ',', '.') }}đ/giờ × {{ rtrim(rtrim(number_format(((int) ($coachRow['minutes'] ?? 0)) / 60, 2, '.', ''), '0'), '.') }}h
+                        </span>
+                    </div>
+                    <span style="font-size:0.75rem; font-weight:700; color:var(--boulder-20, #272B35); white-space:nowrap; flex-shrink:0; margin-left:0.5rem;">
+                        +{{ number_format((float) ($coachRow['subtotal'] ?? 0), 0, ',', '.') }} đ
+                    </span>
+                </div>
+                @endforeach
+
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-top:0.35rem; padding-top:0.35rem; border-top:1px solid var(--boulder-80, #E5E7EB);">
+                    <span style="font-size:0.75rem; font-weight:600; color:var(--boulder-30, #363B45);">Tổng tiền HLV</span>
+                    <span style="font-size:0.8125rem; font-weight:700; color:var(--boulder-20, #272B35);">
+                        +{{ number_format($coachTotal, 0, ',', '.') }} đ
                     </span>
                 </div>
             </div>
@@ -683,6 +748,23 @@
         </div>
         @endif
 
+        {{-- ===== GIẢM GIÁ LÚC KHÁCH ĐẶT (khách quen / mã giảm giá) — đã trừ sẵn trong 'amount',
+             hiện ra để breakdown khớp đúng màn "Chi tiết thanh toán" phía client. ===== --}}
+        @php
+            $bookingDiscountLines = collect($hasRecord ? [
+                'Giảm giá khách quen' => (float) ($record->loyalty_discount ?? 0),
+                'Mã giảm giá'         => (float) ($record->coupon_discount ?? 0),
+            ] : [])->filter(fn ($v) => $v > 0);
+        @endphp
+        @foreach($bookingDiscountLines as $label => $amount)
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.5rem; padding:0.5rem 0.75rem; background:var(--boulder-99, #FBFCFD); border:1px solid var(--boulder-80, #E5E7EB); border-radius:0.75rem;">
+            <span style="font-size:0.75rem; color:var(--boulder-50, #737882);">{{ $label }}</span>
+            <span style="font-size:0.75rem; font-weight:700; color:#15803d;">
+                -{{ number_format($amount, 0, ',', '.') }} đ
+            </span>
+        </div>
+        @endforeach
+
         {{-- ===== PHỤ THU (gõ tay) ===== --}}
         @if($manualSurcharge > 0)
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.75rem; padding:0.5rem 0.75rem; background:var(--boulder-99, #FBFCFD); border:1px solid var(--boulder-80, #E5E7EB); border-radius:0.75rem;">
@@ -701,7 +783,7 @@
                         Tổng thanh toán
                     </div>
                     <div style="font-size:0.7rem; color:rgba(255,255,255,0.5);">
-                        {{ $slotCount }} sân{{ $serviceItems->count() > 0 ? ' + ' . $serviceItems->count() . ' dịch vụ' : '' }}
+                        {{ $slotCount }} khung giờ{{ $pureServiceItems->count() > 0 ? ' + ' . $pureServiceItems->count() . ' dịch vụ' : '' }}{{ $equipmentItems->count() > 0 ? ' + ' . $equipmentItems->count() . ' vật tư' : '' }}{{ $coachRows->isNotEmpty() ? ' + HLV' : '' }}
                     </div>
                 </div>
                 <div style="text-align:right;">

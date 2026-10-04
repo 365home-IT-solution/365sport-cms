@@ -9,6 +9,8 @@ use App\Models\BookingFund;
 use App\Models\BookingFundContribution;
 use App\Models\BookingFundMember;
 use App\Models\BookingFundMessage;
+use App\Models\Team;
+use App\Models\TeamMember;
 use App\Services\BookingFundChatRealtimeService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -61,7 +63,17 @@ class BookingFundController extends Controller
             'slot_date'           => ['nullable', 'date'],
             'slot_start_time'     => ['nullable', 'date_format:H:i'],
             'slot_end_time'       => ['nullable', 'date_format:H:i'],
+            // Quỹ cho 1 nhóm: lấy sẵn thành viên đã duyệt của nhóm (xem TeamController).
+            'team_id'             => ['nullable', 'integer', 'exists:teams,id'],
         ]);
+
+        $team = null;
+        if (! empty($data['team_id'])) {
+            $team = Team::find($data['team_id']);
+            if (! $team || ! $team->isActive() || ! $team->hasMember($request->user()->id)) {
+                return response()->json(['message' => 'You can only create a fund for an active team you belong to.'], 422);
+            }
+        }
 
         // Sân phải thuộc đúng chi nhánh đã chọn — cùng kiểm tra như CreateFund::create() bản web.
         if (! empty($data['product_id']) && ! empty($data['category_id'])) {
@@ -75,6 +87,7 @@ class BookingFundController extends Controller
 
         $fund = BookingFund::create([
             'leader_customer_id'  => $request->user()->id,
+            'team_id'             => $team?->id,
             'title'               => $data['title'],
             'note'                => $data['note'] ?? null,
             'target_amount'       => (int) $data['target_amount'],
@@ -87,6 +100,20 @@ class BookingFundController extends Controller
             'bank_account_number' => $data['bank_account_number'],
             'bank_account_holder' => strtoupper($data['bank_account_holder']),
         ]);
+
+        // Quỹ của nhóm: trưởng nhóm + mọi thành viên đã duyệt của nhóm (trừ người tạo quỹ) tự vào quỹ ở trạng thái
+        // đã duyệt, khỏi phải xin tham gia từng người. Thành viên vào nhóm SAU này cũng được thêm tự động
+        // (TeamController::attachToOpenFunds).
+        if ($team) {
+            $ids = $team->approvedMembers()->pluck('customer_id')->push($team->leader_customer_id)
+                ->reject(fn ($id) => $id === $request->user()->id)->unique();
+            foreach ($ids as $customerId) {
+                BookingFundMember::firstOrCreate(
+                    ['booking_fund_id' => $fund->id, 'customer_id' => $customerId],
+                    ['status' => 'approved', 'requested_at' => now(), 'decided_at' => now()]
+                );
+            }
+        }
 
         return response()->json(['data' => $this->summarize($fund, true)], 201);
     }
@@ -357,6 +384,8 @@ class BookingFundController extends Controller
             'note'           => $fund->note,
             'slot_label'     => $fund->slotLabel(),
             'branch_name'    => $fund->category?->name,
+            'team_id'        => $fund->team_id,
+            'team_name'      => $fund->team?->name,
             'target_amount'  => $fund->target_amount,
             'collected_amount' => $fund->collectedAmount(),
             'progress_percent' => $fund->progressPercent(),

@@ -58,6 +58,36 @@ class SportVenueDemoSeeder extends Seeder
         ['Cầu Lông TDT Thanh Xuân', 'Q. Thanh Xuân, Hà Nội', 20.9970, 105.8020, 90000, 'thanh-pho-ha-noi', 367],
     ];
 
+    // 8 chi nhánh "Cơ sở 1/2" do PartnerSeeder tạo cho từng đối tác (mỗi chi nhánh 1 sân) — PartnerSeeder
+    // chạy TRƯỚC khi có khung giờ/ảnh nên không gắn được tỉnh/toạ độ; bổ sung ở đây để chúng cũng là sân
+    // THẬT (có tỉnh, toạ độ, khung giờ đặt) và các tỉnh này xuất hiện ở bộ lọc Khu vực/chip tỉnh trang chủ.
+    // slug chi nhánh => [địa chỉ, lat, lng, slug tỉnh/thành]
+    private const PARTNER_BRANCH_LOCATIONS = [
+        'co-so-1-partner-1' => ['Q. Hải Châu, Đà Nẵng', 16.0678, 108.2208, 'thanh-pho-da-nang'],
+        'co-so-2-partner-1' => ['TP. Huế', 16.4637, 107.5909, 'thanh-pho-hue'],
+        'co-so-1-partner-2' => ['TP. Nha Trang, Khánh Hòa', 12.2388, 109.1967, 'tinh-khanh-hoa'],
+        'co-so-2-partner-2' => ['TP. Đà Lạt, Lâm Đồng', 11.9404, 108.4583, 'tinh-lam-dong'],
+        'co-so-1-partner-3' => ['TP. Vinh, Nghệ An', 18.6796, 105.6813, 'tinh-nghe-an'],
+        'co-so-2-partner-3' => ['TP. Hạ Long, Quảng Ninh', 20.9517, 107.0800, 'tinh-quang-ninh'],
+        'co-so-1-partner-4' => ['TP. Buôn Ma Thuột, Đắk Lắk', 12.6667, 108.0500, 'tinh-dak-lak'],
+        'co-so-2-partner-4' => ['TP. Biên Hòa, Đồng Nai', 10.9574, 106.8426, 'tinh-dong-nai'],
+    ];
+
+    // Môn thể thao suy ra từ tên cơ sở → RoomType có sport_type tương ứng (PartnerSeeder tạo sẵn).
+    // Không có loại sân thì lọc theo môn không hoạt động.
+    private function roomTypeIdFor(string $venueName): ?int
+    {
+        $lower = mb_strtolower($venueName);
+        $sport = match (true) {
+            str_contains($lower, 'tennis') => 'tennis',
+            str_contains($lower, 'cầu lông') => 'badminton',
+            str_contains($lower, 'bóng đá') => 'football',
+            default => 'pickleball',
+        };
+
+        return \Modules\Product\App\Models\RoomType::where('sport_type', $sport)->value('id');
+    }
+
     public function run(): void
     {
         $partners  = Partner::orderBy('created_at')->limit(3)->get();
@@ -125,6 +155,7 @@ class SportVenueDemoSeeder extends Seeder
                         'longitude'    => $lng,
                         'price'        => $courtBasePrice,
                         'styles'       => 1, // Sân theo giờ (khác style=2 phòng nghỉ qua đêm)
+                        'room_type_id' => $this->roomTypeIdFor($name),
                         'rating_score' => round(4.0 + ($index % 5) * 0.2, 1),
                         'is_in_stock'  => true,
                         'is_activated' => true,
@@ -167,7 +198,54 @@ class SportVenueDemoSeeder extends Seeder
             );
         }
 
+        $this->seedPartnerBranches($timeSlots);
+
         $this->command?->info('SportVenueDemoSeeder: đã tạo/cập nhật ' . count(self::VENUES) . ' chi nhánh mẫu, mỗi chi nhánh ' . self::COURTS_PER_VENUE . ' sân, khung giờ ' . self::OPEN_HOUR . 'h-' . self::CLOSE_HOUR . 'h (1h/khung, giá cao hơn từ ' . self::PEAK_START_HOUR . 'h — vài chi nhánh có 1 sân cao cấp giá khác 2 sân còn lại).');
+    }
+
+    /** Gắn tỉnh/toạ độ/khung giờ/ảnh bìa cho các chi nhánh "Cơ sở 1/2" của đối tác (xem PARTNER_BRANCH_LOCATIONS). */
+    private function seedPartnerBranches(\Illuminate\Support\Collection $timeSlots): void
+    {
+        $provinces = Province::whereIn('slug', array_unique(array_column(self::PARTNER_BRANCH_LOCATIONS, 3)))->get()->keyBy('slug');
+
+        foreach (self::PARTNER_BRANCH_LOCATIONS as $slug => [$address, $lat, $lng, $provinceSlug]) {
+            $category = Category::where('slug', $slug)->first();
+            $province = $provinces[$provinceSlug] ?? null;
+            if (! $category || ! $province) {
+                continue;
+            }
+
+            $category->update([
+                'checkin_time'  => sprintf('%02d:00:00', self::OPEN_HOUR),
+                'checkout_time' => sprintf('%02d:00:00', self::CLOSE_HOUR),
+            ]);
+
+            foreach ($category->products as $product) {
+                $product->update(['address' => $address, 'latitude' => $lat, 'longitude' => $lng]);
+
+                $coverImage = $this->coverImageFor($product->name);
+                if ($coverImage && ! $product->getFirstMedia('Ảnh bìa')) {
+                    $product->addMedia($coverImage)->preservingOriginal()->toMediaCollection('Ảnh bìa');
+                }
+
+                foreach ($timeSlots as $timeSlot) {
+                    $isPeak = (int) substr($timeSlot->start_time, 0, 2) >= self::PEAK_START_HOUR;
+                    RoomTimeSlot::updateOrCreate(
+                        ['room_id' => $product->id, 'timeslot_id' => $timeSlot->id],
+                        [
+                            'price'      => $isPeak ? (int) round($product->price * self::PEAK_MULTIPLIER / 5000) * 5000 : (int) $product->price,
+                            'status'     => 'available',
+                            'over_night' => false,
+                        ]
+                    );
+                }
+            }
+
+            ProvinceBranch::updateOrCreate(
+                ['categorie_id' => $category->id],
+                ['province_id' => $province->id, 'ward_code' => null, 'status' => true]
+            );
+        }
     }
 
     /**
@@ -221,12 +299,13 @@ class SportVenueDemoSeeder extends Seeder
     {
         $media = \Spatie\MediaLibrary\MediaCollections\Models\Media::where('file_name', $fileName)->first();
 
-        if (! $media) {
-            return null;
+        if ($media && file_exists($media->getPath())) {
+            return $media->getPath();
         }
 
-        $path = $media->getPath();
+        // Cài mới (bảng media rỗng): dùng ảnh mẫu đi kèm repo thay vì để sân không có ảnh.
+        $bundled = __DIR__ . '/assets/' . $fileName;
 
-        return file_exists($path) ? $path : null;
+        return file_exists($bundled) ? $bundled : null;
     }
 }

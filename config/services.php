@@ -105,6 +105,13 @@ return [
         'redirect'      => env('APP_URL') . '/auth/google/callback',
     ],
 
+    // Chỉ cần khi có camera H.265 (HEVC) — dùng để transcode sang H.264/MP4 cho trình duyệt phát
+    // được (xem App\Http\Controllers\Api\CameraMediaProxyController). Mặc định dò theo PATH hệ
+    // thống nếu không cấu hình.
+    'ffmpeg' => [
+        'binary' => env('FFMPEG_BINARY', 'ffmpeg'),
+    ],
+
     'websocket' => [
         'url'          => env('WS_SERVER_URL', 'http://localhost:3001'),
         'public_url'   => env('WS_PUBLIC_URL', env('WS_SERVER_URL', 'http://localhost:3001')),

@@ -11,6 +11,3 @@
 |
 */
 
-Route::prefix('comment')->group(function() {
-    Route::get('/hello', 'CommentController@index');
-});

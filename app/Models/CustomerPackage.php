@@ -85,6 +85,24 @@ class CustomerPackage extends Model
             && (is_null($this->expires_at) || $this->expires_at->isFuture());
     }
 
+    // Cùng logic PackagePlan::appliesToProduct() — CustomerPackage snapshot NGUYÊN VẸN phạm vi của
+    // plan tại thời điểm mua (product_id/category_id/product_ids), nên kiểm tra y hệt cách plan
+    // gốc kiểm tra, chỉ khác nguồn dữ liệu đọc từ chính bản ghi đã mua thay vì bản ghi plan đang
+    // bán. Dùng ở Admin\BookingController::store() (đặt hộ + trừ gói) — xem thêm
+    // CustomerPackage::findValidForPhoneAndProduct() cho phiên bản tra theo SĐT (không theo instance).
+    public function appliesToProduct(string $productId, array $productCategoryIds = []): bool
+    {
+        if ($this->product_id !== null) {
+            return $this->product_id === $productId;
+        }
+
+        if (! empty($this->product_ids)) {
+            return in_array($productId, $this->product_ids, true);
+        }
+
+        return $this->category_id !== null && in_array($this->category_id, $productCategoryIds, true);
+    }
+
     /**
      * Kích hoạt gói cho 1 Order order_type=package_purchase VỪA THANH TOÁN XONG — DÙNG CHUNG cho
      * cả 2 đường xác nhận tiền: PayOS (webhook/checkPaymentStatus, xem

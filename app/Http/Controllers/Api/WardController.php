@@ -89,7 +89,7 @@ class WardController extends Controller
                 $childIds   = Category::where('parent_id', $categoryId)->pluck('id')->toArray();
                 $allIds     = array_merge([$categoryId], $childIds);
 
-                $rooms = Product::where('is_activated', true)
+                $rooms = Product::where('is_activated', true)->excludingCoaches()
                     ->where('is_in_stock', true)
                     ->whereHas('categories', fn ($q) => $q->whereIn('category_id', $allIds))
                     ->with(['roomType', 'media', 'roomTimeSlots.timeSlot', 'roomTimeSlots.promotions'])

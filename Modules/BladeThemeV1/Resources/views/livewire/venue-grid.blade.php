@@ -1,4 +1,45 @@
-<div class="mx-auto max-w-7xl px-4 py-4 sm:px-6">
+<div class="mx-auto max-w-7xl px-4 py-4 sm:px-6"
+     {{-- Chọn tỉnh ở nơi khác (popup khu vực, header, hero...) bắn 'province-selected' -> lưới này lọc theo.
+          Chip bên dưới cũng đi qua đúng sự kiện này (pickProvince) nên Lịch đặt sân trực tuyến, gợi ý chi
+          nhánh... tự theo. Lần đầu vào trang áp tỉnh đã lưu (localStorage) nếu tỉnh đó còn có sân. --}}
+     x-data="{
+        pickProvince(p) {
+            if (!p) { $wire.setProvince(null); return; }
+            try {
+                localStorage.setItem('home_province_id', p.id);
+                localStorage.setItem('home_province_name', p.name);
+            } catch (e) {}
+            window.dispatchEvent(new CustomEvent('province-selected', { detail: p }));
+        },
+     }"
+     x-init="(() => { try { const saved = parseInt(localStorage.getItem('home_province_id') || '', 10); if (saved) $wire.setProvince(saved); } catch (e) {} })()"
+     x-on:province-selected.window="if ($event.detail && $event.detail.id) $wire.setProvince(parseInt($event.detail.id, 10))">
+    @if (count($provinces) > 1)
+        {{-- Chip lọc theo tỉnh/thành — CHỈ tỉnh có sân thật (VenueGrid::mount()). Chỉ hiện khi có từ 2 tỉnh
+             trở lên (1 tỉnh thì lọc vô nghĩa). --}}
+        <div class="mb-2 -mx-4 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0">
+            <button type="button" @click="pickProvince(null)" wire:loading.attr="disabled"
+                @class([
+                    'shrink-0 whitespace-nowrap rounded-full border px-4 py-1.5 text-sm font-semibold transition',
+                    'border-[#0B6B3A] bg-[#0B6B3A] text-white shadow' => $activeProvinceId === null,
+                    'border-gray-200 bg-white text-gray-700 hover:bg-gray-50' => $activeProvinceId !== null,
+                ])>
+                Tất cả khu vực
+            </button>
+            @foreach ($provinces as $province)
+                <button type="button" wire:key="vg-province-{{ $province['id'] }}"
+                    @click="pickProvince(@js($province))" wire:loading.attr="disabled"
+                    @class([
+                        'shrink-0 whitespace-nowrap rounded-full border px-4 py-1.5 text-sm font-semibold transition',
+                        'border-[#0B6B3A] bg-[#0B6B3A] text-white shadow' => $activeProvinceId === $province['id'],
+                        'border-gray-200 bg-white text-gray-700 hover:bg-gray-50' => $activeProvinceId !== $province['id'],
+                    ])>
+                    {{ $province['name'] }}
+                </button>
+            @endforeach
+        </div>
+    @endif
+
     @if (! empty($roomTypes))
         {{-- Chip lọc theo môn thể thao — "Tất cả" (activeType null) luôn mặc định khi vào trang.
              Bấm 1 chip lọc lại lưới sân bên dưới NGAY (Livewire, không rời trang), chỉ còn chi
@@ -199,7 +240,10 @@
         </script>
 
         <div class="mb-3 flex items-center justify-between">
-            <h2 class="text-lg font-extrabold text-gray-900">Sân thể thao gần bạn</h2>
+            @php($activeProvinceName = collect($provinces)->firstWhere('id', $activeProvinceId)['name'] ?? null)
+            <h2 class="text-lg font-extrabold text-gray-900">
+                {{ $activeProvinceName ? 'Sân thể thao tại ' . $activeProvinceName : 'Sân thể thao gần bạn' }}
+            </h2>
             {{-- Toàn bộ lọc/duyệt sân đã gộp về trang bản đồ /ban-do — không còn
                  route('product.search') = /s nữa ở bất kỳ đâu (xem comment đầu
                  components/home/search-bar.blade.php). --}}
@@ -213,9 +257,9 @@
                 <x-bladethemev1::venues.card :venue="$venue" />
             @endforeach
         </div>
-    @elseif ($activeType)
-        {{-- Đang lọc theo 1 môn nhưng không có chi nhánh nào khớp — khác trường hợp $roomTypes rỗng
+    @elseif ($activeType || $activeProvinceId)
+        {{-- Đang lọc theo 1 môn/tỉnh nhưng không có chi nhánh nào khớp — khác trường hợp $roomTypes rỗng
              (không có RoomType nào trong hệ thống), ở đây chip vẫn hiển thị để bấm "Tất cả" quay lại. --}}
-        <p class="py-8 text-center text-sm text-gray-500">Chưa có sân nào phù hợp với môn thể thao này.</p>
+        <p class="py-8 text-center text-sm text-gray-500">Chưa có sân nào phù hợp với bộ lọc này.</p>
     @endif
 </div>

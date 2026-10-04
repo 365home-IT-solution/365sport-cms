@@ -223,6 +223,31 @@ class PackageOrderController extends Controller
      * khoản (POST /api/admin/orders/{order_code}/approve-bank-transfer) để không viết lại logic kích
      * hoạt gói lần thứ 2 ở đây (tránh lệch nhau). 422 nếu đơn đã 'paid' hoặc 'refunded'.
      */
+    /**
+     * DELETE /api/admin/package-orders/{order_code}
+     * Xoá đơn mua gói CHƯA thanh toán (pending/failed/cancelled_payment). Đơn đã thanh toán đã tạo CustomerPackage và
+     * doanh thu nên không xoá được — dùng cập nhật trạng thái 'refunded' nếu cần hoàn tiền.
+     */
+    public function destroy(Request $request, string $orderCode): JsonResponse
+    {
+        /** @var User $user */
+        $user = $request->user();
+
+        $order = Order::query()->where('order_type', 'package_purchase')->where('order_code', $orderCode)->first();
+
+        if (! $order || (! $user->isSuperAdmin() && $order->partner_id !== $user->partner_id)) {
+            return response()->json(['message' => 'Package order not found.'], 404);
+        }
+
+        if (! in_array($order->status, ['pending', 'failed', 'cancelled_payment'], true)) {
+            return response()->json(['message' => 'Only unpaid package orders can be deleted.'], 422);
+        }
+
+        $order->delete();
+
+        return response()->json(['message' => 'Deleted.']);
+    }
+
     public function markPaid(Request $request, string $orderCode): JsonResponse
     {
         /** @var User $admin */

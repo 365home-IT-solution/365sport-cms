@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Modules\Warehouse\App\Filament\Support;
 
+use BaconQrCode\Renderer\GDLibRenderer;
+use BaconQrCode\Writer;
 use Illuminate\Support\Collection;
 use Modules\Warehouse\App\Models\WarehouseStockCheck;
 use Modules\Warehouse\App\Models\WarehouseStockIn;
@@ -71,6 +73,35 @@ class WarehousePrinter
         ])->render();
 
         return static::download($html, 'danh-sach-ton-kho-' . now()->format('Ymd-His'));
+    }
+
+    // PNG base64 mã QR encode đúng chuỗi SKU (không phải JSON) — phải khớp chính xác với cách
+    // WarehouseBarcodeScan tra cứu ngược lại bằng WarehouseItem::where('sku', $code). 400px thật
+    // (hiển thị nhỏ/to qua CSS) để in ra giấy vẫn đủ nét.
+    public static function qrPng(string $text): string
+    {
+        $writer = new Writer(new GDLibRenderer(400, 4));
+
+        return base64_encode($writer->writeString($text));
+    }
+
+    // In mã QR cho 1 hoặc nhiều vật tư. 1 bản = thẻ lớn có tên (dán tủ/kệ); nhiều bản = tem nhỏ
+    // xếp lưới trên 1 trang để in ra cắt dán từng vật tư.
+    public static function qrCodes(Collection $items, int $copies = 1): StreamedResponse
+    {
+        $items = $items->filter(fn ($item) => filled($item->sku))->values();
+        $copies = max(1, min($copies, 500));
+
+        $qrImages = [];
+        foreach ($items as $item) {
+            $qrImages[$item->id] = static::qrPng((string) $item->sku);
+        }
+
+        $view = $copies > 1 ? 'warehouse::pdf.qr-stickers' : 'warehouse::pdf.qr-codes';
+
+        $html = view($view, ['items' => $items, 'qrImages' => $qrImages, 'copies' => $copies])->render();
+
+        return static::download($html, 'ma-qr-vat-tu-' . now()->format('Ymd-His'));
     }
 
     protected static function download(string $html, string $code): StreamedResponse

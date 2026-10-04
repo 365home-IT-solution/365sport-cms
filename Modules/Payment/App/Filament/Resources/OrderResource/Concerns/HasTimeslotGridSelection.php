@@ -83,7 +83,8 @@ trait HasTimeslotGridSelection
 
         $newTotal = OrderForm::computeOrderTotal(
             $this->data['orderItems'] ?? [],
-            $this->data['orderServices'] ?? []
+            $this->data['orderServices'] ?? [],
+            $this->data['orderCoaches'] ?? []
         ) + (float) ($this->data['surcharge'] ?? 0);
 
         // Ghi CẢ 2 đường dẫn — 'amount' gốc (data.amount, dùng để LƯU khi submit form, xem
@@ -166,7 +167,8 @@ trait HasTimeslotGridSelection
         if (! empty($lostSlotLabels)) {
             $newTotal = OrderForm::computeOrderTotal(
                 $this->data['orderItems'] ?? [],
-                $this->data['orderServices'] ?? []
+                $this->data['orderServices'] ?? [],
+                $this->data['orderCoaches'] ?? []
             ) + (float) ($this->data['surcharge'] ?? 0);
 
             // Ghi cả 2 đường dẫn — xem giải thích ở selectTimeslot().

@@ -38,6 +38,26 @@ class RoomServiceController extends Controller
     }
 
     /**
+     * GET /api/admin/products/{id}/services/{serviceId}
+     */
+    public function show(Request $request, string $id, string $serviceId): JsonResponse
+    {
+        $product = $this->visibleProduct($request->user(), $id);
+
+        if (! $product) {
+            return response()->json(['message' => 'Room not found.'], 404);
+        }
+
+        $item = RoomService::where('id', $serviceId)->where('product_id', $product->id)->first();
+
+        if (! $item) {
+            return response()->json(['message' => 'Service not found.'], 404);
+        }
+
+        return response()->json(['data' => $this->toItem($item)]);
+    }
+
+    /**
      * POST /api/admin/products/{id}/services
      * Body: name (required), icon, description, price, unit, sort_order.
      */

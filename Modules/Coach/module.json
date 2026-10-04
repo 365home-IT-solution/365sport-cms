@@ -1,0 +1,11 @@
+{
+    "name": "Coach",
+    "alias": "coach",
+    "description": "Quản lý và thuê huấn luyện viên theo chi nhánh khi đặt sân",
+    "keywords": [],
+    "priority": 0,
+    "providers": [
+        "Modules\\Coach\\App\\Providers\\CoachServiceProvider"
+    ],
+    "files": []
+}

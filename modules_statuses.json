@@ -24,5 +24,6 @@
     "DataPermission": true,
     "AppPage": true,
     "Employee": true,
-    "Warehouse": true
+    "Warehouse": true,
+    "Coach": true
 }

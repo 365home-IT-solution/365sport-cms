@@ -3,7 +3,7 @@
  * API: GET/POST/DELETE /api/rooms/{id}/ratings (xem app/Http/Controllers/Api/RatingController.php)
  * Biến nhận vào: $product (Eloquent Product model, bắt buộc)
 --}}
-<div class="mb-6" id="pd-ratings-section" x-data="pdRatingsWidget('{{ $product->id }}')" x-init="init()">
+<div class="mb-6" id="pd-ratings-section" x-data="pdRatingsWidget('{{ $product->id }}')">
     <style>
         .pd-reviews-scroll { scrollbar-width: none; }
         .pd-reviews-scroll::-webkit-scrollbar { display: none; }

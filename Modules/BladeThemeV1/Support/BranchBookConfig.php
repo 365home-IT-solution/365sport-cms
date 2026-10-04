@@ -25,7 +25,7 @@ class BranchBookConfig
             Category::where('parent_id', $branch->id)->pluck('id')->toArray()
         );
 
-        $productIds = Product::where('is_activated', true)
+        $productIds = Product::where('is_activated', true)->excludingCoaches()
             ->where('is_in_stock', true)
             ->where(function ($q) {
                 $q->where('styles', 1)->orWhereNull('styles');

@@ -116,6 +116,32 @@ class CustomerController extends Controller
         return response()->json(['customer' => $this->formatCustomer($customer->fresh(self::LIST_RELATIONS))]);
     }
 
+    // DELETE /api/admin/customers/{id} — xoá mềm khách hàng (cùng phạm vi xem/sửa với update()). Từ chối khi khách còn đơn
+    // đang giữ chỗ (đã thanh toán/cọc/chờ thanh toán chưa huỷ) để không mất dấu khách của một lịch sắp diễn ra.
+    public function destroy(Request $request, string $id): JsonResponse
+    {
+        $customer = $this->visibleCustomersQuery($request->user())->find($id);
+
+        if (! $customer) {
+            return response()->json(['message' => 'Customer not found.'], 404);
+        }
+
+        $hasActiveOrders = \Modules\Payment\Entities\Order::query()
+            ->where('customer_id', $customer->id)
+            ->holdingSlot()
+            ->whereIn('status', ['pending', 'paid', 'deposit'])
+            ->exists();
+
+        if ($hasActiveOrders) {
+            return response()->json(['message' => 'This customer still has active orders; cancel or complete them first.'], 422);
+        }
+
+        $customer->tokens()->delete();
+        $customer->delete();
+
+        return response()->json(['message' => 'Deleted.']);
+    }
+
     /**
      * Phạm vi khách hàng user được xem/sửa: super_admin thấy hết. User thường thấy khách hàng
      * CHƯA có categories nào (dữ liệu tạo trước tính năng gán tự động — giữ nguyên như cũ, không

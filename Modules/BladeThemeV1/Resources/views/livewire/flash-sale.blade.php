@@ -81,7 +81,7 @@
                     <div class="min-w-0 px-4 sm:px-6 hs-roomtype-col-spacing">
                         {{-- Thẻ nền xám nhạt, icon lớn TRÊN tên (giống nhau mọi kích thước màn
                              hình) — nút prev/next tròn nổi 2 bên hàng thẻ (carouselNav() dùng chung). --}}
-                        <div x-data="carouselNav()" x-init="init()">
+                        <div x-data="carouselNav()">
                             {{-- Tiêu đề: ẩn ở desktop (yêu cầu bỏ, cho thẻ nằm gần thanh tìm kiếm
                                  banner hơn) — vẫn giữ ở mobile. --}}
                             <div class="hs-roomtype-heading" style="margin-bottom:14px;">
@@ -176,7 +176,7 @@
                  tiên đã hiển thị ở cột 2 phía trên rồi) ============== --}}
             <template x-if="section.type === 'banner' && section.items && section.items.length && (!bannerSection || section.id !== bannerSection.id)">
                 <section class="py-4 bg-white">
-                    <div class="w-full max-w-7xl mx-auto px-4 sm:px-6" style="position:relative;" x-data="carouselNav()" x-init="init()">
+                    <div class="w-full max-w-7xl mx-auto px-4 sm:px-6" style="position:relative;" x-data="carouselNav()">
                         <div x-ref="track" style="display:flex; gap:14px; overflow-x:auto; scroll-snap-type:x mandatory; -webkit-overflow-scrolling:touch; scrollbar-width:none;" class="hide-scrollbar">
                             <template x-for="banner in section.items" :key="'banner-' + (banner.url || banner.image_url)">
                                 <a :href="banner.url || '#'" class="banner-card legacy-banner-card"
@@ -201,7 +201,7 @@
             {{-- ============== PROMOTION LIST (sân khuyến mãi) ============== --}}
             <template x-if="section.type === 'promotion_list' && section.rooms && section.rooms.length">
                 <section class="py-4 bg-white">
-                    <div class="w-full max-w-7xl mx-auto px-4 sm:px-6" x-data="carouselNav()" x-init="init()">
+                    <div class="w-full max-w-7xl mx-auto px-4 sm:px-6" x-data="carouselNav()">
                         <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:14px;">
                             <div style="display:flex; align-items:center; gap:8px; min-width:0;">
                                 <img x-show="section.icon_url" :src="section.icon_url" alt="" style="width:20px;height:20px;object-fit:contain;flex-shrink:0;">
@@ -248,7 +248,7 @@
                  cũ trong vòng lặp sections (vẫn lấy từ API như cũ). --}}
             <template x-if="section.type === 'suggestion_list' && section.suggestion_type !== 'branch' && section.items && section.items.length">
                 <section class="py-4 bg-white">
-                    <div class="w-full max-w-7xl mx-auto px-4 sm:px-6" x-data="carouselNav()" x-init="init()">
+                    <div class="w-full max-w-7xl mx-auto px-4 sm:px-6" x-data="carouselNav()">
                         <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:14px;">
                             <div style="display:flex; align-items:center; gap:12px;">
                                 <h2 class="hs-section-title" style="font-weight:800; color:#111827; margin:0;">Gợi ý cho bạn</h2>
@@ -293,7 +293,7 @@
                  hiện chưa dùng) không bị ảnh hưởng, luôn hiện bình thường. --}}
             <template x-if="section.type === 'room_list' && section.rooms && section.rooms.length">
                 <section class="py-4 bg-white" :class="section.display_mode === 'fixed' ? (provinceName ? 'hidden' : '') : ''">
-                    <div class="w-full max-w-7xl mx-auto px-4 sm:px-6" x-data="carouselNav()" x-init="init()">
+                    <div class="w-full max-w-7xl mx-auto px-4 sm:px-6" x-data="carouselNav()">
                         <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; gap:12px;">
                             <div style="display:flex; align-items:center; gap:12px;">
                                 <div style="min-width:0;">

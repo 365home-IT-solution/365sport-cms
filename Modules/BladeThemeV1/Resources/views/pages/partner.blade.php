@@ -127,7 +127,7 @@
                     càng nhiều tính năng thì chi phí càng cao.
                 </p>
             </div>
-            <div class="grid grid-cols-1 gap-6 lg:grid-cols-3">
+            <div class="grid grid-cols-1 gap-6 {{ $partnerPlans->count() > 1 ? 'lg:grid-cols-3' : 'mx-auto max-w-md' }}">
                 @forelse ($partnerPlans as $plan)
                     @php
                         // Gói SAU kế thừa toàn bộ tính năng gói TRƯỚC (theo sort_order) — thay vì
@@ -196,7 +196,7 @@
                             @endforeach
                         </ul>
 
-                        <a href="#partner-form"
+                        <a href="{{ route('partner-onboarding.page', ['goi' => $plan->slug]) }}"
                            class="mt-7 block rounded-full py-3 text-center text-sm font-bold shadow-sm transition {{ $plan->is_highlighted ? 'bg-[#0B6B3A] text-white hover:bg-[#095c31] hover:shadow-md' : 'border-2 border-[#0B6B3A] text-[#0B6B3A] hover:bg-[#0B6B3A] hover:text-white' }}">
                             Chọn gói này
                         </a>
@@ -212,6 +212,12 @@
 
         {{-- Form đăng ký --}}
         <section id="partner-form" class="scroll-mt-32 bg-gray-50 px-4 py-14 sm:px-6">
+            <div class="mx-auto mb-8 max-w-xl rounded-2xl bg-[#0B6B3A] p-6 text-center text-white shadow-lg sm:p-8">
+                <p class="text-xl font-extrabold">Đăng ký ngay — nhận tài khoản qua email</p>
+                <p class="mt-1 text-sm text-white/80">Chọn gói, điền thông tin cơ sở; lần đầu đăng ký được duyệt và tặng dùng thử.</p>
+                <a href="{{ route('partner-onboarding.page') }}" class="mt-4 inline-flex rounded-full bg-white px-8 py-2.5 text-sm font-bold text-[#0B6B3A] hover:bg-white/90">Đăng ký làm đối tác</a>
+                <p class="mt-5 text-xs text-white/70">Cần tư vấn thêm? Để lại thông tin ở biểu mẫu bên dưới, chúng tôi sẽ liên hệ.</p>
+            </div>
             <div class="mx-auto max-w-xl rounded-2xl bg-white p-6 shadow-lg sm:p-10">
                 @if ($partnerForm)
                     @livewire('bladethemev1::form-contact', ['form' => $partnerForm], key('partner-form'))

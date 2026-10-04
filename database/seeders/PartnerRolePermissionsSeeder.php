@@ -41,6 +41,15 @@ class PartnerRolePermissionsSeeder extends Seeder
         'user',                 // Tài khoản nhân viên của chính đối tác (trang này tạo đồng thời
                                 // User + hồ sơ Employee liên kết) — đã lọc theo partner_id
         'user::branch::permission',
+        'room::image',           // Ảnh sân
+        'coach',                 // Huấn luyện viên theo chi nhánh
+        'warehouse::item::rental', // Thuê dụng cụ thể thao
+        'salary::template',      // Lương nhân viên của đối tác (đã lọc theo partner_id)
+        'salary::type',
+        'allowance::type',
+        'deduction::type',
+        'department',
+        'position',
         'shield::role',          // Đối tác tự tạo role phụ cho nhân viên (đã lọc theo created_by)
         'warehouse::category',   // Danh mục vật tư
         'warehouse::unit',       // Đơn vị tính
@@ -52,6 +61,9 @@ class PartnerRolePermissionsSeeder extends Seeder
 
     // Nhân viên: thao tác vận hành hằng ngày, không quản lý tài khoản/role/audit log của đối tác.
     private const EMPLOYEE_RESOURCES = [
+        'room::image',
+        'coach',
+        'warehouse::item::rental',
         'category',
         'product',
         'room::type',

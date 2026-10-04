@@ -86,6 +86,105 @@ class TagController extends Controller
         return response()->json(['data' => $data]);
     }
 
+    /**
+     * GET /api/admin/tags/{id}
+     */
+    public function show(string $id): JsonResponse
+    {
+        $tag = Tag::find($id);
+
+        if (! $tag) {
+            return response()->json(['message' => 'Tag not found.'], 404);
+        }
+
+        return response()->json(['data' => $this->toItem($tag)]);
+    }
+
+    /**
+     * POST /api/admin/tags — body: name (bắt buộc), type (tuỳ chọn), image (file, tuỳ chọn).
+     */
+    public function store(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'name'  => 'required|string|max:100',
+            'type'  => 'nullable|string|max:50',
+            'image' => 'sometimes|nullable|file|image|max:4096',
+        ]);
+
+        $tag = Tag::findOrCreate($data['name'], $data['type'] ?? null);
+        $this->saveImage($request, $tag);
+
+        return response()->json(['data' => $this->toItem($tag->fresh())], 201);
+    }
+
+    /**
+     * PUT|POST /api/admin/tags/{id} — đổi tên / ảnh.
+     */
+    public function update(Request $request, string $id): JsonResponse
+    {
+        $tag = Tag::find($id);
+
+        if (! $tag) {
+            return response()->json(['message' => 'Tag not found.'], 404);
+        }
+
+        $data = $request->validate([
+            'name'  => 'sometimes|required|string|max:100',
+            'image' => 'sometimes|nullable|file|image|max:4096',
+        ]);
+
+        if (isset($data['name'])) {
+            $tag->setTranslation('name', app()->getLocale(), $data['name']);
+            $tag->setTranslation('slug', app()->getLocale(), \Illuminate\Support\Str::slug($data['name']));
+            $tag->save();
+        }
+        $this->saveImage($request, $tag);
+
+        return response()->json(['data' => $this->toItem($tag->fresh())]);
+    }
+
+    /**
+     * DELETE /api/admin/tags/{id} — gỡ thẻ khỏi mọi bài viết/sân rồi xoá.
+     */
+    public function destroy(string $id): JsonResponse
+    {
+        $tag = Tag::find($id);
+
+        if (! $tag) {
+            return response()->json(['message' => 'Tag not found.'], 404);
+        }
+
+        \Illuminate\Support\Facades\DB::table('taggables')->where('tag_id', $tag->id)->delete();
+        $tag->delete();
+
+        return response()->json(['message' => 'Deleted.']);
+    }
+
+    // Ảnh thẻ lưu dạng JSON theo locale giống TagForm (Filament): {"vi": "path"}.
+    private function saveImage(Request $request, Tag $tag): void
+    {
+        if (! $request->hasFile('image')) {
+            return;
+        }
+
+        $path = $request->file('image')->store('tags', 'public');
+        $tag->image = json_encode([app()->getLocale() => $path]);
+        $tag->save();
+    }
+
+    private function toItem(Tag $tag): array
+    {
+        $image = $this->extractImage($tag);
+
+        return [
+            'id'        => $tag->id,
+            'name'      => $tag->name,
+            'type'      => $tag->type,
+            'image'     => $image,
+            'image_url' => $image ? Storage::disk('public')->url($image) : null,
+        ];
+    }
+
     private function extractImage(Tag $tag): ?string
     {
         $raw = $tag->getRawOriginal('image');

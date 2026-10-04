@@ -148,10 +148,12 @@
 }
 
 /* Mega menu CÓ tiêu đề phân cột (kiểu "Resources"/"Company") — mỗi cột là 1 khối tiêu đề + danh
-   sách riêng, dùng CSS Grid thay vì columns để tiêu đề luôn đứng đầu đúng cột của nó. LUÔN tối đa
-   3 cột cố định (--fi-mega-menu-cols do Blade tính, đã kẹp <= 3) — quá 3 tiêu đề thì Grid tự xuống
-   hàng thay vì nới rộng thêm cột, nên không bao giờ cần cuộn ngang. */
+   sách riêng, dùng CSS Grid thay vì columns để tiêu đề luôn đứng đầu đúng cột của nó. Tối đa 4 cột
+   (--fi-mega-menu-cols do Blade tính, đã kẹp <= 4) — quá 4 tiêu đề thì Grid tự xuống hàng. Chiều cao
+   bị chặn theo màn hình + cuộn dọc trong menu, để màn hình thấp cũng không bao giờ bị cắt mất mục cuối. */
 .fi-mega-menu-grid {
+    max-height: calc(100vh - 5rem);
+    overflow-y: auto;
     display: grid;
     grid-template-columns: repeat(var(--fi-mega-menu-cols, 2), minmax(0, 1fr));
     gap: 0.25rem 1rem;

@@ -13,12 +13,18 @@ class ContactLink extends Component
 
     public array $contact_button = [];
 
-    public ThemeSection $section;
+    public ?ThemeSection $section = null;
 
     public function mount(): void
     {
+        // ThemeSection 'contact_buttons' có thể chưa tồn tại (DB mới/chưa seed đủ) — bỏ qua, giữ
+        // $contact_button rỗng thay vì crash TypeError khi gán null vào property không nullable
+        // (bug thật đã gặp: Cannot assign null to property ...ContactLink::$section).
         $this->section = $this->getContactLinkConfigs();
-        $this->contact_button = $this->getChildSectionConfigs(ContactLinkSection::CONTACT_LINK_DETAIL->value);
+
+        if ($this->section) {
+            $this->contact_button = $this->getChildSectionConfigs(ContactLinkSection::CONTACT_LINK_DETAIL->value);
+        }
     }
 
     private function getContactLinkConfigs()

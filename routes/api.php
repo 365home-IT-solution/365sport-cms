@@ -29,6 +29,8 @@ use App\Http\Controllers\Api\RatingController;
 use App\Http\Controllers\Api\WaitlistController;
 use App\Http\Controllers\Api\WishlistController;
 use App\Http\Controllers\Api\BookingFundController;
+use App\Http\Controllers\Api\TeamController;
+use App\Http\Controllers\Api\CameraMediaProxyController;
 use App\Http\Controllers\Api\OpenMatchController;
 use Illuminate\Support\Facades\Route;
 use Modules\AppPage\App\Http\Controllers\AppPageController;
@@ -48,8 +50,20 @@ use Modules\AppPage\App\Http\Controllers\AppPageController;
 | GET /api/room-types → Danh sách danh mục sân (dùng cho select/dropdown)
 |--------------------------------------------------------------------------
 */
+// ĐĂNG KÝ ĐỐI TÁC = MUA GÓI (xem PartnerPurchaseController): xem gói, đăng ký/mua gói, theo dõi đơn bằng mã đơn.
+Route::prefix('public')->name('api.partner-purchase.')->group(function () {
+    Route::get('partner-plans', [\App\Http\Controllers\Api\Public\PartnerPurchaseController::class, 'plans'])->middleware('throttle:public-api')->name('plans');
+    Route::get('partner-address', [\App\Http\Controllers\Api\Public\PartnerPurchaseController::class, 'address'])->middleware('throttle:public-api')->name('address');
+    Route::post('partner-purchase', [\App\Http\Controllers\Api\Public\PartnerPurchaseController::class, 'purchase'])->middleware('throttle:partner-onboarding-register')->name('purchase');
+    Route::get('partner-purchase/{token}', [\App\Http\Controllers\Api\Public\PartnerPurchaseController::class, 'show'])->middleware('throttle:partner-onboarding')->name('show');
+});
+
 Route::get('room-types',      [RoomTypeController::class, 'index'])->name('api.room-types.index');
+// Lựa chọn hợp lệ cho hồ sơ người chơi (môn, trình độ, mục tiêu, tần suất) — app dùng để dựng form POST /auth/me.
+Route::get('v1/player-profile-options', \App\Http\Controllers\Api\PlayerProfileOptionsController::class)
+    ->name('api.v1.player-profile-options')->middleware('throttle:public-api');
 Route::get('v1/room-types/{id}', [RoomTypeController::class, 'show'])->name('api.v1.room-types.show')->whereNumber('id');
+
 
 /*
 |--------------------------------------------------------------------------
@@ -130,6 +144,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
         Route::get('branches',    [SearchController::class, 'branches'])->name('branches');
         Route::get('/',           [SearchController::class, 'index'])->name('index');
     });
+
 });
 
 /*
@@ -372,7 +387,7 @@ Route::prefix('guest')->name('api.guest.')->middleware('throttle:20,1')->group(f
     Route::prefix('notifications')->name('notifications.')->group(function () {
         Route::get('/',           [GuestNotificationController::class, 'index'])->name('index');
         Route::post('read-all',   [GuestNotificationController::class, 'markAllRead'])->name('read-all');
-        Route::post('{id}/read',  [GuestNotificationController::class, 'markRead'])->name('read');
+        Route::post('{id}/read',  [GuestNotificationController::class, 'markRead'])->name('read')->whereNumber('id');
     });
 });
 
@@ -387,7 +402,7 @@ Route::prefix('guest')->name('api.guest.')->middleware('throttle:20,1')->group(f
 Route::middleware(['auth:sanctum'])->prefix('notifications')->name('api.notifications.')->group(function () {
     Route::get('/',          [NotificationController::class, 'index'])->name('index');
     Route::post('read-all',  [NotificationController::class, 'markAllRead'])->name('read-all');
-    Route::post('{id}/read', [NotificationController::class, 'markRead'])->name('read');
+    Route::post('{id}/read', [NotificationController::class, 'markRead'])->name('read')->whereNumber('id');
 });
 
 /*
@@ -469,6 +484,48 @@ Route::middleware(['auth:sanctum', 'customer.active'])->prefix('waitlist')->name
 | Tiền KHÔNG đi qua hệ thống — quỹ chỉ theo dõi/minh bạch hoá việc góp quỹ, không tạo Order/PayOS.
 |--------------------------------------------------------------------------
 */
+/*
+|--------------------------------------------------------------------------
+| Đội nhóm (App\Models\Team) — khách tạo nhóm; người khác vào nhóm bằng MÃ NHÓM (xin tham gia, trưởng nhóm duyệt)
+| hoặc được trưởng nhóm MỜI theo SỐ ĐIỆN THOẠI (người được mời đồng ý). Quỹ nhóm có thể gắn vào nhóm (team_id).
+| GET    /api/teams                                   → Tab "Đội của bạn": nhóm mình làm trưởng nhóm + đã tham gia
+| GET    /api/teams/requests                          → Tab "Tham gia": yêu cầu xin vào nhóm mình đã gửi (chờ duyệt)
+| GET    /api/teams/invitations                       → Tab "Lời mời": lời mời vào nhóm gửi cho mình
+| POST   /api/teams                                   → Tạo nhóm {name, description?}
+| GET    /api/teams/{code}                            → Chi tiết (nội dung tuỳ vai trò; người ngoài xem trước theo mã)
+| PUT    /api/teams/{code}                            → (Trưởng nhóm) đổi tên/mô tả
+| POST   /api/teams/{code}/join                       → Xin vào nhóm bằng mã (đang được mời thì vào luôn)
+| DELETE /api/teams/{code}/join                       → Rút lại yêu cầu đã gửi
+| POST   /api/teams/{code}/respond                    → Trả lời lời mời {decision: accept|decline}
+| POST   /api/teams/{code}/invite                     → (Trưởng nhóm) mời theo SĐT {phone}
+| POST   /api/teams/{code}/members/{id}/decide        → (Trưởng nhóm) duyệt/từ chối {decision: approved|rejected}
+| DELETE /api/teams/{code}/members/{id}               → (Trưởng nhóm) xoá thành viên / thu hồi lời mời
+| POST   /api/teams/{code}/leave                      → Thành viên tự rời nhóm
+| POST   /api/teams/{code}/disband                    → (Trưởng nhóm) giải tán nhóm
+|--------------------------------------------------------------------------
+*/
+Route::middleware(['auth:sanctum', 'customer.active'])->prefix('teams')->name('api.teams.')->group(function () {
+    // Route tĩnh (requests/invitations) khai báo TRƯỚC {code} để không bị {code} nuốt.
+    Route::get('/',            [TeamController::class, 'index'])->name('index');
+    Route::get('requests',     [TeamController::class, 'requests'])->name('requests');
+    Route::get('invitations',  [TeamController::class, 'invitations'])->name('invitations');
+    Route::post('/',           [TeamController::class, 'store'])->name('store')->middleware('throttle:20,1');
+
+    Route::prefix('{code}')->where(['code' => '[A-Za-z0-9]{8}'])->group(function () {
+        Route::get('/',                         [TeamController::class, 'show'])->name('show');
+        Route::put('/',                         [TeamController::class, 'update'])->name('update');
+        // Dò mã nhóm / SĐT bị giới hạn tốc độ để không thể dò hàng loạt.
+        Route::post('join',                     [TeamController::class, 'join'])->name('join')->middleware('throttle:30,1');
+        Route::delete('join',                   [TeamController::class, 'cancelRequest'])->name('join.cancel');
+        Route::post('respond',                  [TeamController::class, 'respond'])->name('respond');
+        Route::post('invite',                   [TeamController::class, 'invite'])->name('invite')->middleware('throttle:30,1');
+        Route::post('members/{memberId}/decide', [TeamController::class, 'decideMember'])->name('members.decide')->whereNumber('memberId');
+        Route::delete('members/{memberId}',     [TeamController::class, 'removeMember'])->name('members.remove')->whereNumber('memberId');
+        Route::post('leave',                    [TeamController::class, 'leave'])->name('leave');
+        Route::post('disband',                  [TeamController::class, 'disband'])->name('disband');
+    });
+});
+
 Route::middleware(['auth:sanctum', 'customer.active'])->prefix('booking-funds')->name('api.booking-funds.')->group(function () {
     Route::get('/',                              [BookingFundController::class, 'index'])->name('index');
     Route::post('/',                             [BookingFundController::class, 'store'])->name('store');
@@ -503,3 +560,13 @@ Route::middleware(['auth:sanctum', 'customer.active'])->prefix('open-matches')->
     Route::delete('{id}',      [OpenMatchController::class, 'destroy'])->name('destroy')->whereNumber('id');
 });
 
+
+
+/*
+|--------------------------------------------------------------------------
+| Camera media proxy — PUBLIC (không qua auth:sanctum vì player HLS/video tag không tự gắn được
+| Bearer token) — bảo mật bằng CameraMediaToken (HMAC ký sẵn, ngắn hạn, xem CameraRecordingService).
+| GET /api/camera-media/{token}/{filename}
+|--------------------------------------------------------------------------
+*/
+Route::get('camera-media/{token}/{filename}', CameraMediaProxyController::class)->name('api.camera-media');

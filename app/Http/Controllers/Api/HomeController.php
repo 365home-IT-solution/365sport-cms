@@ -248,7 +248,7 @@ class HomeController extends Controller
                 }
             }
         } else {
-            $query = Product::where('is_activated', true)
+            $query = Product::where('is_activated', true)->excludingCoaches()
                 ->where('is_in_stock', true);
 
             $branchIds = array_filter((array) ($data['branch_ids'] ?? []));
@@ -439,7 +439,7 @@ class HomeController extends Controller
 
         $branchLookup = $this->globalBranchLookup();
 
-        return Product::where('is_activated', true)
+        return Product::where('is_activated', true)->excludingCoaches()
             ->where('is_in_stock', true)
             ->whereHas('categories', fn ($cq) => $cq->whereIn('category_id', $filterIds))
             ->with(['roomTimeSlots.timeSlot', 'media', 'roomType', 'categories'])

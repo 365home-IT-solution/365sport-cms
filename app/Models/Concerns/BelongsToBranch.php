@@ -10,22 +10,22 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Modules\Category\Entities\Category;
 
-// Áp dụng vào các model kho (warehouse_items/stock_ins/stock_outs/stock_checks) cần tách riêng
-// theo CHI NHÁNH bên trong 1 đối tác — khác BelongsToPartner (lọc theo cả đối tác), trait này lọc
-// hẹp hơn theo branch_id (trỏ tới category gốc, category_type='product', parent_id NULL). Rập
-// khuôn đúng cấu trúc/lý do của BelongsToPartner (xem file đó) — chỉ chạy trong admin panel.
+// Áp dụng vào các model dữ liệu Warehouse thực sự khác nhau THEO TỪNG CHI NHÁNH (vật tư, phiếu
+// nhập/xuất/kiểm kê — KHÔNG áp dụng cho Nhóm vật tư/Đơn vị tính, 2 danh mục đó dùng CHUNG cho cả
+// đối tác). "Chi nhánh" = Category gốc (parent_id null, category_type 'product').
 //
-// Dùng User::effectiveBranchIds() (KHÔNG phải rootProductCategoryIds() trần) — tôn trọng lựa chọn
-// tạm thời qua nút "Chuyển đổi chi nhánh" ở header (App\Livewire\BranchSwitcher) khi user thu hẹp
-// lại còn 1/vài chi nhánh trong số được phép; mặc định (chưa bấm) = mọi chi nhánh được phép, kể cả
-// super_admin — nhờ vậy super_admin mặc định vẫn thấy hết như trước, chỉ bị lọc khi CHỦ ĐỘNG chọn.
+// 1 tài khoản có thể quản lý NHIỀU chi nhánh (không chỉ 1) — dùng lại
+// User::rootProductCategoryIds() làm nguồn xác định "tài khoản này được thấy/tạo cho những chi
+// nhánh nào" (đã tái sử dụng nguyên vẹn: chủ đối tác không giới hạn trong PHẠM VI ĐỐI TÁC của họ;
+// nhân viên bị thu hẹp thêm theo UserBranchPermission nếu có gán cụ thể — cùng 1 nguồn duy nhất
+// với phần còn lại của hệ thống, xem app/Models/User.php). Super_admin luôn xem/tạo được cho MỌI
+// chi nhánh (tự chọn qua field trên form).
 trait BelongsToBranch
 {
     protected static function bootBelongsToBranch(): void
     {
         static::addGlobalScope('branch', function (Builder $builder) {
-            // Cùng lý do như BelongsToPartner::bootBelongsToPartner() — chỉ lọc theo chi nhánh bên
-            // trong admin panel Filament, không rò rỉ ra route phía khách hàng.
+            // Cùng lý do như BelongsToPartner — scope chi nhánh chỉ có nghĩa trong admin panel.
             if (! AdminPanelContext::isActive()) {
                 return;
             }
@@ -33,6 +33,27 @@ trait BelongsToBranch
             $user = auth()->user();
 
             if (! $user instanceof User) {
+                return;
+            }
+
+            // super_admin MẶC ĐỊNH xem MỌI chi nhánh, không phụ thuộc effectiveBranchIds()/
+            // rootProductCategoryIds() (chỉ trả về category gốc category_type='product' — có thể
+            // KHÔNG phủ hết mọi chi nhánh thật trong hệ thống nếu dữ liệu category lệch taxonomy).
+            // NHƯNG khi super_admin chủ động thu hẹp qua nút "Chuyển đổi chi nhánh" ở header, PHẢI
+            // tôn trọng đúng lựa chọn đó — trước đây bypass VÔ ĐIỀU KIỆN khiến switcher không có tác
+            // dụng gì với vật tư/phiếu kho khi đăng nhập bằng super_admin (xác nhận thật qua ảnh
+            // chụp: chọn đúng 1 chi nhánh nhưng danh sách vẫn hiện đủ mọi chi nhánh). Dùng THẲNG
+            // session (không qua effectiveBranchIds()/rootProductCategoryIds()) khi đang lọc, để
+            // không dính đúng rủi ro taxonomy nêu trên.
+            if ($user->isSuperAdmin()) {
+                $selectedBranchIds = session('active_branch_ids');
+
+                if (empty($selectedBranchIds)) {
+                    return;
+                }
+
+                $builder->whereIn($builder->getModel()->getTable() . '.branch_id', $selectedBranchIds);
+
                 return;
             }
 
@@ -59,8 +80,9 @@ trait BelongsToBranch
             }
 
             // Chỉ tự gán khi tài khoản CHỈ quản lý (hoặc đang thu hẹp còn) ĐÚNG 1 chi nhánh — nếu
-            // quản lý nhiều hơn 1, bắt buộc phải tự chọn qua field trên form, không đoán bừa 1
-            // trong nhiều chi nhánh.
+            // quản lý nhiều hơn 1, bắt buộc phải tự chọn qua field trên form (xem
+            // WarehouseItemForm::branchInput() và tương tự ở 3 form phiếu), không đoán bừa 1 trong
+            // nhiều chi nhánh.
             $branchIds = $user->effectiveBranchIds();
             if (count($branchIds) === 1) {
                 $model->branch_id = $branchIds[0];

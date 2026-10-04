@@ -15,7 +15,7 @@
 >
     @if (!empty($branches))
         <section class="py-4 bg-white">
-            <div class="w-full max-w-7xl mx-auto px-4 sm:px-6" x-data="carouselNav()" x-init="init()">
+            <div class="w-full max-w-7xl mx-auto px-4 sm:px-6" x-data="carouselNav()">
                 <div style="margin-bottom:14px;">
                     <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
                         <h2 class="hs-section-title" style="font-weight:800; color:#111827; margin:0;">Các chi nhánh tại {{ $provinceName }}</h2>

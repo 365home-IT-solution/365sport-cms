@@ -28,7 +28,7 @@
 
         <!-- Contact Options -->
         <div class="flex flex-col gap-3 items-end">
-            @foreach ($contact_button['contact_button'] as $contact)
+            @foreach ($contact_button['contact_button'] ?? [] as $contact)
             @if ($contact['data']['visible'])
             @switch($contact['type'])
             @case('hotline')

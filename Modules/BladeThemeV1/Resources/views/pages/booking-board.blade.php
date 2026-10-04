@@ -161,9 +161,25 @@
             display: flex;
             flex-direction: column;
             gap: 32px;
+            width: 100%;
+            min-width: 0;
+        }
+        .branch-col-rooms,
+        .branch-col-booking {
+            width: 100%;
+            min-width: 0;
+            max-width: 100%;
         }
         .branch-col-rooms { order: 2; }
         .branch-col-booking { order: 1; }
+
+        /* Chỉ các vùng lịch/card được cuộn ngang nội bộ; không cho min-content của chúng tạo
+           thanh cuộn ngang cho toàn trang trên mobile. */
+        .branch-page-main {
+            width: 100%;
+            max-width: 100%;
+            overflow-x: clip;
+        }
 
         @media (max-width: 1023.98px) {
             /* Danh sách sân dạng lưới 2 cột thường thay vì carousel cuộn ngang —
@@ -172,15 +188,33 @@
                do tương tự). */
             #branch-rooms-root [x-ref="track"] {
                 display: grid !important;
-                grid-template-columns: repeat(2, 1fr) !important;
+                /* minmax(0, 1fr) là bắt buộc: tên sân/giá đang dùng white-space:nowrap; nếu
+                   để 1fr, min-content của card dài sẽ ép riêng cột đó rộng hơn cột còn lại. */
+                grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
                 gap: 10px !important;
                 overflow: visible !important;
                 scroll-snap-type: none !important;
+                width: 100% !important;
+                min-width: 0 !important;
             }
             #branch-rooms-root .home-card {
                 width: 100% !important;
                 max-width: 100% !important;
+                min-width: 0 !important;
                 flex: none !important;
+                overflow: hidden !important;
+            }
+            /* Mọi lớp con cũng phải được phép co theo track. Nếu chỉ sửa chính card, hàng
+               giá + đánh giá hoặc tên dài vẫn có thể giữ intrinsic width và đẩy card phình ra. */
+            #branch-rooms-root .home-card > div,
+            #branch-rooms-root .home-card > div > div,
+            #branch-rooms-root .home-card p {
+                min-width: 0 !important;
+                max-width: 100% !important;
+            }
+            #branch-rooms-root .home-card p {
+                overflow: hidden !important;
+                text-overflow: ellipsis !important;
             }
         }
 
@@ -278,7 +312,7 @@
                      dạng lưới 2 cột thường (order:2, xem CSS phía trên), không còn là bottom-sheet
                      nổi lên. --}}
                 <div class="branch-col-rooms">
-                    <div id="branch-rooms-root" x-data="carouselNav()" x-init="init()" style="min-height:80px;"></div>
+                    <div id="branch-rooms-root" x-data="carouselNav()" style="min-height:80px;"></div>
                 </div>
 
                 {{-- Cột 2: Bảng đặt lịch khung giờ của từng sân --}}

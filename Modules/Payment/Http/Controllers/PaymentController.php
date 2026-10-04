@@ -442,6 +442,11 @@ private function buildTelegramMessage(Order $order, string $status): string
                 return response()->json(['error' => 'No orderCode provided'], 400);
             }
 
+            // Phí GÓI DỊCH VỤ của đối tác (mã đơn bắt đầu bằng 8, hoặc nội dung chuyển khoản SBxxxxxx): xử lý riêng, không phải đơn đặt sân.
+            if ($subscriptionResponse = app(\App\Services\SubscriptionPayosService::class)->handleWebhook($webhookData)) {
+                return response()->json($subscriptionResponse);
+            }
+
             $order = Order::with('items')->where('order_code', $orderCode)->first();
 
             // Tìm theo current_payos_code (retry / update đơn hàng dùng code mới)

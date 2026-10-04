@@ -55,6 +55,26 @@ class RoomImageController extends Controller
      * Nếu type=main   : image (required, 1 file).
      * Nếu type=gallery: sections[{title?, description?, images[] (required, >=1 file mỗi khu vực)}].
      */
+    /**
+     * GET /api/admin/products/{id}/images/{imageId}
+     */
+    public function show(Request $request, string $id, string $imageId): JsonResponse
+    {
+        $product = $this->visibleProduct($request->user(), $id);
+
+        if (! $product) {
+            return response()->json(['message' => 'Room not found.'], 404);
+        }
+
+        $item = RoomImage::where('id', $imageId)->where('room_id', $product->id)->first();
+
+        if (! $item) {
+            return response()->json(['message' => 'Image not found.'], 404);
+        }
+
+        return response()->json(['data' => $this->toItem($item)]);
+    }
+
     public function store(Request $request, string $id): JsonResponse
     {
         $product = $this->visibleProduct($request->user(), $id);

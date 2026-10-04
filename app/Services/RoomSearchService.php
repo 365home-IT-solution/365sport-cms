@@ -69,7 +69,7 @@ class RoomSearchService
 
         $validated = Validator::make($filters, self::validationRules())->validate();
 
-        $query = Product::where('is_activated', true)
+        $query = Product::where('is_activated', true)->excludingCoaches()
             ->where('is_in_stock', true)
             ->with(['roomTimeSlots.timeSlot', 'media', 'roomType', 'categories:id']);
 
@@ -173,7 +173,7 @@ class RoomSearchService
 
         $validated = Validator::make($filters, self::validationRules())->validate();
 
-        $query = Product::where('is_activated', true)
+        $query = Product::where('is_activated', true)->excludingCoaches()
             ->where('is_in_stock', true)
             ->with(['categories:id', 'roomTimeSlots.promotions']);
 

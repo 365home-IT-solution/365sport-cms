@@ -7,12 +7,17 @@ namespace Modules\Product\App\Filament\Resources\ProductResource\Forms;
 use AmidEsfahani\FilamentTinyEditor\TinyEditor;
 use CodeWithDennis\FilamentSelectTree\SelectTree;
 use Filament\Forms\Components\Grid;
+use Filament\Forms\Components\Group;
 use Filament\Forms\Components\Section;
+use Filament\Forms\Components\Textarea;
+use Filament\Forms\Get;
 use Illuminate\Support\Facades\DB;
+use Modules\Employee\Entities\Employee;
 use Modules\Product\App\Models\Product;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\ToggleButtons;
+use Filament\Forms\Components\Hidden;
 use Filament\Forms\Form;
 use TomatoPHP\FilamentMediaManager\Form\MediaManagerInput;
 
@@ -24,6 +29,7 @@ class ProductForm
             Grid::make(3)->schema([
                 // ── Cột trái (2/3) ──────────────────────────────────────────
                 Grid::make(1)->columnSpan(2)->schema([
+                    Hidden::make('type')->default('simple'),
                     self::categoriesCard(),
                     self::basicInfoCard(),
                     self::descriptionsCard(),

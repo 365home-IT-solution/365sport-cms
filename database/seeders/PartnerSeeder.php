@@ -50,13 +50,27 @@ class PartnerSeeder extends Seeder
 
         // Cùng lý do như Department/Position ở trên — đoạn seed sân bên dưới cũng giả định sẵn
         // room_type_id 1/2 đã tồn tại, nhưng không có seeder nào tạo loại sân cả.
-        $roomTypeHomestay  = RoomType::firstOrCreate(['slug' => 'homestay'], ['name' => 'Homestay', 'is_active' => true]);
-        $roomTypeKhachSan  = RoomType::firstOrCreate(['slug' => 'khach-san'], ['name' => 'Khách sạn', 'is_active' => true]);
+        // Loại sân = môn thể thao (sport_type dùng cho lọc và HLV theo môn).
+        $roomTypes = [];
+        foreach ([
+            ['pickleball', 'Pickleball',   'pickleball', 'hard',      false, 10],
+            ['cau-long',   'Cầu lông',     'badminton',  'synthetic', false, 20],
+            ['bong-da-mini', 'Bóng đá mini', 'football', 'artificial_grass', true, 30],
+            ['tennis',     'Tennis',       'tennis',     'hard',      true,  40],
+        ] as [$slug, $name, $sport, $surface, $outdoor, $sort]) {
+            $roomTypes[$sport] = RoomType::updateOrCreate(['slug' => $slug], [
+                'name' => $name, 'sport_type' => $sport, 'surface_type' => $surface,
+                'is_outdoor' => $outdoor, 'is_active' => true, 'sort_order' => $sort,
+            ]);
+        }
 
         $partners = [
             ['name' => 'Đối tác Golden Bee', 'tax_code' => '0100100001', 'phone' => '0900000001', 'email' => 'partner1@365home.test'],
-            ['name' => 'Đối tác Sunrise Homestay', 'tax_code' => '0100100002', 'phone' => '0900000002', 'email' => 'partner2@365home.test'],
+            ['name' => 'Đối tác Sunrise Sports', 'tax_code' => '0100100002', 'phone' => '0900000002', 'email' => 'partner2@365home.test'],
             ['name' => 'Đối tác Ocean View', 'tax_code' => '0100100003', 'phone' => '0900000003', 'email' => 'partner3@365home.test'],
+            // Đối tác thứ 4 — NeighboringProvinceBranchSeeder/SportsWarehouseItemSeeder tìm đúng tên này.
+            // Phải đứng SAU 3 đối tác đầu (SportVenueDemoSeeder lấy 3 đối tác đầu theo created_at).
+            ['name' => 'Mamble Sport', 'tax_code' => '0100100004', 'phone' => '0900000004', 'email' => 'partner4@365home.test'],
         ];
 
         foreach ($partners as $index => $data) {
@@ -69,6 +83,8 @@ class PartnerSeeder extends Seeder
                     'tax_code'   => $data['tax_code'],
                     'phone'      => $data['phone'],
                     'status'     => true,
+                    // Phải 'approved' — User::canAccessPanel() chỉ cho đối tác đã duyệt đăng nhập admin (mặc định cột là 'pending').
+                    'verification_status' => 'approved',
                     'created_by' => $superAdmin?->id,
                 ]
             );
@@ -146,15 +162,17 @@ class PartnerSeeder extends Seeder
                 );
             }
 
+            $shortName = trim(preg_replace('/^Đối tác\s+/u', '', $data['name']));
+
             // 2 chi nhánh (Category loại 'product') — slug đã gắn theo partner nên không trùng
             // giữa các đối tác, tên giữ đơn giản/bình thường.
             $branches = [];
             for ($b = 1; $b <= 2; $b++) {
                 $branches[] = Category::updateOrCreate(
-                    ['slug' => "chi-nhanh-{$b}-partner-{$n}"],
+                    ['slug' => "co-so-{$b}-partner-{$n}"],
                     [
-                        'name'          => "Chi nhánh {$b}",
-                        'description'   => "Chi nhánh số {$b}",
+                        'name'          => "{$shortName} - Cơ sở {$b}",
+                        'description'   => "Cơ sở thi đấu số {$b} của {$shortName}",
                         'category_type' => 'product',
                         'status'        => true,
                         'partner_id'    => $partner->id,
@@ -163,20 +181,21 @@ class PartnerSeeder extends Seeder
             }
 
             // 2 sân, mỗi sân 1 loại sân (room_type_id) khác nhau và gán vào 1 chi nhánh khác nhau
-            $roomTypeIds = [1 => $roomTypeHomestay->id, 2 => $roomTypeKhachSan->id];
-            $roomTypeLabels = [1 => 'Homestay', 2 => 'Khách sạn'];
+            $roomTypeIds = [1 => $roomTypes['pickleball']->id, 2 => $roomTypes['badminton']->id];
+            $roomTypeLabels = [1 => 'Pickleball', 2 => 'Cầu lông'];
 
             $rooms = [];
             for ($r = 1; $r <= 2; $r++) {
                 $roomLabel = $roomTypeLabels[$r];
 
                 $room = Product::updateOrCreate(
-                    ['slug' => "phong-{$r}-partner-{$n}"],
+                    ['slug' => "san-{$r}-partner-{$n}"],
                     [
                         'partner_id'   => $partner->id,
-                        'name'         => "Sân {$roomLabel}",
-                        'description'  => "Sân loại {$roomLabel}",
-                        'price'        => 500000 + ($r * 100000),
+                        'name'         => "Sân {$roomLabel} {$shortName}",
+                        'description'  => "Sân {$roomLabel} tiêu chuẩn thi đấu",
+                        'price'        => 100000 + ($r * 20000),
+                        'styles'       => 1,
                         'room_type_id' => $roomTypeIds[$r] ?? null,
                         'is_in_stock'  => true,
                         'is_activated' => true,
@@ -194,8 +213,8 @@ class PartnerSeeder extends Seeder
             // 2 tiện ích riêng của đối tác (mỗi đối tác tự định nghĩa, không dùng chung danh mục
             // tiện ích của đối tác khác) — gán cả 2 vào cả 2 sân để test hiển thị.
             $amenityData = [
-                1 => ['type' => 'Phòng tắm', 'name' => 'Vòi sen nóng lạnh'],
-                2 => ['type' => 'Tiện nghi', 'name' => 'Điều hòa 2 chiều'],
+                1 => ['type' => 'Tiện ích', 'name' => 'Phòng thay đồ & tủ khoá'],
+                2 => ['type' => 'Tiện ích', 'name' => 'Bãi giữ xe miễn phí'],
             ];
             foreach ($amenityData as $idx => $amenityInfo) {
                 $amenity = RoomAmenity::updateOrCreate(
@@ -211,8 +230,8 @@ class PartnerSeeder extends Seeder
 
             // 2 dịch vụ bổ sung riêng của đối tác (vd đưa đón sân bay, giặt ủi) — gán vào cả 2 sân
             $additionServiceData = [
-                1 => ['name' => 'Đưa đón sân bay', 'price' => 200000],
-                2 => ['name' => 'Giặt ủi', 'price' => 50000],
+                1 => ['name' => 'Thuê vợt', 'price' => 30000],
+                2 => ['name' => 'Nước suối', 'price' => 10000],
             ];
             foreach ($additionServiceData as $svc) {
                 $service = AdditionService::updateOrCreate(
@@ -229,13 +248,13 @@ class PartnerSeeder extends Seeder
             // 2 dịch vụ sân + 2 điểm đặc biệt, mỗi sân 1 cái (kế thừa partner_id qua product_id)
             foreach ($rooms as $idx => $room) {
                 RoomService::updateOrCreate(
-                    ['product_id' => $room->id, 'name' => 'Dịch vụ Ăn sáng'],
-                    ['description' => 'Buffet sáng tại chỗ', 'price' => 90000, 'unit' => 'người/ngày', 'sort_order' => $idx]
+                    ['product_id' => $room->id, 'name' => 'Thuê bóng/cầu'],
+                    ['description' => 'Bóng hoặc cầu thi đấu chính hãng', 'price' => 20000, 'unit' => 'bộ/giờ', 'sort_order' => $idx]
                 );
 
                 RoomSpecial::updateOrCreate(
-                    ['product_id' => $room->id, 'title' => 'Miễn phí WiFi tốc độ cao'],
-                    ['icon' => 'wifi', 'short_description' => 'Áp dụng cho toàn bộ sân', 'sort_order' => $idx]
+                    ['product_id' => $room->id, 'title' => 'Đèn LED chống chói'],
+                    ['icon' => 'light-bulb', 'short_description' => 'Chiếu sáng đạt chuẩn thi đấu buổi tối', 'sort_order' => $idx]
                 );
             }
 
@@ -283,7 +302,7 @@ class PartnerSeeder extends Seeder
                         'partner_id'  => $partner->id,
                         'category_id' => $branches[$o - 1]->id ?? $branches[0]->id,
                         'user_id'     => $owner->id,
-                        'amount'      => 500000 * $o,
+                        'amount'      => 120000 * $o,
                         'buyer_name'  => "Khách hàng mẫu {$o}",
                         'buyer_phone' => "090111000{$o}",
                         'status'      => $o === 1 ? 'paid' : 'pending',

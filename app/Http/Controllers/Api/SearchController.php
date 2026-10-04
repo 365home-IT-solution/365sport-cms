@@ -34,7 +34,7 @@ class SearchController extends Controller
             'longitude'   => null,
         ];
 
-        $locations = Product::where('is_activated', true)
+        $locations = Product::where('is_activated', true)->excludingCoaches()
             ->where('is_in_stock', true)
             ->whereNotNull('address')
             ->whereNotNull('latitude')
@@ -195,7 +195,7 @@ class SearchController extends Controller
             return response()->json(['data' => []]);
         }
 
-        $results = Product::where('is_activated', true)
+        $results = Product::where('is_activated', true)->excludingCoaches()
             ->where('is_in_stock', true)
             ->whereNotNull('address')
             ->where('address', 'like', "%{$q}%")

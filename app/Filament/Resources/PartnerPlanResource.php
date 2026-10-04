@@ -65,6 +65,7 @@ class PartnerPlanResource extends Resource
         'staff_permissions'  => 'Phân quyền chi nhánh cho nhân viên',
         'staff_roles'        => 'Vai trò cho nhân viên',
         'warehouse'          => 'Quản lý kho',
+        'camera'             => 'Camera an ninh',
         // NGOẠI LỆ: không gắn với resource Filament nào (không có trong FEATURE_RESOURCE_SLUGS bên
         // dưới) — kiểm tra trực tiếp bằng Partner::hasFeature('landing_page') ở
         // BladeThemeV1Controller::partnerLandingPage() (route theo subdomain, phía client, không
@@ -104,6 +105,7 @@ class PartnerPlanResource extends Resource
         'staff_permissions'  => ['user::branch::permission'],
         'staff_roles'        => ['shield::role'],
         'warehouse'          => ['warehouse::category', 'warehouse::unit', 'warehouse::item', 'warehouse::stock::in', 'warehouse::stock::out', 'warehouse::stock::check'],
+        'camera'             => ['camera', 'camera::alert'],
     ];
 
     private static function isSuperAdmin(): bool
@@ -159,6 +161,32 @@ class PartnerPlanResource extends Resource
                     ->required()
                     ->numeric()
                     ->minValue(0),
+
+                Forms\Components\TextInput::make('period_months')
+                    ->label('Số tháng của 1 kỳ giá')
+                    ->numeric()->minValue(1)->maxValue(12)->default(1)->required()
+                    ->helperText('Giá ở trên là giá của 1 kỳ này; khách mua 1/3/6/9/12 kỳ.'),
+
+                Forms\Components\TextInput::make('trial_months')
+                    ->label('Số tháng dùng thử riêng')
+                    ->numeric()->minValue(0)->maxValue(24)->default(0)
+                    ->helperText('0 = theo cấu hình chung (PARTNER_SIGNUP_TRIAL_MONTHS). Chỉ tặng khi Super Admin duyệt đăng ký lần đầu.'),
+
+                Forms\Components\TextInput::make('landing_addon_price')
+                    ->label('Giá bán thêm trang landing subdomain (đ / kỳ)')
+                    ->numeric()->minValue(0)
+                    ->helperText('Để trống = chưa bán thêm. Có giá thì khách chọn "mua kèm landing" khi đăng ký/gia hạn (bỏ qua nếu gói đã gồm tính năng Trang landing bên dưới).'),
+
+                Forms\Components\KeyValue::make('period_discounts')
+                    ->label('Giảm giá theo số kỳ mua (%)')
+                    ->keyLabel('Số kỳ (1/3/6/9/12)')->valueLabel('% giảm')
+                    ->addActionLabel('Thêm mức giảm')
+                    ->helperText('Vd 3 → 5, 12 → 15. Để trống = không giảm.')
+                    ->columnSpanFull(),
+
+                Forms\Components\Toggle::make('is_default')
+                    ->label('Gói mặc định')
+                    ->helperText('Gói được chọn sẵn khi khách đăng ký không chọn gói. Chỉ 1 gói mặc định.'),
 
                 Forms\Components\TextInput::make('max_branches')
                     ->label('Số chi nhánh tối đa')

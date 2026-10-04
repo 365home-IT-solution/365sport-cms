@@ -20,16 +20,18 @@ use Modules\Payment\Entities\Order;
 use Modules\Payment\Entities\OrderItem;
 use Modules\Product\App\Models\Product;
 use Modules\Product\App\Models\RoomTimeSlot;
-use App\Models\CustomerCompanion;
 use App\Services\PromotionCalculator;
-use Modules\Payment\App\Services\CccdScannerService;
 use Modules\Promotion\App\Models\Coupon;
 use PayOS\PayOS;
+use Modules\Coach\App\Services\CoachBookingService;
 
 class BookingController extends Controller
 {
     public function store(Request $request): JsonResponse
     {
+        $request->files->remove('cccd_front');
+        $request->files->remove('cccd_back');
+        $request->files->remove('guests');
         // ── 1. Validate ──────────────────────────────────────────────────────
         $baseRules = [
             'type'                    => 'required|in:slot,monthly,daily',
@@ -48,6 +50,10 @@ class BookingController extends Controller
             'services'                => 'sometimes|nullable|array',
             'services.*.service_id'   => 'required_with:services|integer',
             'services.*.quantity'     => 'required_with:services|integer|min:1',
+            'equipment'               => 'sometimes|nullable|array',
+            'equipment.*.equipment_id'=> 'required_with:equipment|integer',
+            'equipment.*.quantity'    => 'required_with:equipment|integer|min:1',
+            'coach_id'                => 'sometimes|nullable|integer|exists:coaches,id',
             'return_url'              => 'sometimes|nullable|string|max:500',
             'cancel_url'              => 'sometimes|nullable|string|max:500',
         ];
@@ -94,13 +100,6 @@ class BookingController extends Controller
             return response()->json(['message' => $blockedReason], 429);
         }
 
-        if (empty($customer->cccd_front) || empty($customer->cccd_back) || empty($customer->cccd_data)) {
-            return response()->json([
-                'message' => 'Bạn cần cập nhật CCCD/CMND vào tài khoản trước khi đặt sân.',
-                'error'   => 'cccd_required',
-            ], 422);
-        }
-
         // ── 3. Load sân ─────────────────────────────────────────────────────
         $room = Product::where('id', $request->input('room_id'))
             ->where('is_activated', true)
@@ -142,97 +141,18 @@ class BookingController extends Controller
         // type != 'slot' (đặt theo ngày) LUÔN là qua đêm — xem over_night => true hardcode trong
         // buildDailyItems(). $rtsCollection ở đó chỉ chứa RoomTimeSlot có type 'date' (giá đặc
         // biệt theo ngày cụ thể) nên có thể rỗng dù đơn thực chất qua đêm — phải check type riêng.
-        $hasOvernight  = $request->input('type') === 'daily'
-            || $rtsCollection->contains(fn ($rts) => (bool) $rts->over_night);
-        $guestCccdRows      = [];
-        $newCompanionUploads = [];
-
-        if ($hasOvernight) {
-            $guestCount     = (int) $request->input('guest_count');
-            $companionCount = $guestCount - 1;
-
-            if ($companionCount > 0) {
-                $existingCompanions = $customer->companions()->orderBy('id')->get();
-
-                for ($i = 0; $i < $companionCount; $i++) {
-                    $guestIndex = $i + 2;
-
-                    if ($existingCompanions->has($i)) {
-                        $companion = $existingCompanions[$i];
-                        $guestCccdRows[] = [
-                            'guest_index' => $guestIndex,
-                            'front'       => $companion->cccd_front,
-                            'back'        => $companion->cccd_back,
-                            'data'        => $companion->cccd_data,
-                        ];
-                        continue;
-                    }
-
-                    // Chưa có sẵn trong hồ sơ — chấp nhận upload trực tiếp trong request này.
-                    $frontKey = "guests.{$guestIndex}.front";
-                    $backKey  = "guests.{$guestIndex}.back";
-
-                    if (! $request->hasFile($frontKey) || ! $request->hasFile($backKey)) {
-                        $this->cleanupNewCompanionUploads($newCompanionUploads);
-
-                        return response()->json([
-                            'message' => "Khung giờ qua đêm cần khai báo lưu trú cho khách thứ {$guestIndex} — vui lòng gửi kèm CCCD (mặt trước/sau) của khách này hoặc thêm vào hồ sơ trước.",
-                            'error'   => 'companion_cccd_required',
-                        ], 422);
-                    }
-
-                    $guestFront = $request->file($frontKey)->store('cccd', 'public');
-                    $guestBack  = $request->file($backKey)->store('cccd', 'public');
-
-                    $tempGuestOrder = new Order(['cccd_front' => $guestFront, 'cccd_back' => $guestBack]);
-                    $guestData      = app(CccdScannerService::class)->scanOrder($tempGuestOrder);
-
-                    if (! $guestData) {
-                        Storage::disk('public')->delete($guestFront);
-                        Storage::disk('public')->delete($guestBack);
-                        $this->cleanupNewCompanionUploads($newCompanionUploads);
-
-                        return response()->json([
-                            'message' => "Không đọc được mã QR trên CCCD khách thứ {$guestIndex}. Vui lòng upload ảnh gốc rõ nét, không chụp lại màn hình.",
-                        ], 422);
-                    }
-
-                    $guestCccdRows[] = [
-                        'guest_index' => $guestIndex,
-                        'front'       => $guestFront,
-                        'back'        => $guestBack,
-                        'data'        => $guestData,
-                    ];
-
-                    $newCompanionUploads[] = [
-                        'cccd_front' => $guestFront,
-                        'cccd_back'  => $guestBack,
-                        'cccd_data'  => $guestData,
-                    ];
-                }
-            }
-        }
-
-        // Lưu ngay các CCCD người đi cùng vừa upload vào hồ sơ (customer_companions) — độc lập
-        // với việc đơn có tạo thành công hay không, để lần đặt sau tái sử dụng được luôn, không
-        // bắt khách quét QR lại nếu đơn này bị conflict slot phải thử lại sân khác.
-        foreach ($newCompanionUploads as $row) {
-            CustomerCompanion::create([
-                'customer_id' => $customer->id,
-                'full_name'   => $row['cccd_data']['full_name'] ?? null,
-                'cccd_front'  => $row['cccd_front'],
-                'cccd_back'   => $row['cccd_back'],
-                'cccd_data'   => $row['cccd_data'],
-            ]);
-        }
-
         // ── 5. Dịch vụ bổ sung ───────────────────────────────────────────────
         [$servicesTotal, $servicesData] = $this->buildServices($request, $room);
+        [$equipmentTotal, $equipmentData] = $this->buildEquipment($request, $room);
+
+        // HLV là phụ phí riêng, chỉ được chọn kèm sân và phải thuộc đúng chi nhánh của sân.
+        [$coachTotal, $quotedCoach, $coachRows] = app(CoachBookingService::class)
+            ->quote($request->integer('coach_id') ?: null, $room, $itemsData);
 
         // ── 5.5 Phụ thu số lượng người ─────────────────────────────────────────
         [$guestSurcharge, $guestSurchargeInfo] = $this->buildGuestSurcharge($request, $room, $slotSummary);
 
-        $subtotal = $basePrice + $servicesTotal + $guestSurcharge;
+        $subtotal = $basePrice + $servicesTotal + $equipmentTotal + $guestSurcharge + $coachTotal;
 
         // ── 6. Áp dụng discount theo thứ tự ưu tiên ─────────────────────────
         //
@@ -297,7 +217,7 @@ class BookingController extends Controller
 
         $discountAmount = $promotionDiscount + $systemDiscount + $couponDiscount;
         $slotFinalPrice = max(0, $basePrice - $discountAmount);
-        $finalAmount    = $slotFinalPrice + $servicesTotal + $guestSurcharge;
+        $finalAmount    = $slotFinalPrice + $servicesTotal + $equipmentTotal + $guestSurcharge + $coachTotal;
 
         // ── Deposit (chỉ daily) ───────────────────────────────────────────────
         // Phương thức thanh toán online (PayOS/chuyển khoản) do ADMIN quyết định qua
@@ -364,9 +284,9 @@ class BookingController extends Controller
         // ── 7. Tạo đơn + items + services trong transaction ──────────────────
         $order = DB::transaction(function () use (
             $room, $amountDue, $finalAmount, $subtotal, $buyerName, $buyerPhone,
-            $customer, $category, $itemsData, $servicesData,
+            $customer, $category, $itemsData, $servicesData, $equipmentData,
             $paymentMethod, $request, $appliedCoupons, $appliedCouponCodes, $depositPercentToSave,
-            $guestCccdRows, $couponDiscount
+            $couponDiscount, $quotedCoach, $coachRows
         ) {
             Product::where('id', $room->id)->lockForUpdate()->first();
 
@@ -419,21 +339,7 @@ class BookingController extends Controller
                 // partner_id của sân đang đặt (xem giải thích chi tiết ở GuestBookingController).
                 'partner_id'      => $room->partner_id,
                 'customer_id'     => $customer?->id,
-                'cccd_front'      => $customer?->cccd_front,
-                'cccd_back'       => $customer?->cccd_back,
-                'cccd_data'       => $customer?->cccd_data,
             ]);
-
-            // CCCD khách thứ 2 trở đi (khung giờ qua đêm) — snapshot từ customer_companions tại
-            // thời điểm đặt, xem bước 4.5.
-            foreach ($guestCccdRows as $guestRow) {
-                $order->guestCccds()->create([
-                    'guest_index' => $guestRow['guest_index'],
-                    'cccd_front'  => $guestRow['front'],
-                    'cccd_back'   => $guestRow['back'],
-                    'cccd_data'   => $guestRow['data'],
-                ]);
-            }
 
             foreach ($itemsData as $itemData) {
                 $order->items()->create($itemData);
@@ -441,6 +347,13 @@ class BookingController extends Controller
 
             foreach ($servicesData as $svc) {
                 $order->services()->create($svc);
+            }
+            foreach ($equipmentData as $equipment) {
+                $order->services()->create($equipment);
+            }
+
+            if ($quotedCoach) {
+                app(CoachBookingService::class)->reserve($order, $quotedCoach, $coachRows);
             }
 
             // Tăng lượt dùng cho tất cả coupon đã áp dụng
@@ -496,12 +409,6 @@ class BookingController extends Controller
                 'buyer_name'     => $order->buyer_name,
                 'buyer_phone'    => $order->buyer_phone,
                 'team_name'      => $order->team_name,
-                'guests'         => $order->guestCccds->map(fn ($g) => [
-                    'guest_index' => $g->guest_index,
-                    'cccd_front'  => Storage::disk('public')->url($g->cccd_front),
-                    'cccd_back'   => Storage::disk('public')->url($g->cccd_back),
-                    'cccd_data'   => $g->cccd_data,
-                ])->values(),
             ],
             'room' => [
                 'id'   => $room->id,
@@ -509,6 +416,13 @@ class BookingController extends Controller
             ],
             'slots'            => $slotSummary,
             'services'         => $servicesData,
+            'equipment'        => $equipmentData,
+            'coach'            => $quotedCoach ? [
+                'id' => $quotedCoach->id,
+                'name' => $quotedCoach->name,
+                'hourly_rate' => $quotedCoach->hourly_rate,
+                'subtotal' => $coachTotal,
+            ] : null,
             'guest_surcharge'  => $guestSurchargeInfo,
             'promotions'       => $appliedPromotions,
             'system_discount'  => $appliedSystemDiscount,
@@ -534,22 +448,12 @@ class BookingController extends Controller
                 'slots_final'          => $slotFinalPrice,
                 'guest_surcharge'      => $guestSurcharge,
                 'services_total'       => $servicesTotal,
+                'equipment_total'      => $equipmentTotal,
+                'coach_total'          => $coachTotal,
                 'total_after_discount' => (int) $finalAmount,
                 'final_amount'         => (int) $order->full_amount,
             ],
         ], 201);
-    }
-
-    /**
-     * Xoá các file CCCD người đi cùng vừa upload trong request hiện tại (chưa kịp lưu vào
-     * customer_companions) khi phải huỷ ngang do lỗi ở người tiếp theo trong vòng lặp.
-     */
-    private function cleanupNewCompanionUploads(array $uploads): void
-    {
-        foreach ($uploads as $row) {
-            Storage::disk('public')->delete($row['cccd_front']);
-            Storage::disk('public')->delete($row['cccd_back']);
-        }
     }
 
     // ── Slot (nhiều khung giờ) ────────────────────────────────────────────────

@@ -381,7 +381,7 @@ if (typeof window.homeBookingBoard === 'undefined') {
                 this.loadProvinces();
                 window.addEventListener('province-selected', (e) => {
                     const id = String(e.detail?.id || localStorage.getItem('home_province_id') || '');
-                    if (id && id !== this.activeProvinceId) {
+                    if (id && id !== this.activeProvinceId && this.provinces.some(p => String(p.id) === id)) {
                         this.activeProvinceId = id;
                         this.loadBranches();
                     }
@@ -393,7 +393,10 @@ if (typeof window.homeBookingBoard === 'undefined') {
                     .then(res => res.json())
                     .then(data => {
                         this.provinces = data.provinces || [];
-                        if (!this.activeProvinceId && this.provinces.length) {
+                        // Tỉnh đã lưu (localStorage) có thể không còn sân -> API không trả về nữa; khi đó rơi
+                        // về tỉnh đầu tiên CÓ SÂN thay vì kẹt ở 1 tỉnh trống (không ghi đè localStorage).
+                        const known = this.provinces.some(p => String(p.id) === this.activeProvinceId);
+                        if ((!this.activeProvinceId || !known) && this.provinces.length) {
                             this.activeProvinceId = String(this.provinces[0].id);
                         }
                         this.loadBranches();

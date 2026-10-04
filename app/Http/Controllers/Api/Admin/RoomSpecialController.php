@@ -39,6 +39,26 @@ class RoomSpecialController extends Controller
      * POST /api/admin/products/{id}/specials
      * Body: title (required), icon, short_description, sort_order.
      */
+    /**
+     * GET /api/admin/products/{id}/specials/{specialId}
+     */
+    public function show(Request $request, string $id, string $specialId): JsonResponse
+    {
+        $product = $this->visibleProduct($request->user(), $id);
+
+        if (! $product) {
+            return response()->json(['message' => 'Room not found.'], 404);
+        }
+
+        $item = RoomSpecial::where('id', $specialId)->where('product_id', $product->id)->first();
+
+        if (! $item) {
+            return response()->json(['message' => 'Special not found.'], 404);
+        }
+
+        return response()->json(['data' => $this->toItem($item)]);
+    }
+
     public function store(Request $request, string $id): JsonResponse
     {
         $product = $this->visibleProduct($request->user(), $id);

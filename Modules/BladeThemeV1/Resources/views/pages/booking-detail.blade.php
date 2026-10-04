@@ -1,25 +1,15 @@
-<!DOCTYPE html>
-<html lang="vi">
+@extends('bladethemev1::layouts.master')
 
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>Tra cứu đặt sân - {{ $order->order_code }}</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
-        rel="stylesheet">
-    <style>
-        [x-cloak] {
-            display: none !important
-        }
-    </style>
-</head>
+@section('title', 'Tra cứu đặt sân - ' . $order->order_code)
 
-<body>
-    <div class="max-w-screen-xl md:px-8 px-3 mx-auto py-3">
-        <div class="max-w-[700px] min-h-[500px] w-full pt-8 mx-auto">
+@section('content')
+    <x-bladethemev1::home.top-bar />
+    <x-bladethemev1::home.search-bar />
+    @livewire('bladethemev1::drawer-menu')
+
+    <main class="bg-gray-50/70 border-t border-gray-100">
+    <div class="max-w-screen-xl md:px-8 px-3 mx-auto py-6 md:py-10">
+        <div class="max-w-[700px] min-h-[500px] w-full mx-auto">
             <div id="result" class="pb-5 relative">
 
                 {{-- Thông báo khi vừa thanh toán cọc thành công --}}
@@ -254,7 +244,7 @@
                                         <p class="font-semibold text-gray-900 mb-1">Xác nhận huỷ đơn?</p>
                                         <p class="text-sm text-gray-600 mb-4">
                                             Bạn sẽ được hoàn <strong>{{ number_format($order->computeCustomerCancelRefundAmount(), 0, ',', '.') }}đ</strong>
-                                            (70% số tiền đã thanh toán, trừ 10% phí xử lý). Thao tác này không thể hoàn tác.
+                                            (nhận lại đúng 70% số tiền đã thanh toán; 30% còn lại là phí huỷ và xử lý). Thao tác này không thể hoàn tác.
                                         </p>
                                         <form method="POST" action="{{ route('booking.cancel', ['code' => $order->order_code]) }}" class="flex gap-2">
                                             @csrf
@@ -396,6 +386,8 @@
                                 Xem bản đồ
                             </a>
                         </div>
+
+                        @include('bladethemev1::components.order.addons', ['order' => $order])
                         @endif {{-- /$isPackagePurchase --}}
 
                         <div style="padding-top: 1.5rem" class="mt-8 border-t border-gray-100 space-y-3">
@@ -582,6 +574,9 @@
             </div>
         </div>
     </div>
-</body>
+    </main>
 
-</html>
+    @livewire('bladethemev1::footer')
+    @livewire('bladethemev1::contact-link')
+    @livewire('bladethemev1::notification')
+@endsection

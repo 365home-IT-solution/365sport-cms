@@ -78,7 +78,8 @@
                                  ->navigationGroup() thật của Filament. Nhóm không có khai báo thì
                                  giữ nguyên hành vi gốc, chỉ tự chia cột CSS khi danh sách quá dài. --}}
                             @php
-                                $subGroupMap = config('mega-menu.' . $groupLabel);
+                                // Cột megamenu lấy từ App\Filament\Support\AdminNavigation (nơi duy nhất khai báo nhóm/cột/thứ tự).
+                                $subGroupMap = \App\Filament\Support\AdminNavigation::columnMap($groupLabel) ?: null;
                                 $subGroups   = [];
 
                                 if ($subGroupMap) {
@@ -108,10 +109,10 @@
                                     $subGroups = array_filter($subGroups);
                                 }
 
-                                // Tối đa 3 CỘT — nhiều tiêu đề hơn thì CSS Grid tự xuống hàng (grid-
-                                // template-columns cố định 3, không phải đếm bao nhiêu tiêu đề rồi
-                                // nới rộng thêm), tránh dropdown bị kéo quá rộng phải cuộn ngang.
-                                $megaMenuCols = $subGroups ? min(count($subGroups), 3) : 1;
+                                // Tối đa 4 CỘT — nhiều tiêu đề hơn thì CSS Grid tự xuống hàng. 3 cột (cũ)
+                                // làm nhóm 7 cột như "Quản lý" thành 3 hàng, cao quá màn hình nên hàng cuối bị
+                                // cắt; 4 cột còn 2 hàng. Không nới thêm để dropdown không quá rộng.
+                                $megaMenuCols = $subGroups ? min(count($subGroups), 4) : 1;
 
                                 if (! $subGroups) {
                                     $flatCount    = count($group->getItems());
@@ -123,6 +124,7 @@
                                 }
 
                                 $megaMenuWidth = match ($megaMenuCols) {
+                                    4 => '5xl',
                                     3 => '3xl',
                                     2 => 'lg',
                                     default => null,

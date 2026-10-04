@@ -7,6 +7,7 @@
 --}}
 @php
     $services = is_array($services ?? null) ? $services : [];
+    $equipmentServiceIds = \Modules\Payment\Entities\Order::equipmentServiceIds(array_column($services, 'service_id'));
 @endphp
 
 @if (empty($services))
@@ -36,6 +37,9 @@
                 <div class="min-w-0 flex-1">
                     <div class="truncate text-sm font-semibold" style="color: var(--boulder-30, #374151);">
                         {{ $name ?: 'Dịch vụ' }}
+                        @if (in_array((int) $serviceId, $equipmentServiceIds, true))
+                            <span class="ml-1 rounded-full px-1.5 py-0.5 text-[10px] font-semibold" style="background: var(--boulder-95, #f3f4f6); color: var(--boulder-50, #6b7280);">Vật tư</span>
+                        @endif
                     </div>
                     <div class="text-xs" style="color: var(--boulder-50, #9ca3af);">
                         {{ number_format((float) ($service['price'] ?? 0), 0, ',', '.') }}đ

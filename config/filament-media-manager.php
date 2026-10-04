@@ -7,7 +7,7 @@ return [
     ],
 
     "api" => [
-        "active" => true,
+        "active" => false, // tắt: API này cho MỌI khách đăng nhập (Sanctum) liệt kê thư mục media của quản trị
         "middlewares" => [
             "api",
             "auth:sanctum"

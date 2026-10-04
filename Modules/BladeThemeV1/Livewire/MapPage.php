@@ -11,6 +11,7 @@ use Illuminate\Support\Str;
 use Illuminate\View\View;
 use Livewire\Component;
 use Modules\Product\App\Models\Product;
+use Modules\Product\App\Models\RoomTimeSlot;
 use Modules\Promotion\App\Models\Promotion;
 
 /**
@@ -115,6 +116,14 @@ class MapPage extends Component
                 $ratingCount = RoomRating::whereIn('room_id', $products->pluck('id'))->count();
                 $ratingAvg   = $ratingCount > 0 ? RoomRating::whereIn('room_id', $products->pluck('id'))->avg('star') : null;
 
+                // Giá "Từ ..." hiển thị trên nhãn giá ở bản đồ + thẻ khi rê chuột (giống homestay): giá khung giờ
+                // thấp nhất còn mở của các sân thuộc chi nhánh; chưa cấu hình khung giờ thì lấy giá sân thấp nhất.
+                $priceFrom = RoomTimeSlot::whereIn('room_id', $products->pluck('id'))
+                    ->where('status', 'available')
+                    ->where('price', '>', 0)
+                    ->min('price');
+                $priceFrom = $priceFrom ?: $products->where('price', '>', 0)->min('price');
+
                 $gallery = $products
                     ->flatMap(fn ($p) => $p->getMedia('Thư viện'))
                     ->map(fn ($media) => $media->getUrl())
@@ -151,6 +160,7 @@ class MapPage extends Component
                     'slug'         => $category->slug,
                     'url'          => route('branch.booking', ['slug' => $category->slug]),
                     'address'      => $product->address,
+                    'price_from'   => $priceFrom ? (int) $priceFrom : null,
                     'lat'          => (float) $product->latitude,
                     'lng'          => (float) $product->longitude,
                     'image_url'    => $coverUrl,

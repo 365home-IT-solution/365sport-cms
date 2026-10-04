@@ -94,6 +94,11 @@ class AppServiceProvider extends ServiceProvider
             PanelsRenderHook::USER_MENU_BEFORE,
             fn(): View => view('filament.components.button-website'),
         );
+        // Nhãn đối tác + vai trò + tình trạng gói cạnh menu tài khoản.
+        FilamentView::registerRenderHook(
+            PanelsRenderHook::USER_MENU_BEFORE,
+            fn(): View => view('filament.components.account-badge'),
+        );
 
         try {
             $settings = app(MailSettings::class);

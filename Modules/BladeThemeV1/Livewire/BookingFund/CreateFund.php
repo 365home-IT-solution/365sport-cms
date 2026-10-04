@@ -136,7 +136,7 @@ class CreateFund extends Component
             'banks'     => config('vietnam_banks'),
             'branches'  => Category::where('category_type', 'product')->orderBy('name')->get(['id', 'name']),
             'products'  => $this->categoryId
-                ? Product::where('is_activated', true)
+                ? Product::where('is_activated', true)->excludingCoaches()
                     ->whereHas('categories', fn ($q) => $q->where('categories.id', $this->categoryId))
                     ->orderBy('name')
                     ->get(['id', 'name'])

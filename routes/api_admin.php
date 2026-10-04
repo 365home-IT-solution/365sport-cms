@@ -4,7 +4,6 @@ use App\Http\Controllers\Api\Admin\AuthController as AdminAuthController;
 use App\Http\Controllers\Api\Admin\BookingController as AdminBookingController;
 use App\Http\Controllers\Api\Admin\BranchController as AdminBranchController;
 use App\Http\Controllers\Api\Admin\CategoryController as AdminCategoryController;
-use App\Http\Controllers\Api\Admin\CccdController as AdminCccdController;
 use App\Http\Controllers\Api\Admin\ChatController as AdminChatController;
 use App\Http\Controllers\Api\Admin\AllowanceTypeController;
 use App\Http\Controllers\Api\Admin\CouponController as AdminCouponController;
@@ -17,7 +16,9 @@ use App\Http\Controllers\Api\Admin\DepartmentController;
 use App\Http\Controllers\Api\Admin\EmployeeController;
 use App\Http\Controllers\Api\Admin\OrderController;
 use App\Http\Controllers\Api\Admin\OrderPaymentController;
+use App\Http\Controllers\Api\Admin\CustomerPackageController;
 use App\Http\Controllers\Api\Admin\PackageOrderController;
+use App\Http\Controllers\Api\Admin\PackagePlanController;
 use App\Http\Controllers\Api\Admin\PositionController;
 use App\Http\Controllers\Api\Admin\PriceBoardController;
 use App\Http\Controllers\Api\Admin\RecurringBookingController;
@@ -43,6 +44,11 @@ use App\Http\Controllers\Api\Admin\TimeSlotController as AdminTimeSlotController
 use App\Http\Controllers\Api\Admin\TimeSlotHoldController as AdminTimeSlotHoldController;
 use App\Http\Controllers\Api\Admin\WarehouseCategoryController;
 use App\Http\Controllers\Api\Admin\WarehouseItemController;
+use App\Http\Controllers\Api\Admin\CameraAlertController;
+use App\Http\Controllers\Api\Admin\CameraController;
+use App\Http\Controllers\Api\Admin\CameraRecordingController;
+use App\Http\Controllers\Api\Admin\CameraSettingsController;
+use App\Http\Controllers\Api\Admin\WarehouseItemRentalController;
 use App\Http\Controllers\Api\Admin\WarehouseStockCheckController;
 use App\Http\Controllers\Api\Admin\WarehouseStockInController;
 use App\Http\Controllers\Api\Admin\WarehouseStockOutController;
@@ -64,6 +70,25 @@ use Illuminate\Support\Facades\Route;
 Route::post('admin/login', [AdminAuthController::class, 'login'])->name('api.admin.login')->middleware('throttle:6,1');
 
 Route::middleware(['auth:sanctum', 'admin.api'])->prefix('admin')->name('api.admin.')->group(function () {
+    // Gói dịch vụ của đối tác (luôn dùng được kể cả khi hết hạn): xem gói, chọn gói & thanh toán, bật tự gia hạn.
+    Route::prefix('subscription')->name('subscription.')->group(function () {
+        Route::get('/', [\App\Http\Controllers\Api\Admin\SubscriptionController::class, 'show'])->name('show');
+        Route::get('plans', [\App\Http\Controllers\Api\Admin\SubscriptionController::class, 'plans'])->name('plans');
+        Route::post('checkout', [\App\Http\Controllers\Api\Admin\SubscriptionController::class, 'checkout'])->name('checkout');
+        Route::get('payments', [\App\Http\Controllers\Api\Admin\SubscriptionController::class, 'payments'])->name('payments');
+        Route::get('payments/{id}', [\App\Http\Controllers\Api\Admin\SubscriptionController::class, 'payment'])->whereNumber('id')->name('payments.show');
+        Route::post('payments/{id}/cancel', [\App\Http\Controllers\Api\Admin\SubscriptionController::class, 'cancel'])->whereNumber('id')->name('payments.cancel');
+        Route::put('auto-renew', [\App\Http\Controllers\Api\Admin\SubscriptionController::class, 'autoRenew'])->name('auto-renew');
+    });
+
+    // Chỉ Super Admin: duyệt đăng ký đối tác (tặng dùng thử) và xác nhận đã nhận tiền gói.
+    Route::get('partner-signups', [\App\Http\Controllers\Api\Admin\PartnerSignupAdminController::class, 'index'])->name('partner-signups.index');
+    Route::post('partner-signups/{partner}/approve', [\App\Http\Controllers\Api\Admin\PartnerSignupAdminController::class, 'approve'])->name('partner-signups.approve');
+    Route::post('partner-signups/{partner}/reject', [\App\Http\Controllers\Api\Admin\PartnerSignupAdminController::class, 'reject'])->name('partner-signups.reject');
+    Route::post('partner-signups/{partner}/resend-credentials', [\App\Http\Controllers\Api\Admin\PartnerSignupAdminController::class, 'resendCredentials'])->name('partner-signups.resend-credentials');
+    Route::get('subscription-payments', [\App\Http\Controllers\Api\Admin\SubscriptionPaymentAdminController::class, 'index'])->name('subscription-payments.index');
+    Route::post('subscription-payments/{id}/confirm', [\App\Http\Controllers\Api\Admin\SubscriptionPaymentAdminController::class, 'confirm'])->whereNumber('id')->name('subscription-payments.confirm');
+
     Route::post('logout', [AdminAuthController::class, 'logout'])->name('logout');
     Route::get('me',      [AdminAuthController::class, 'me'])->name('me');
 });
@@ -88,6 +113,7 @@ Route::middleware(['auth:sanctum', 'admin.api'])->prefix('admin/chat')->name('ap
 Route::middleware(['auth:sanctum', 'admin.api'])->prefix('admin')->name('api.admin.')->group(function () {
     Route::prefix('departments')->name('departments.')->group(function () {
         Route::get('/',      [DepartmentController::class, 'index'])->name('index');
+        Route::get('/{id}', [DepartmentController::class, 'show'])->name('show')->whereNumber('id');
         Route::post('/',     [DepartmentController::class, 'store'])->name('store');
         Route::put('/{id}',  [DepartmentController::class, 'update'])->name('update')->whereNumber('id');
         Route::delete('/{id}', [DepartmentController::class, 'destroy'])->name('destroy')->whereNumber('id');
@@ -95,6 +121,7 @@ Route::middleware(['auth:sanctum', 'admin.api'])->prefix('admin')->name('api.adm
 
     Route::prefix('positions')->name('positions.')->group(function () {
         Route::get('/',      [PositionController::class, 'index'])->name('index');
+        Route::get('/{id}', [PositionController::class, 'show'])->name('show')->whereNumber('id');
         Route::post('/',     [PositionController::class, 'store'])->name('store');
         Route::put('/{id}',  [PositionController::class, 'update'])->name('update')->whereNumber('id');
         Route::delete('/{id}', [PositionController::class, 'destroy'])->name('destroy')->whereNumber('id');
@@ -116,6 +143,7 @@ Route::middleware(['auth:sanctum', 'admin.api'])->prefix('admin')->name('api.adm
 Route::middleware(['auth:sanctum', 'admin.api'])->prefix('admin')->name('api.admin.')->group(function () {
     Route::prefix('salary-types')->name('salary-types.')->group(function () {
         Route::get('/',        [SalaryTypeController::class, 'index'])->name('index');
+        Route::get('/{id}', [SalaryTypeController::class, 'show'])->name('show')->whereNumber('id');
         Route::post('/',       [SalaryTypeController::class, 'store'])->name('store');
         Route::put('/{id}',    [SalaryTypeController::class, 'update'])->name('update')->whereNumber('id');
         Route::delete('/{id}', [SalaryTypeController::class, 'destroy'])->name('destroy')->whereNumber('id');
@@ -123,6 +151,7 @@ Route::middleware(['auth:sanctum', 'admin.api'])->prefix('admin')->name('api.adm
 
     Route::prefix('allowance-types')->name('allowance-types.')->group(function () {
         Route::get('/',        [AllowanceTypeController::class, 'index'])->name('index');
+        Route::get('/{id}', [AllowanceTypeController::class, 'show'])->name('show')->whereNumber('id');
         Route::post('/',       [AllowanceTypeController::class, 'store'])->name('store');
         Route::put('/{id}',    [AllowanceTypeController::class, 'update'])->name('update')->whereNumber('id');
         Route::delete('/{id}', [AllowanceTypeController::class, 'destroy'])->name('destroy')->whereNumber('id');
@@ -130,6 +159,7 @@ Route::middleware(['auth:sanctum', 'admin.api'])->prefix('admin')->name('api.adm
 
     Route::prefix('deduction-types')->name('deduction-types.')->group(function () {
         Route::get('/',        [DeductionTypeController::class, 'index'])->name('index');
+        Route::get('/{id}', [DeductionTypeController::class, 'show'])->name('show')->whereNumber('id');
         Route::post('/',       [DeductionTypeController::class, 'store'])->name('store');
         Route::put('/{id}',    [DeductionTypeController::class, 'update'])->name('update')->whereNumber('id');
         Route::delete('/{id}', [DeductionTypeController::class, 'destroy'])->name('destroy')->whereNumber('id');
@@ -413,6 +443,52 @@ Route::middleware(['auth:sanctum', 'admin.api'])->prefix('admin/package-orders')
     Route::get('/{order_code}',         [PackageOrderController::class, 'show'])->name('show');
     Route::match(['put', 'post'], '/{order_code}', [PackageOrderController::class, 'update'])->name('update');
     Route::post('/{order_code}/mark-paid', [PackageOrderController::class, 'markPaid'])->name('mark-paid');
+    Route::delete('/{order_code}', [PackageOrderController::class, 'destroy'])->name('destroy');
+});
+
+/*
+|--------------------------------------------------------------------------
+| Package Plans — Gói nhiều buổi ADMIN CẤU HÌNH để bán ra (App\Models\PackagePlan) — đúng phạm vi
+| App\Filament\Resources\PackagePlanResource. Khác Package Orders ở trên (đơn khách MUA gói online)
+| và Customer Packages bên dưới (gói khách ĐÃ SỞ HỮU) — xem docblock
+| App\Http\Controllers\Api\Admin\PackagePlanController.
+| GET    /api/admin/package-plans          → ?category_id=&product_id=&is_active=&search=&per_page=
+| GET    /api/admin/package-plans/{id}
+| POST   /api/admin/package-plans          → tạo (scope_type: product|selected|category)
+| PUT    /api/admin/package-plans/{id}     → sửa
+| DELETE /api/admin/package-plans/{id}     → xoá
+| POST   /api/admin/package-plans/{id}/sell
+|                                          → "Bán gói" tay cho khách walk-in, thu tiền NGOÀI hệ
+|                                            thống — y hệt action "Bán gói" trên Filament.
+|--------------------------------------------------------------------------
+*/
+Route::middleware(['auth:sanctum', 'admin.api'])->prefix('admin/package-plans')->name('api.admin.package-plans.')->group(function () {
+    Route::get('/',        [PackagePlanController::class, 'index'])->name('index');
+    Route::post('/',       [PackagePlanController::class, 'store'])->name('store');
+    Route::get('/{id}',    [PackagePlanController::class, 'show'])->name('show')->whereNumber('id');
+    Route::put('/{id}',    [PackagePlanController::class, 'update'])->name('update')->whereNumber('id');
+    Route::delete('/{id}', [PackagePlanController::class, 'destroy'])->name('destroy')->whereNumber('id');
+    Route::post('/{id}/sell', [PackagePlanController::class, 'sell'])->name('sell')->whereNumber('id');
+});
+
+/*
+|--------------------------------------------------------------------------
+| Customer Packages — Khách ĐÃ MUA/được bán gói nhiều buổi (App\Models\CustomerPackage) — đúng
+| phạm vi App\Filament\Resources\CustomerPackageResource. KHÔNG có tạo mới ở đây — gói chỉ phát
+| sinh qua khách tự mua (Package Orders ở trên) hoặc admin.api.package-plans.sell — xem docblock
+| App\Http\Controllers\Api\Admin\CustomerPackageController.
+| GET /api/admin/customer-packages              → ?search=&sale_channel=&is_valid=&per_page=
+| GET /api/admin/customer-packages/{id}
+| PUT /api/admin/customer-packages/{id}         → sửa tay (bù/trừ buổi, gia hạn)
+| GET /api/admin/customer-packages/{id}/redemptions
+|                                                → lịch sử từng lượt trừ buổi
+|--------------------------------------------------------------------------
+*/
+Route::middleware(['auth:sanctum', 'admin.api'])->prefix('admin/customer-packages')->name('api.admin.customer-packages.')->group(function () {
+    Route::get('/',                  [CustomerPackageController::class, 'index'])->name('index');
+    Route::get('/{id}',              [CustomerPackageController::class, 'show'])->name('show')->whereNumber('id');
+    Route::put('/{id}',              [CustomerPackageController::class, 'update'])->name('update')->whereNumber('id');
+    Route::get('/{id}/redemptions',  [CustomerPackageController::class, 'redemptions'])->name('redemptions')->whereNumber('id');
 });
 
 /*
@@ -488,6 +564,7 @@ Route::middleware(['auth:sanctum', 'admin.api'])->prefix('admin/customers')->nam
     Route::get('/{id}',  [AdminCustomerController::class, 'show'])->name('show');
     Route::post('/',     [AdminCustomerController::class, 'store'])->name('store');
     Route::post('/{id}', [AdminCustomerController::class, 'update'])->name('update');
+    Route::delete('/{id}', [AdminCustomerController::class, 'destroy'])->name('destroy');
 });
 
 /*
@@ -576,6 +653,10 @@ Route::middleware(['auth:sanctum', 'admin.api'])->prefix('admin/services')->name
 */
 Route::middleware(['auth:sanctum', 'admin.api'])->prefix('admin/tags')->name('api.admin.tags.')->group(function () {
     Route::get('/', [AdminTagController::class, 'index'])->name('index');
+    Route::post('/', [AdminTagController::class, 'store'])->name('store');
+    Route::get('/{id}', [AdminTagController::class, 'show'])->name('show')->whereNumber('id');
+    Route::match(['put', 'post'], '/{id}', [AdminTagController::class, 'update'])->name('update')->whereNumber('id');
+    Route::delete('/{id}', [AdminTagController::class, 'destroy'])->name('destroy')->whereNumber('id');
 });
 
 /*
@@ -591,8 +672,8 @@ Route::middleware(['auth:sanctum', 'admin.api'])->prefix('admin/tags')->name('ap
 Route::middleware(['auth:sanctum', 'admin.api'])->prefix('admin/time-slots')->name('api.admin.time-slots.')->group(function () {
     Route::get('/', [AdminTimeSlotController::class, 'index'])->name('index');
     Route::post('/', [AdminTimeSlotController::class, 'store'])->name('store');
-    Route::put('/{id}', [AdminTimeSlotController::class, 'update'])->name('update');
-    Route::patch('/{id}', [AdminTimeSlotController::class, 'update'])->name('update.patch');
+    Route::put('/{id}', [AdminTimeSlotController::class, 'update'])->name('update')->whereNumber('id');
+    Route::patch('/{id}', [AdminTimeSlotController::class, 'update'])->name('update.patch')->whereNumber('id');
 });
 
 /*
@@ -645,6 +726,7 @@ Route::middleware(['auth:sanctum', 'admin.api'])->prefix('admin/products')->name
 
     // Room Services — dịch vụ bổ sung gắn riêng cho 1 sân (room_services), xem RoomServiceController.
     Route::get('/{id}/services',                  [RoomServiceController::class, 'index'])->name('services.index');
+    Route::get('/{id}/services/{serviceId}',      [RoomServiceController::class, 'show'])->name('services.show')->whereNumber('serviceId');
     Route::post('/{id}/services',                 [RoomServiceController::class, 'store'])->name('services.store');
     Route::put('/{id}/services/{serviceId}',      [RoomServiceController::class, 'update'])->name('services.update')->whereNumber('serviceId');
     Route::post('/{id}/services/{serviceId}',     [RoomServiceController::class, 'update'])->name('services.update.post')->whereNumber('serviceId');
@@ -652,6 +734,7 @@ Route::middleware(['auth:sanctum', 'admin.api'])->prefix('admin/products')->name
 
     // Room Specials — điểm đặc biệt của 1 sân (room_specials), xem RoomSpecialController.
     Route::get('/{id}/specials',                  [RoomSpecialController::class, 'index'])->name('specials.index');
+    Route::get('/{id}/specials/{specialId}',      [RoomSpecialController::class, 'show'])->name('specials.show')->whereNumber('specialId');
     Route::post('/{id}/specials',                 [RoomSpecialController::class, 'store'])->name('specials.store');
     Route::put('/{id}/specials/{specialId}',      [RoomSpecialController::class, 'update'])->name('specials.update')->whereNumber('specialId');
     Route::post('/{id}/specials/{specialId}',     [RoomSpecialController::class, 'update'])->name('specials.update.post')->whereNumber('specialId');
@@ -659,6 +742,7 @@ Route::middleware(['auth:sanctum', 'admin.api'])->prefix('admin/products')->name
 
     // Room Images — ảnh sân (room_images, multipart upload), xem RoomImageController.
     Route::get('/{id}/images',                   [RoomImageController::class, 'index'])->name('images.index');
+    Route::get('/{id}/images/{imageId}',         [RoomImageController::class, 'show'])->name('images.show')->whereNumber('imageId');
     Route::post('/{id}/images',                  [RoomImageController::class, 'store'])->name('images.store');
     Route::put('/{id}/images/{imageId}',         [RoomImageController::class, 'update'])->name('images.update')->whereNumber('imageId');
     Route::post('/{id}/images/{imageId}',        [RoomImageController::class, 'update'])->name('images.update.post')->whereNumber('imageId');
@@ -678,6 +762,7 @@ Route::middleware(['auth:sanctum', 'admin.api'])->prefix('admin/products')->name
 */
 Route::middleware(['auth:sanctum', 'admin.api'])->prefix('admin/room-amenities')->name('api.admin.room-amenities.')->group(function () {
     Route::get('/',        [RoomAmenityController::class, 'index'])->name('index');
+    Route::get('/{id}',    [RoomAmenityController::class, 'show'])->name('show')->whereNumber('id');
     Route::post('/',       [RoomAmenityController::class, 'store'])->name('store');
     Route::put('/{id}',    [RoomAmenityController::class, 'update'])->name('update')->whereNumber('id');
     Route::post('/{id}',   [RoomAmenityController::class, 'update'])->name('update.post')->whereNumber('id');
@@ -694,9 +779,6 @@ Route::middleware(['auth:sanctum', 'admin.api'])->prefix('admin/room-amenities')
 | POST /api/admin/cccd/scan → body multipart {front, back, guest_index?}
 |--------------------------------------------------------------------------
 */
-Route::middleware(['auth:sanctum', 'admin.api'])->prefix('admin/cccd')->name('api.admin.cccd.')->group(function () {
-    Route::post('/scan', [AdminCccdController::class, 'scan'])->name('scan');
-});
 
 /*
 |--------------------------------------------------------------------------
@@ -708,9 +790,14 @@ Route::middleware(['auth:sanctum', 'admin.api'])->prefix('admin/cccd')->name('ap
 | GET/POST      /api/admin/warehouse/units(/{id})        → đơn vị tính (dùng chung mọi chi nhánh)
 | GET/POST      /api/admin/warehouse/items(/{id})        → vật tư — ?search=&category_id=&unit_id=
 |                                                            &low_stock=1&all=1&per_page=
+| GET            /api/admin/warehouse/items/lookup?sku=   → tra cứu vật tư theo SKU quét được (QR/mã vạch)
+| GET            /api/admin/warehouse/items/{id}/qr       → PNG QR (base64) của vật tư
 | GET/POST      /api/admin/warehouse/stock-ins(/{id})    → phiếu nhập — ?search=&per_page=
 | GET/POST      /api/admin/warehouse/stock-outs(/{id})   → phiếu xuất — ?search=&reason=&room_id=&per_page=
 | GET/POST      /api/admin/warehouse/stock-checks(/{id}) → phiếu kiểm kê — ?search=&per_page=
+| GET            /api/admin/warehouse/item-rentals        → mượn/trả dụng cụ — ?status=&per_page=
+| POST           /api/admin/warehouse/item-rentals/{id}/return
+| POST           /api/admin/warehouse/item-rentals/{id}/mark-lost
 |--------------------------------------------------------------------------
 */
 Route::middleware(['auth:sanctum', 'admin.api'])->prefix('admin/warehouse')->name('api.admin.warehouse.')->group(function () {
@@ -728,9 +815,11 @@ Route::middleware(['auth:sanctum', 'admin.api'])->prefix('admin/warehouse')->nam
 
     Route::get('/items',        [WarehouseItemController::class, 'index'])->name('items.index');
     Route::post('/items',       [WarehouseItemController::class, 'store'])->name('items.store');
+    Route::get('/items/lookup', [WarehouseItemController::class, 'lookup'])->name('items.lookup');
     Route::get('/items/{id}',   [WarehouseItemController::class, 'show'])->name('items.show');
     Route::put('/items/{id}',   [WarehouseItemController::class, 'update'])->name('items.update');
     Route::delete('/items/{id}', [WarehouseItemController::class, 'destroy'])->name('items.destroy');
+    Route::get('/items/{id}/qr', [WarehouseItemController::class, 'qr'])->name('items.qr');
 
     Route::get('/stock-ins',        [WarehouseStockInController::class, 'index'])->name('stock-ins.index');
     Route::post('/stock-ins',       [WarehouseStockInController::class, 'store'])->name('stock-ins.store');
@@ -749,6 +838,12 @@ Route::middleware(['auth:sanctum', 'admin.api'])->prefix('admin/warehouse')->nam
     Route::get('/stock-checks/{id}',   [WarehouseStockCheckController::class, 'show'])->name('stock-checks.show')->whereNumber('id');
     Route::put('/stock-checks/{id}',   [WarehouseStockCheckController::class, 'update'])->name('stock-checks.update')->whereNumber('id');
     Route::delete('/stock-checks/{id}', [WarehouseStockCheckController::class, 'destroy'])->name('stock-checks.destroy')->whereNumber('id');
+
+    // Thuê dụng cụ thể thao kèm booking (mượn/trả) — tạo TỰ ĐỘNG khi khách chọn dịch vụ cho thuê
+    // dụng cụ lúc đặt sân, API này chỉ để xem + xử lý (trả/báo mất).
+    Route::get('/item-rentals',                [WarehouseItemRentalController::class, 'index'])->name('item-rentals.index');
+    Route::post('/item-rentals/{id}/return',   [WarehouseItemRentalController::class, 'markReturned'])->name('item-rentals.return')->whereNumber('id');
+    Route::post('/item-rentals/{id}/mark-lost', [WarehouseItemRentalController::class, 'markLost'])->name('item-rentals.mark-lost')->whereNumber('id');
 });
 
 /*
@@ -790,4 +885,44 @@ Route::middleware(['auth:sanctum', 'admin.api'])->prefix('admin/price-boards')->
     Route::match(['put', 'post'], '/{id}', [PriceBoardController::class, 'update'])->name('update')->whereNumber('id');
     Route::delete('/{id}',       [PriceBoardController::class, 'destroy'])->name('destroy')->whereNumber('id');
     Route::post('/{id}/apply-now', [PriceBoardController::class, 'applyNow'])->name('apply-now')->whereNumber('id');
+});
+
+/*
+|--------------------------------------------------------------------------
+| Camera an ninh — giám sát trộm/khu vực sân bãi (App\Models\Camera)
+| GET/POST      /api/admin/cameras(/{id})               → CRUD
+| GET            /api/admin/cameras/{id}/recordings/summary?timezone=
+| GET            /api/admin/cameras/{id}/recordings?after=&before=
+| GET            /api/admin/cameras/{id}/playback-url?after=&before=
+| POST           /api/admin/cameras/{id}/recording/start
+| POST           /api/admin/cameras/{id}/recording/{eventId}/stop
+| GET/PUT        /api/admin/camera-settings(?partner_id=)  → cấu hình go2rtc/Frigate theo đối tác
+| GET            /api/admin/camera-settings/partners       → chỉ super_admin
+| GET            /api/admin/camera-alerts?branch_id=&acknowledged=
+| POST           /api/admin/camera-alerts/{id}/acknowledge
+|--------------------------------------------------------------------------
+*/
+Route::middleware(['auth:sanctum', 'admin.api'])->prefix('admin/cameras')->name('api.admin.cameras.')->group(function () {
+    Route::get('/',        [CameraController::class, 'index'])->name('index');
+    Route::post('/',       [CameraController::class, 'store'])->name('store');
+    Route::get('/{id}',    [CameraController::class, 'show'])->name('show')->whereNumber('id');
+    Route::put('/{id}',    [CameraController::class, 'update'])->name('update')->whereNumber('id');
+    Route::delete('/{id}', [CameraController::class, 'destroy'])->name('destroy')->whereNumber('id');
+
+    Route::get('/{id}/recordings/summary', [CameraRecordingController::class, 'summary'])->name('recordings.summary')->whereNumber('id');
+    Route::get('/{id}/recordings',         [CameraRecordingController::class, 'recordings'])->name('recordings.index')->whereNumber('id');
+    Route::get('/{id}/playback-url',       [CameraRecordingController::class, 'playbackUrl'])->name('playback-url')->whereNumber('id');
+    Route::post('/{id}/recording/start',   [CameraRecordingController::class, 'startRecording'])->name('recording.start')->whereNumber('id');
+    Route::post('/{id}/recording/{eventId}/stop', [CameraRecordingController::class, 'stopRecording'])->name('recording.stop')->whereNumber('id');
+});
+
+Route::middleware(['auth:sanctum', 'admin.api'])->prefix('admin/camera-settings')->name('api.admin.camera-settings.')->group(function () {
+    Route::get('/partners', [CameraSettingsController::class, 'partners'])->name('partners');
+    Route::get('/',         [CameraSettingsController::class, 'show'])->name('show');
+    Route::put('/',         [CameraSettingsController::class, 'update'])->name('update');
+});
+
+Route::middleware(['auth:sanctum', 'admin.api'])->prefix('admin/camera-alerts')->name('api.admin.camera-alerts.')->group(function () {
+    Route::get('/',                  [CameraAlertController::class, 'index'])->name('index');
+    Route::post('/{id}/acknowledge', [CameraAlertController::class, 'acknowledge'])->name('acknowledge')->whereNumber('id');
 });

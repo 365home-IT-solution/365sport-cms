@@ -18,6 +18,7 @@ class BookingFund extends Model
 
     protected $fillable = [
         'leader_customer_id',
+        'team_id',
         'invite_code',
         'title',
         'note',
@@ -64,6 +65,12 @@ class BookingFund extends Model
     public function leader()
     {
         return $this->belongsTo(Customer::class, 'leader_customer_id');
+    }
+
+    // Quỹ có thể gắn vào 1 nhóm (App\Models\Team) để lấy sẵn thành viên đã duyệt của nhóm.
+    public function team()
+    {
+        return $this->belongsTo(Team::class);
     }
 
     public function category()

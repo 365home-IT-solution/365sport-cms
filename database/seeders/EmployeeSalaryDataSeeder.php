@@ -12,7 +12,7 @@ use Modules\Employee\Entities\SalaryType;
 
 // Seeder RIÊNG để có dữ liệu lương ĐẦY ĐỦ, CHÍNH XÁC cho trang "Thống kê lương"
 // (app/Filament/Pages/SalaryReport.php) — gán lương cơ bản + phụ cấp + giảm trừ THẬT cho toàn
-// bộ nhân viên hiện có của 3 đối tác mẫu (Golden Bee/Sunrise Homestay/Ocean View), không đụng
+// bộ nhân viên hiện có của 3 đối tác mẫu (Golden Bee/Sunrise Sports/Ocean View), không đụng
 // tới đối tác thật (Monaco/Pinus/89 Xuân Thủy) hay dữ liệu khác. Chạy tay khi cần:
 //   php artisan db:seed --class=EmployeeSalaryDataSeeder --force
 // An toàn khi chạy lại nhiều lần (dùng updateOrCreate/sync).
@@ -20,7 +20,7 @@ class EmployeeSalaryDataSeeder extends Seeder
 {
     private const PARTNER_NAMES = [
         'Đối tác Golden Bee',
-        'Đối tác Sunrise Homestay',
+        'Đối tác Sunrise Sports',
         'Đối tác Ocean View',
     ];
 

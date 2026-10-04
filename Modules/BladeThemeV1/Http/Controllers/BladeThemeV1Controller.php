@@ -219,7 +219,12 @@ class BladeThemeV1Controller extends Controller
         return view('bladethemev1::pages.booking-detail', compact(
             'order', 'item', 'product', 'isPackagePurchase', 'customerPackage',
             'isPackageBooking', 'packageRedemptions', 'redeemedPackage'
-        ));
+        ) + [
+            'primaryColor' => $this->primaryColor,
+            'primaryColorRgb' => $this->primaryColorRgb,
+            'heavyPrimaryColor' => $this->heavyPrimaryColor,
+            'lightPrimaryColor' => $this->lightPrimaryColor,
+        ]);
     }
 
     // Khách tự huỷ đơn/xin hoàn tiền online — xem App\Services\OrderCancellationService (điều
@@ -385,6 +390,23 @@ class BladeThemeV1Controller extends Controller
 
         return view('bladethemev1::pages.explore', [
             'seoData' => $seoData,
+            'primaryColor' => $this->primaryColor,
+            'primaryColorRgb' => $this->primaryColorRgb,
+            'heavyPrimaryColor' => $this->heavyPrimaryColor,
+            'lightPrimaryColor' => $this->lightPrimaryColor,
+        ]);
+    }
+
+    public function partnerOnboardingPage(Request $request)
+    {
+        return view('bladethemev1::pages.partner-onboarding', [
+            'seoData' => [
+                'seo_title' => 'Đăng ký đối tác ' . config('app.name'),
+                'seo_description' => 'Đăng ký làm đối tác ' . config('app.name') . ': chọn gói, dùng thử và nhận tài khoản quản lý sân qua email.',
+                'og_type' => 'website',
+            ],
+            'planSlug' => (string) $request->query('goi', ''),
+            'code' => (string) $request->query('ma', ''),
             'primaryColor' => $this->primaryColor,
             'primaryColorRgb' => $this->primaryColorRgb,
             'heavyPrimaryColor' => $this->heavyPrimaryColor,
@@ -670,8 +692,8 @@ class BladeThemeV1Controller extends Controller
         $product = Product::where([
             'slug' => $slug,
             'is_activated' => true,
-            'type' => 'simple'
         ])
+            ->where('type', 'simple')
             ->whereHas('categories', function ($query) {
                 $query->where('status', 1);
             })

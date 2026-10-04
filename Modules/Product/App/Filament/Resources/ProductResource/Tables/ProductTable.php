@@ -42,6 +42,12 @@ class ProductTable extends Table
                 TextColumn::make('categories.name')
                     ->label(__('product::product.table.label.categories'))
                     ->searchable(),
+                TextColumn::make('type')
+                    ->label('Loại')
+                    ->badge()
+                    ->formatStateUsing(fn (?string $state) => $state === 'coach' ? 'Huấn luyện viên' : 'Sân')
+                    ->color(fn (?string $state) => $state === 'coach' ? 'warning' : 'gray')
+                    ->toggleable(),
                 TextColumn::make('housekeeping_status')
                     ->label('Tình trạng sân')
                     ->toggleable()

@@ -100,6 +100,20 @@ class RoomAmenityController extends Controller
     }
 
     /**
+     * GET /api/admin/room-amenities/{id}
+     */
+    public function show(Request $request, string $id): JsonResponse
+    {
+        $amenity = $this->visibleAmenitiesQuery($request->user())->find($id);
+
+        if (! $amenity) {
+            return response()->json(['message' => 'Amenity not found.'], 404);
+        }
+
+        return response()->json(['data' => $this->toItem($amenity)]);
+    }
+
+    /**
      * PUT|POST /api/admin/room-amenities/{id}
      */
     public function update(Request $request, string $id): JsonResponse

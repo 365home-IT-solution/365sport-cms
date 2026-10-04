@@ -9,7 +9,7 @@ use Modules\Category\Entities\Category;
 use Modules\Payment\Entities\Order;
 
 // Seeder RIÊNG để test phần "Doanh thu hoa hồng" trên Dashboard (super_admin) với NHIỀU đối tác
-// khác nhau cùng lúc — chỉ tạo đơn hàng cho các đối tác MẪU/TEST (Golden Bee, Sunrise Homestay,
+// khác nhau cùng lúc — chỉ tạo đơn hàng cho các đối tác MẪU/TEST (Golden Bee, Sunrise Sports,
 // Ocean View, Công ty tui nè), KHÔNG đụng tới đối tác thật (Monaco/Pinus/89 Xuân Thủy). Chạy
 // tay khi cần:
 //   php artisan db:seed --class=PartnerCommissionTestSeeder --force
@@ -21,7 +21,7 @@ class PartnerCommissionTestSeeder extends Seeder
     // Mỗi đối tác 1 tỷ lệ hoa hồng khác nhau + số đơn/khoảng tiền khác nhau cho dễ phân biệt.
     private const PARTNERS = [
         'Đối tác Golden Bee'      => ['rate' => '10%', 'orders' => [4500000, 6200000, 3100000, 8900000]],
-        'Đối tác Sunrise Homestay' => ['rate' => '8%', 'orders' => [2200000, 5400000, 3300000]],
+        'Đối tác Sunrise Sports' => ['rate' => '8%', 'orders' => [2200000, 5400000, 3300000]],
         'Đối tác Ocean View'      => ['rate' => '12%', 'orders' => [7100000, 4600000]],
         'Công ty tui nè'          => ['rate' => '15%', 'orders' => [1500000, 2800000, 990000, 4200000, 3300000]],
     ];

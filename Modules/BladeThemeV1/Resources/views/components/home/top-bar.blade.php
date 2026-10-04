@@ -85,24 +85,13 @@
             </div>
         </div>
 
-        {{-- Menu chính desktop — trước đây chỉ có ở thanh tìm kiếm (Bản đồ/Sân đã đặt/Yêu thích,
-             components/home/search-bar.blade.php), thiếu hẳn Trang chủ/Khám phá/Nổi bật.
-             "Khám phá" đặc biệt QUAN TRỌNG phải thêm ở đây — bottom-nav mobile
-             (livewire/bottom-sidebar.blade.php) tự ẩn hoàn toàn từ 1024px trở lên
-             (@media min-width:1024px { display:none }), nên nếu không thêm vào đây thì trang đó
-             HOÀN TOÀN không thể truy cập được trên desktop (bug đã gặp). CHƯA thêm "Liên hệ" vì hệ
-             thống hiện chưa có trang liên hệ thật (không route/nội dung nào tồn tại), tránh dựng
-             link chết.
-             "Nổi bật" trỏ route('posts.page') (trang tin tức/bài viết thật) — KHÔNG trỏ
-             route('map.page') nữa (thử trước đó rồi đổi lại theo đúng yêu cầu người dùng: "Nổi
-             bật" không phải chỗ lọc sân). Bỏ hẳn mục "Bài viết" riêng vì trùng đúng 1 đích đến với
-             "Nổi bật" — gộp lại còn 1 mục duy nhất thay vì 2 link cùng trỏ 1 nơi. --}}
+        {{-- Menu chính desktop: các link rời như trước. "Khám phá" phải có ở đây vì bottom-nav mobile
+             ẩn từ 1024px. "Nổi bật" trỏ trang tin tức. Các mục khác (sân yêu thích, quỹ
+             nhóm...) nằm trong dropdown tài khoản bên phải. --}}
         <nav class="hidden shrink-0 items-center gap-6 lg:flex">
             <a href="/" class="text-sm font-semibold text-white/90 transition hover:text-white">Trang chủ</a>
             <a href="{{ route('explore.page') }}" class="text-sm font-semibold text-white/90 transition hover:text-white">Khám phá</a>
             <a href="{{ route('posts.page') }}" class="text-sm font-semibold text-white/90 transition hover:text-white">Nổi bật</a>
-            {{-- Trang landing giới thiệu/thu hút chủ sân đăng ký hợp tác (partnerPage(), route
-                 'partner.page') — chỉ 1 route/view tĩnh mới, không đụng logic đặt sân/giá thật. --}}
             <a href="{{ route('partner.page') }}" class="text-sm font-semibold text-white/90 transition hover:text-white">Làm đối tác</a>
         </nav>
 
@@ -153,6 +142,10 @@
                     <a href="{{ route('favorites.page') }}" class="flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 transition hover:bg-gray-50 hover:text-gray-900">
                         <x-heroicon-o-heart class="h-4 w-4 text-gray-400" />
                         Yêu thích
+                    </a>
+                    <a href="{{ route('booking-fund.create') }}" class="flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 transition hover:bg-gray-50 hover:text-gray-900">
+                        <x-heroicon-o-banknotes class="h-4 w-4 text-gray-400" />
+                        Quỹ nhóm
                     </a>
                     <div class="my-1 border-t border-gray-100"></div>
                     <button type="button" @click="logout()"

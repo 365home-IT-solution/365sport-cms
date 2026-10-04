@@ -62,7 +62,7 @@ class BranchController extends Controller
             ? $authUser->wishlists()->pluck('product_id')->toArray()
             : null;
 
-        $rooms = Product::where('is_activated', true)
+        $rooms = Product::where('is_activated', true)->excludingCoaches()
             ->where('is_in_stock', true)
             ->where(fn ($q) => $q->where('styles', 1)->orWhereNull('styles'))
             ->whereHas('categories', fn ($q) => $q->whereIn('categories.id', $categoryIds))
@@ -283,7 +283,7 @@ class BranchController extends Controller
             ? $authUser->wishlists()->pluck('product_id')->toArray()
             : null;
 
-        $rooms = Product::where('is_activated', true)
+        $rooms = Product::where('is_activated', true)->excludingCoaches()
             ->where('is_in_stock', true)
             ->where('styles', 2)
             ->whereHas('categories', fn ($q) => $q->whereIn('categories.id', $categoryIds))
@@ -400,7 +400,7 @@ class BranchController extends Controller
         $childIds  = Category::where('parent_id', $branchId)->pluck('id');
         $allCatIds = $childIds->push($branchId);
 
-        return Product::where('is_activated', true)
+        return Product::where('is_activated', true)->excludingCoaches()
             ->whereHas('categories', fn ($q) => $q->whereIn('category_id', $allCatIds))
             ->count();
     }

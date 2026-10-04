@@ -40,6 +40,18 @@ trait CrudsLookupTable
         return response()->json([$this->listKey() => $items]);
     }
 
+    public function show(int $id): JsonResponse
+    {
+        $modelClass = $this->modelClass();
+        $item       = $modelClass::find($id);
+
+        if (! $item) {
+            return response()->json(['message' => 'Not found.'], 404);
+        }
+
+        return response()->json([$this->itemKey() => $item]);
+    }
+
     public function store(Request $request): JsonResponse
     {
         $modelClass = $this->modelClass();

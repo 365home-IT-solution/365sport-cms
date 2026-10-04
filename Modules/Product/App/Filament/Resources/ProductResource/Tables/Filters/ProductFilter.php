@@ -76,6 +76,13 @@ class ProductFilter
                     true => __('product::product.filter.options.active'),
                     false => __('product::product.filter.options.inactive'),
                 ]),
+
+            SelectFilter::make('type')
+                ->label('Loại')
+                ->options([
+                    'simple' => 'Sân',
+                    'coach'  => 'Huấn luyện viên',
+                ]),
         ];
     }
 }

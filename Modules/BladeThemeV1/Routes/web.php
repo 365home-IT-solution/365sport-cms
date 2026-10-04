@@ -81,7 +81,9 @@ if ($menus->isNotEmpty()) {
         }
     }
 } else {
-    Route::get('/', [BladeThemeV1Controller::class, 'index'])->name('home');
+    // Chưa có menu CMS nào (cài mới) → không có page_id để index() dựng trang (findOrFail → 404),
+    // dùng home() — trang chủ đặt sân dựng sẵn bằng Livewire, không phụ thuộc Page builder.
+    Route::get('/', [BladeThemeV1Controller::class, 'home'])->name('home');
 }
 
 // SEO
@@ -94,8 +96,12 @@ Route::get('/branch/{slug}', [BladeThemeV1Controller::class, 'bookingBoard'])->n
 Route::get('/room/{slug}/', [BladeThemeV1Controller::class, 'productDetail'])->name('product.detail');
 //Route::get('/local/home-{slug}/', [BladeThemeV1Controller::class, 'categoryDetail'])->name('category.detail');
 Route::get('/mau-giao-dien/{slug}', [BladeThemeV1Controller::class, 'templateDetail'])->name('template.detail');
-Route::get('/thanh-toan', [BladeThemeV1Controller::class, 'paymentPage'])->name('payment.page');
-Route::get('/kiem-tra-ten-mien', [BladeThemeV1Controller::class, 'domainLookupDetail'])->name('domain-lookup.detail');
+// Đã tắt: trang giỏ hàng + phí ship GHN thừa từ dự án bán hàng (không có config/ghn.php, không nơi
+// nào liên kết tới) — truy cập gây 500. Luồng đặt sân dùng /room/{slug} → PayOS.
+// Route::get('/thanh-toan', [BladeThemeV1Controller::class, 'paymentPage'])->name('payment.page');
+// Đã tắt: chức năng "kiểm tra tên miền" thừa từ dự án khác, view livewire.domain-lookup-detail không
+// tồn tại nên truy cập gây 500. Xoá luôn DomainLookup*.php/HandleDomainTrait nếu không cần nữa.
+// Route::get('/kiem-tra-ten-mien', [BladeThemeV1Controller::class, 'domainLookupDetail'])->name('domain-lookup.detail');
 Route::get('/api/check-domain', function (\Illuminate\Http\Request $request) {
     $domain = $request->query('domain', '');
 
@@ -130,6 +136,8 @@ Route::get('/ban-do', [BladeThemeV1Controller::class, 'mapPage'])->name('map.pag
 Route::get('/kham-pha', [BladeThemeV1Controller::class, 'explorePage'])->name('explore.page');
 Route::get('/tin-tuc', [BladeThemeV1Controller::class, 'postsPage'])->name('posts.page');
 Route::get('/lam-doi-tac', [BladeThemeV1Controller::class, 'partnerPage'])->name('partner.page');
+// Đăng ký đối tác = mua gói (xem pages/partner-onboarding.blade.php, App\Http\Controllers\Api\Public\PartnerPurchaseController).
+Route::get('/dang-ky-hop-tac', [BladeThemeV1Controller::class, 'partnerOnboardingPage'])->name('partner-onboarding.page');
 // routes/web.php
 Route::get('/theme.css', function () {
     $theme = ThemeCache::generalSettings()->site_theme;

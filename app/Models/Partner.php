@@ -86,6 +86,10 @@ class Partner extends Model implements HasMedia
         'verification_status',
         'is_platform_partner',
         'partner_plan_id',
+        'onboarding_token',
+        'signup_plan_id',
+        'signup_periods',
+        'signup_landing_addon',
 
         // Hợp đồng
         'contract_code',
@@ -100,6 +104,7 @@ class Partner extends Model implements HasMedia
     protected $casts = [
         'status'                => 'boolean',
         'is_platform_partner'   => 'boolean',
+        'signup_landing_addon'  => 'boolean',
         'landing_page_enabled'  => 'boolean',
         // nullable — GIỮ NGUYÊN null khi chưa cấu hình (không ép về false), xem
         // effectiveLoyaltyDiscountEnabled().
@@ -191,6 +196,17 @@ class Partner extends Model implements HasMedia
     public function statusLogs(): HasMany
     {
         return $this->hasMany(PartnerStatusLog::class)->latest();
+    }
+
+    // Đăng ký gói hiện tại (mỗi đối tác đúng 1 dòng) — xem SubscriptionService.
+    public function subscription(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(PartnerSubscription::class);
+    }
+
+    public function subscriptionPayments(): HasMany
+    {
+        return $this->hasMany(SubscriptionPayment::class);
     }
 
     public function plan(): BelongsTo
@@ -321,6 +337,11 @@ class Partner extends Model implements HasMedia
     public function hasFeature(string $key): bool
     {
         if (! $this->partner_plan_id) {
+            return true;
+        }
+
+        // Trang landing subdomain có thể MUA THÊM kèm gói (PartnerSubscription::landing_addon) dù gói không gồm sẵn.
+        if ($key === 'landing_page' && $this->subscription?->landing_addon && $this->subscription->isUsable()) {
             return true;
         }
 

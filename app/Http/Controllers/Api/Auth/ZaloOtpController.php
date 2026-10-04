@@ -590,6 +590,23 @@ class ZaloOtpController extends Controller
             'companions.*.full_name'  => 'nullable|string|max:255',
             // Trình độ chơi tự khai — dùng cho tính năng "Tìm bạn chơi" (App\Models\OpenMatch).
             'skill_level'             => ['sometimes', 'nullable', 'string', 'in:' . implode(',', \App\Models\OpenMatch::SKILL_LEVELS)],
+            // Hồ sơ người chơi cơ bản — các lựa chọn hợp lệ lấy qua GET /api/v1/player-profile-options.
+            'height_cm'               => ['sometimes', 'nullable', 'integer', 'between:50,250'],
+            'weight_kg'               => ['sometimes', 'nullable', 'numeric', 'between:20,300'],
+            'special_note'            => ['sometimes', 'nullable', 'string', 'max:500'],
+            'favorite_position'       => ['sometimes', 'nullable', 'string', 'max:100'],
+            'sport_levels'            => ['sometimes', 'nullable', 'array', function (string $attribute, mixed $value, \Closure $fail) {
+                $allowed = \Modules\Product\App\Models\RoomType::query()->whereNotNull('sport_type')->distinct()->pluck('sport_type')->all();
+                foreach (array_keys((array) $value) as $sport) {
+                    if (! in_array((string) $sport, $allowed, true)) {
+                        $fail('Unknown sport type: ' . $sport);
+                    }
+                }
+            }],
+            'sport_levels.*'          => ['nullable', 'string', 'in:' . implode(',', \App\Models\OpenMatch::SKILL_LEVELS)],
+            'play_goals'              => ['sometimes', 'nullable', 'array', 'max:' . count(Customer::PLAY_GOALS)],
+            'play_goals.*'            => ['string', 'distinct', 'in:' . implode(',', array_keys(Customer::PLAY_GOALS))],
+            'play_frequency'          => ['sometimes', 'nullable', 'string', 'in:' . implode(',', array_keys(Customer::PLAY_FREQUENCIES))],
         ]);
 
         $customer = $request->user();
@@ -605,6 +622,21 @@ class ZaloOtpController extends Controller
 
         if ($request->has('skill_level')) {
             $data['skill_level'] = $request->skill_level;
+        }
+
+        // Hồ sơ người chơi: has() (không phải filled()) để app xoá được một trường bằng cách gửi rỗng/null.
+        foreach (['height_cm', 'weight_kg', 'special_note', 'favorite_position', 'play_frequency'] as $field) {
+            if ($request->has($field)) {
+                $value = $request->input($field);
+                $data[$field] = ($value === '' || $value === null) ? null : (is_string($value) ? trim($value) : $value);
+            }
+        }
+        if ($request->has('sport_levels')) {
+            // Bỏ môn không chọn trình độ (null/rỗng) — chỉ lưu môn đã chọn.
+            $data['sport_levels'] = array_filter((array) $request->input('sport_levels'), fn ($level) => $level !== null && $level !== '') ?: null;
+        }
+        if ($request->has('play_goals')) {
+            $data['play_goals'] = array_values((array) $request->input('play_goals')) ?: null;
         }
 
         // Lưu path file cũ để xoá sau khi xác nhận QR hợp lệ
@@ -753,6 +785,17 @@ class ZaloOtpController extends Controller
             'date_of_birth'     => $customer->date_of_birth?->toDateString(),
             'phone'             => $customer->phone,
             'status'            => $customer->status,
+            'skill_level'       => $customer->skill_level,
+            // Hồ sơ người chơi cơ bản: thông tin thể chất + cá nhân hoá (xem GET /api/v1/player-profile-options).
+            'profile'           => [
+                'height_cm'         => $customer->height_cm,
+                'weight_kg'         => $customer->weight_kg,
+                'special_note'      => $customer->special_note,
+                'favorite_position' => $customer->favorite_position,
+                'sport_levels'      => $customer->sport_levels ?: (object) [],
+                'play_goals'        => $customer->play_goals ?: [],
+                'play_frequency'    => $customer->play_frequency,
+            ],
             'phone_verified_at' => $customer->phone_verified_at?->toIso8601String(),
             'cccd_front'        => $customer->cccd_front
                 ? Storage::disk('public')->url($customer->cccd_front)

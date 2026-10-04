@@ -30,7 +30,7 @@ class AssignNightsAction
                 Select::make('product_ids')
                     ->label('Sân qua đêm')
                     ->options(
-                        Product::where('is_activated', true)
+                        Product::where('is_activated', true)->excludingCoaches()
                             ->orderBy('name')
                             ->pluck('name', 'id')
                     )

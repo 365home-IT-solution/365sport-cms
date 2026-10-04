@@ -10,6 +10,7 @@ use App\Filament\Resources\CustomerResource\RelationManagers\MembershipLogsRelat
 use App\Filament\Resources\CustomerResource\RelationManagers\PersonalCouponsRelationManager;
 use App\Models\Customer;
 use App\Models\MembershipTier;
+use Filament\Forms\Components\CheckboxList;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Grid;
@@ -17,6 +18,7 @@ use Filament\Forms\Components\KeyValue;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Section;
 use Filament\Forms\Components\Select;
+use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Forms\Form;
@@ -124,6 +126,26 @@ class CustomerResource extends Resource
                             ->hidden(fn ($record) => blank($record?->cccd_data)),
                     ])
                     ->columns(1)
+                    ->columnSpan(fn (?Customer $record): int => $record === null ? 3 : 1),
+
+                // ── Hồ sơ người chơi (khách tự khai qua app; admin xem/chỉnh khi cần hỗ trợ) ──
+                Section::make('Hồ sơ người chơi')
+                    ->description('Thông tin thể chất & cá nhân hoá — khách tự khai trong app.')
+                    ->schema([
+                        TextInput::make('height_cm')->label('Chiều cao (cm)')->numeric()->minValue(50)->maxValue(250),
+                        TextInput::make('weight_kg')->label('Cân nặng (kg)')->numeric()->minValue(20)->maxValue(300),
+                        Textarea::make('special_note')->label('Ghi chú đặc biệt')->maxLength(500)->rows(2),
+                        TextInput::make('favorite_position')->label('Vị trí yêu thích')->maxLength(100),
+                        Select::make('skill_level')->label('Trình độ chung')
+                            ->options(['beginner' => 'Mới chơi', 'intermediate' => 'Trung bình', 'advanced' => 'Khá', 'pro' => 'Chuyên nghiệp'])
+                            ->placeholder('Chưa khai'),
+                        KeyValue::make('sport_levels')->label('Môn thể thao & trình độ')
+                            ->keyLabel('Môn (mã, vd pickleball)')->valueLabel('Trình độ (beginner/intermediate/advanced/pro)'),
+                        CheckboxList::make('play_goals')->label('Mục tiêu')->options(Customer::PLAY_GOALS)->columns(2),
+                        Select::make('play_frequency')->label('Tần suất chơi')->options(Customer::PLAY_FREQUENCIES)->placeholder('Chưa khai'),
+                    ])
+                    ->columns(1)
+                    ->collapsible()
                     ->columnSpan(fn (?Customer $record): int => $record === null ? 3 : 1),
 
                 // ── Cột 2: Hạng thành viên & quyền lợi ─────────────────

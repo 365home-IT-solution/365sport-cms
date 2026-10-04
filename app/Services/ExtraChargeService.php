@@ -95,6 +95,12 @@ class ExtraChargeService
             ? (float) $order->services->sum('subtotal')
             : (float) $order->services()->sum('subtotal');
 
+        // Tiền thuê HLV (order_coaches) — khách đã trả cùng đơn, thiếu khoản này thì đơn có HLV bị
+        // tính "cần hoàn tiền" giả đúng bằng tiền HLV (calculateDiff() so với full_amount).
+        $total += $order->relationLoaded('coachBookings')
+            ? (float) $order->coachBookings->sum('subtotal')
+            : (float) $order->coachBookings()->sum('subtotal');
+
         return (int) round($total);
     }
 

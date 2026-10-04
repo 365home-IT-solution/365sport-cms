@@ -57,6 +57,32 @@ class Customer extends Authenticatable
         // Giá trị tự do, validate đúng tập OpenMatch::SKILL_LEVELS ở tầng API — xem migration
         // add_skill_level_to_customers_table.
         'skill_level',
+        // Hồ sơ người chơi cơ bản — xem migration add_player_profile_to_customers_table.
+        'height_cm',
+        'weight_kg',
+        'special_note',
+        'favorite_position',
+        'sport_levels',
+        'play_goals',
+        'play_frequency',
+    ];
+
+    // Mục tiêu chơi thể thao & tần suất chơi: mã => nhãn hiển thị. Validate đúng tập mã này ở tầng API; app lấy
+    // danh sách để dựng giao diện qua GET /api/v1/player-profile-options.
+    public const PLAY_GOALS = [
+        'health'      => 'Rèn luyện sức khoẻ',
+        'weight_loss' => 'Giảm cân',
+        'social'      => 'Giao lưu, kết bạn',
+        'improve'     => 'Nâng cao kỹ năng',
+        'competition' => 'Thi đấu',
+        'fun'         => 'Giải trí',
+    ];
+
+    public const PLAY_FREQUENCIES = [
+        'rarely'   => 'Thỉnh thoảng',
+        '1_2_week' => '1-2 buổi/tuần',
+        '3_4_week' => '3-4 buổi/tuần',
+        'daily'    => 'Gần như mỗi ngày',
     ];
 
     protected $hidden = [
@@ -73,6 +99,10 @@ class Customer extends Authenticatable
         'cccd_data'              => 'array',
         'total_spending'         => 'decimal:2',
         'no_show_count'          => 'integer',
+        'height_cm'              => 'integer',
+        'weight_kg'              => 'float',
+        'sport_levels'           => 'array',
+        'play_goals'             => 'array',
         'welcome_coupon_sent_at' => 'datetime',
     ];
 

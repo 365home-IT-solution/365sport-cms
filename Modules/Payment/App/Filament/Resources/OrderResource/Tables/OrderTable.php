@@ -629,7 +629,7 @@ class OrderTable
 
                             $grandTotal    = static::computeOrderTotal($record);
                             $totalExtraFee = $items->sum(fn ($i) => (float)($i->extra_fee ?? 0));
-                            $serviceTotal  = $record->services->sum('subtotal');
+                            $addons        = $record->addonBreakdown();
                             $discountTotal = $bulkData['total_discount'];
 
                             $footerRows = '';
@@ -647,12 +647,15 @@ class OrderTable
                                         <td class="py-2 px-4 text-sm font-semibold text-orange-500 text-right">+' . number_format($totalExtraFee, 0, ',', '.') . 'đ</td>
                                     </tr>';
                             }
-                            if ($serviceTotal > 0) {
-                                $footerRows .= '
+                            // Dịch vụ / thuê vật tư / HLV — 3 dòng riêng, cùng quy ước Order::addonBreakdown().
+                            foreach (['Dịch vụ thêm' => $addons['services_total'], 'Thuê vật tư' => $addons['equipment_total'], 'Huấn luyện viên' => $addons['coaches_total']] as $addonLabel => $addonTotal) {
+                                if ($addonTotal > 0) {
+                                    $footerRows .= '
                                     <tr>
-                                        <td colspan="3" class="py-2 px-4 text-sm text-orange-400 text-right">Dịch vụ thêm:</td>
-                                        <td class="py-2 px-4 text-sm font-semibold text-orange-400 text-right">+' . number_format($serviceTotal, 0, ',', '.') . 'đ</td>
+                                        <td colspan="3" class="py-2 px-4 text-sm text-orange-400 text-right">' . $addonLabel . ':</td>
+                                        <td class="py-2 px-4 text-sm font-semibold text-orange-400 text-right">+' . number_format($addonTotal, 0, ',', '.') . 'đ</td>
                                     </tr>';
+                                }
                             }
                             $footerRows .= '
                                 <tr class="bg-blue-50">

@@ -69,6 +69,13 @@ class RouteServiceProvider extends ServiceProvider
 
         // public-api: 40/phút/IP — siết chặt hơn mức mặc định 60/phút cho các endpoint
         // public "nặng" (home, search) dễ bị scraper dò toàn bộ dữ liệu sân/giá.
+        // Đăng ký/mua gói đối tác: 5/phút + 20/giờ/IP; xem đơn theo mã: 60/phút/(IP + mã).
+        RateLimiter::for('partner-onboarding-register', fn (Request $request) => [
+            Limit::perMinute(5)->by('onb-reg:' . $request->ip()),
+            Limit::perHour(20)->by('onb-reg-h:' . $request->ip()),
+        ]);
+        RateLimiter::for('partner-onboarding', fn (Request $request) => Limit::perMinute(60)->by('onb:' . $request->ip() . '|' . $request->route('token')));
+
         RateLimiter::for('public-api', function (Request $request) {
             return Limit::perMinute(40)->by($request->user()?->id ?: $request->ip());
         });
@@ -89,6 +96,11 @@ class RouteServiceProvider extends ServiceProvider
             Route::middleware('api')
                 ->prefix('api')
                 ->group(base_path('routes/api_admin.php'));
+
+            // CRUD admin sinh tự động từ App\Support\AdminCrud\CrudRegistry (GenericCrudController).
+            Route::middleware('api')
+                ->prefix('api')
+                ->group(base_path('routes/api_admin_crud.php'));
 
             Route::middleware('web')
                 ->group(base_path('routes/web.php'));

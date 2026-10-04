@@ -27,6 +27,9 @@ use Modules\Payment\App\Services\CccdScannerService;
 use App\Services\CccdDeclarationService;
 use App\Services\PromotionCalculator;
 use Modules\Category\Entities\Category;
+use Modules\Coach\App\Models\Coach;
+use Modules\Coach\App\Models\OrderCoach;
+use Modules\Coach\App\Services\CoachBookingService;
 
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Session;
@@ -107,6 +110,9 @@ class ProductDetail extends Component
 
     public $additionalServices = null;
     public array $selectedServices = [];
+    public array $selectedEquipment = [];
+    public $coaches = null;
+    public ?int $selectedCoachId = null;
 
     // Đánh giá sao — tách riêng khỏi $product->ratings_count/ratings_avg_star. Đây là
     // withCount()/withAvg() gắn vào model TRONG 1 lần query cụ thể (fetchProduct()); Livewire
@@ -204,9 +210,136 @@ class ProductDetail extends Component
         }
         $this->blindBag = BlindBag::first();
         $this->additionalServices = $this->product
-            ? $this->product->additionalServices()->where('additional_services.is_active', 1)->get()
+            ? $this->product->additionalServices()->with('warehouseItem')->where('additional_services.is_active', 1)->get()
             : collect();
         $this->selectedServices = [];
+        $this->selectedEquipment = [];
+        $branchId = $this->getBranchCategoryId();
+        $this->coaches = $branchId
+            ? Coach::query()->where('category_id', $branchId)->where('is_active', true)->orderBy('name')->get()
+            : collect();
+    }
+
+    public function selectCoach(int $coachId): void
+    {
+        if (! $this->coaches?->firstWhere('id', $coachId)) {
+            $this->addError('coach', 'Huấn luyện viên không thuộc chi nhánh này hoặc đã ngừng hoạt động.');
+            return;
+        }
+
+        if (in_array($coachId, $this->busyCoachIds(), true)) {
+            $this->addError('coach', 'Huấn luyện viên đã có lịch ở sân khác trong khung giờ bạn chọn.');
+            return;
+        }
+
+        $this->selectedCoachId = $coachId;
+        $this->bookingStyle == 2 ? $this->calculateDateRangeTotal() : $this->updatedSelectedSlots();
+    }
+
+    public function removeCoach(): void
+    {
+        $this->selectedCoachId = null;
+        $this->bookingStyle == 2 ? $this->calculateDateRangeTotal() : $this->updatedSelectedSlots();
+    }
+
+    public function selectedCoachTotal(): int
+    {
+        if (! $this->selectedCoachId || empty($this->selectedSlots) && $this->bookingStyle != 2) {
+            return 0;
+        }
+
+        $coach = $this->coaches?->firstWhere('id', $this->selectedCoachId);
+        if (! $coach) return 0;
+
+        $minutes = 0;
+        if ($this->bookingStyle == 2 && $this->startTime && $this->endTime) {
+            $minutes = Carbon::parse($this->startTime)->diffInMinutes(Carbon::parse($this->endTime));
+        } else {
+            foreach ($this->selectedSlots as $slot) {
+                $start = Carbon::parse("{$slot['date']} {$slot['startTime']}");
+                $end = Carbon::parse("{$slot['date']} {$slot['endTime']}");
+                if ($end->lte($start)) $end->addDay();
+                $minutes += $start->diffInMinutes($end);
+            }
+        }
+
+        return (int) ceil($coach->hourly_rate * $minutes / 60);
+    }
+
+    // Các khoảng thời gian HLV phải đi cùng khách — đúng bằng các khung giờ sân đã chọn.
+    private function coachPeriods(): array
+    {
+        $periods = [];
+        if ($this->bookingStyle == 2) {
+            if ($this->startTime && $this->endTime) {
+                $periods[] = [Carbon::parse($this->startTime), Carbon::parse($this->endTime)];
+            }
+        } else {
+            foreach ($this->selectedSlots as $slot) {
+                $start = Carbon::parse("{$slot['date']} {$slot['startTime']}");
+                $end = Carbon::parse("{$slot['date']} {$slot['endTime']}");
+                if ($end->lte($start)) $end->addDay();
+                $periods[] = [$start, $end];
+            }
+        }
+
+        return $periods;
+    }
+
+    /**
+     * HLV của chi nhánh ĐÃ bị đặt (ở BẤT KỲ sân nào) trùng ít nhất 1 khung giờ khách đang chọn —
+     * ẩn khỏi danh sách thay vì để khách chọn rồi mới báo lỗi lúc xác nhận.
+     */
+    public function busyCoachIds(): array
+    {
+        return CoachBookingService::busyCoachIds(
+            $this->coaches?->pluck('id')->all() ?? [],
+            $this->coachPeriods()
+        );
+    }
+
+    private function lockAndBuildCoachBookings(): array
+    {
+        if (! $this->selectedCoachId) return [];
+
+        $branchId = $this->getBranchCategoryId();
+        $coach = Coach::query()->lockForUpdate()
+            ->whereKey($this->selectedCoachId)
+            ->where('category_id', $branchId)
+            ->where('is_active', true)
+            ->first();
+
+        if (! $coach) {
+            throw new \RuntimeException('COACH_UNAVAILABLE:Huấn luyện viên không còn khả dụng tại chi nhánh này.');
+        }
+
+        $rows = [];
+        foreach ($this->coachPeriods() as [$start, $end]) {
+            $conflict = OrderCoach::query()
+                ->where('coach_id', $coach->id)
+                ->where('starts_at', '<', $end)
+                ->where('ends_at', '>', $start)
+                ->whereHas('order', fn ($q) => CoachBookingService::scopeHoldingOrders($q))
+                ->lockForUpdate()
+                ->exists();
+
+            if ($conflict) {
+                throw new \RuntimeException('COACH_UNAVAILABLE:Huấn luyện viên đã có lịch trong một khung giờ bạn chọn.');
+            }
+
+            $minutes = $start->diffInMinutes($end);
+            $rows[] = [
+                'coach_id' => $coach->id,
+                'coach_name' => $coach->name,
+                'hourly_rate' => $coach->hourly_rate,
+                'minutes' => $minutes,
+                'subtotal' => (int) ceil($coach->hourly_rate * $minutes / 60),
+                'starts_at' => $start,
+                'ends_at' => $end,
+            ];
+        }
+
+        return $rows;
     }
 
     /**
@@ -303,7 +436,7 @@ class ProductDetail extends Component
     protected function initializeProductData()
     {
         $this->mediaSecond = $this->product->getMedia('Thư viện');
-        $this->shortDescription = html_entity_decode(strip_tags($this->product->short_description));
+        $this->shortDescription = html_entity_decode(strip_tags((string) $this->product->short_description));
 
         // category_names là thuộc tính GẮN TAY vào $product trong fetchProduct() (không phải cột/
         // relation thật) — cùng vấn đề với ratingsCount/ratingsAvg ở trên: Livewire hydrate lại
@@ -760,7 +893,22 @@ class ProductDetail extends Component
 
     public function incrementService(int $serviceId): void
     {
-        $this->selectedServices[$serviceId] = ($this->selectedServices[$serviceId] ?? 0) + 1;
+        // Dịch vụ CHO THUÊ dụng cụ (gắn warehouse_item) có giới hạn tồn khả dụng — chặn ngay ở
+        // client, không để khách chọn vượt rồi mới nhận lỗi lúc bấm đặt sân. Dịch vụ thường (không
+        // gắn kho) không giới hạn.
+        $service = $this->additionalServices?->firstWhere('id', $serviceId);
+
+        // Mục gắn kho là "thuê vật tư" — PHẢI đi qua selectedEquipment (updatedSelectedSlots()/
+        // confirmBooking() bỏ qua mục có warehouseItem trong selectedServices), nếu không khách
+        // chọn xong mà không bị tính tiền và không được lưu vào đơn.
+        if ($service?->warehouseItem) {
+            $this->incrementEquipment($serviceId);
+
+            return;
+        }
+
+        $current = $this->selectedServices[$serviceId] ?? 0;
+        $this->selectedServices[$serviceId] = $current + 1;
         if ($this->bookingStyle == 2) {
             $this->calculateDateRangeTotal();
         } else {
@@ -770,6 +918,12 @@ class ProductDetail extends Component
 
     public function decrementService(int $serviceId): void
     {
+        if ($this->additionalServices?->firstWhere('id', $serviceId)?->warehouseItem) {
+            $this->decrementEquipment($serviceId);
+
+            return;
+        }
+
         if (($this->selectedServices[$serviceId] ?? 0) > 0) {
             $this->selectedServices[$serviceId]--;
         }
@@ -781,6 +935,30 @@ class ProductDetail extends Component
         } else {
             $this->updatedSelectedSlots();
         }
+    }
+
+    public function incrementEquipment(int $serviceId): void
+    {
+        $equipment = $this->additionalServices?->firstWhere('id', $serviceId);
+        if (! $equipment?->warehouseItem) {
+            $this->addError('equipment', 'Vật tư không hợp lệ.');
+            return;
+        }
+        $available = $equipment->warehouseItem->quantity_reserve;
+        $current = $this->selectedEquipment[$serviceId] ?? 0;
+        if ($current >= $available) {
+            $this->addError('equipment', "{$equipment->name} chỉ còn {$available} sản phẩm khả dụng.");
+            return;
+        }
+        $this->selectedEquipment[$serviceId] = $current + 1;
+        $this->bookingStyle == 2 ? $this->calculateDateRangeTotal() : $this->updatedSelectedSlots();
+    }
+
+    public function decrementEquipment(int $serviceId): void
+    {
+        if (($this->selectedEquipment[$serviceId] ?? 0) > 0) $this->selectedEquipment[$serviceId]--;
+        if (($this->selectedEquipment[$serviceId] ?? 0) === 0) unset($this->selectedEquipment[$serviceId]);
+        $this->bookingStyle == 2 ? $this->calculateDateRangeTotal() : $this->updatedSelectedSlots();
     }
 
     /**
@@ -839,7 +1017,7 @@ class ProductDetail extends Component
 
         if (is_null($this->additionalServices) || $this->additionalServices->isEmpty()) {
             $this->additionalServices = $this->product
-                ? $this->product->additionalServices()->where('additional_services.is_active', 1)->get()
+                ? $this->product->additionalServices()->with('warehouseItem')->where('additional_services.is_active', 1)->get()
                 : collect();
         }
         $this->isCalculating = true;
@@ -971,15 +1149,21 @@ class ProductDetail extends Component
         if (!empty($this->selectedServices) && $this->additionalServices) {
             foreach ($this->selectedServices as $id => $qty) {
                 $service = $this->additionalServices->firstWhere('id', $id);
-                if ($service && $qty > 0) {
+                if ($service && ! $service->warehouseItem && $qty > 0) {
                     $serviceTotal += $service->price * $qty;
                 }
             }
         }
-        $this->totalAmount = max(0, $totalAfterPromo + $this->extraFee + $serviceTotal);
+        if (!empty($this->selectedEquipment) && $this->additionalServices) {
+            foreach ($this->selectedEquipment as $id => $qty) {
+                $equipment = $this->additionalServices->firstWhere('id', $id);
+                if ($equipment?->warehouseItem && $qty > 0) $serviceTotal += $equipment->price * $qty;
+            }
+        }
+        $this->totalAmount = max(0, $totalAfterPromo + $this->extraFee + $serviceTotal + $this->selectedCoachTotal());
         if (is_null($this->additionalServices) || $this->additionalServices->isEmpty()) {
             $this->additionalServices = $this->product
-                ? $this->product->additionalServices()->where('additional_services.is_active', 1)->get()
+                ? $this->product->additionalServices()->with('warehouseItem')->where('additional_services.is_active', 1)->get()
                 : collect();
         }
         $this->isCalculating = false;
@@ -1239,12 +1423,18 @@ class ProductDetail extends Component
         if (!empty($this->selectedServices) && $this->additionalServices) {
             foreach ($this->selectedServices as $id => $qty) {
                 $service = $this->additionalServices->firstWhere('id', $id);
-                if ($service && $qty > 0) {
+                if ($service && ! $service->warehouseItem && $qty > 0) {
                     $serviceTotal += $service->price * $qty;
                 }
             }
         }
-        $this->totalAmount = max(0, $totalAfterPromo + $this->extraFee + $serviceTotal);
+        if (!empty($this->selectedEquipment) && $this->additionalServices) {
+            foreach ($this->selectedEquipment as $id => $qty) {
+                $equipment = $this->additionalServices->firstWhere('id', $id);
+                if ($equipment?->warehouseItem && $qty > 0) $serviceTotal += $equipment->price * $qty;
+            }
+        }
+        $this->totalAmount = max(0, $totalAfterPromo + $this->extraFee + $serviceTotal + $this->selectedCoachTotal());
     }
 
     /**
@@ -1465,6 +1655,11 @@ class ProductDetail extends Component
 public function confirmBooking()
 {
     $this->bookingConfirmError = '';
+
+    if ($this->usePackage && $this->selectedCoachId) {
+        $this->bookingConfirmError = 'Gói nhiều buổi chỉ thanh toán tiền sân, không bao gồm HLV. Vui lòng bỏ chọn dùng gói hoặc bỏ HLV.';
+        return;
+    }
 
     // Chặn phá hoại (đặt liên tục nhiều lần đè khung giờ) — theo IP trình duyệt, KHÔNG theo SĐT
     // (SĐT không xác minh OTP ở luồng này, đổi số vô hạn để né). Kiểm tra NGAY từ đầu, trước khi
@@ -1695,6 +1890,10 @@ public function confirmBooking()
         // =====================================================================
         $order = DB::transaction(function () use ($frontPath, $backPath, $companionCccdList, $extraFee, $categoryId, $orderTotal, $noteForAdmin, $paymentAmount, $depositPercent, $fullAmount, $verifiedBuyerName, $verifiedBuyerPhone, $verifiedUserId, $cccdData, $effectivePaymentMethod) {
 
+            // HLV là module/phụ phí riêng của booking sân. Khoá HLV và kiểm tra trùng lịch trong
+            // cùng transaction với khung giờ sân để không thể overbooking khi hai khách đặt đồng thời.
+            $coachBookings = $this->lockAndBuildCoachBookings();
+
             // --- Kiểm tra xung đột (style 1) ---
             if ($this->bookingStyle == 1 && !empty($this->selectedSlots)) {
                 $conflict = $this->checkSlotConflicts(lockForUpdate: true);
@@ -1855,7 +2054,7 @@ public function confirmBooking()
                 foreach ($this->selectedServices as $serviceId => $qty) {
                     if ($qty > 0) {
                         $service = $this->additionalServices->firstWhere('id', $serviceId);
-                        if ($service) {
+                        if ($service && ! $service->warehouseItem) {
                             $order->services()->create([
                                 'service_id'   => $service->id,
                                 'service_name' => $service->name,
@@ -1866,6 +2065,28 @@ public function confirmBooking()
                         }
                     }
                 }
+            }
+
+            // ✅ 3b. Thuê vật tư — state riêng với dịch vụ; OrderService chỉ là chứng từ giá để
+            // WarehouseRentalService tạo warehouse_item_rentals và khoá tồn kho transactionally.
+            if (!empty($this->selectedEquipment) && $this->additionalServices) {
+                foreach ($this->selectedEquipment as $serviceId => $qty) {
+                    $equipment = $this->additionalServices->firstWhere('id', $serviceId);
+                    if ($equipment?->warehouseItem && $qty > 0) {
+                        $order->services()->create([
+                            'service_id' => $equipment->id,
+                            'service_name' => $equipment->name,
+                            'price' => $equipment->price,
+                            'quantity' => $qty,
+                            'subtotal' => $equipment->price * $qty,
+                        ]);
+                    }
+                }
+            }
+
+            // ✅ 4. Huấn luyện viên — lưu bảng riêng, tuyệt đối không ghi vào order_services.
+            foreach ($coachBookings as $coachBooking) {
+                $order->coachBookings()->create($coachBooking);
             }
 
             foreach ($this->appliedCoupons as $appliedCoupon) {
@@ -1913,6 +2134,10 @@ public function confirmBooking()
         $this->processPayOSPayment($order);
 
     } catch (\RuntimeException $e) {
+        if (str_starts_with($e->getMessage(), 'COACH_UNAVAILABLE:')) {
+            $this->bookingConfirmError = substr($e->getMessage(), strlen('COACH_UNAVAILABLE:'));
+            return;
+        }
         if (str_starts_with($e->getMessage(), 'SLOT_CONFLICT:')) {
             $conflict = json_decode(substr($e->getMessage(), 14), true);
 
@@ -2294,10 +2519,9 @@ public function confirmBooking()
         )
             ->withCount('ratings')
             ->withAvg('ratings', 'star')
-            ->where([
-                'is_activated' => true,
-                'type' => 'simple'
-            ])->whereHas('categories', function ($query) {
+            ->where('is_activated', true)
+            ->where('type', 'simple')
+            ->whereHas('categories', function ($query) {
                 $query->where('status', 1);
             });
 
@@ -2725,7 +2949,7 @@ public function confirmBooking()
     {
         if (is_null($this->additionalServices)) {
             $this->additionalServices = $this->product
-                ? $this->product->additionalServices()->where('additional_services.is_active', 1)->get()
+                ? $this->product->additionalServices()->with('warehouseItem')->where('additional_services.is_active', 1)->get()
                 : collect();
         }
         if ($this->product) {
@@ -2763,11 +2987,25 @@ public function confirmBooking()
         // đúng các property/method Livewire thật đã có (buyerName, buyerPhone, note,
         // selectedSlots, additionalServices, incrementService()/decrementService(),
         // confirmBooking()) — xem components/product-detail/booking-checkout.blade.php.
+        // HLV đã có lịch ở sân khác trùng khung giờ đang chọn thì không hiện ra nữa (cả trang chi
+        // tiết sân lẫn trang xác nhận); nếu HLV đang chọn vừa bị người khác đặt mất thì bỏ chọn
+        // luôn để tổng tiền không tính nhầm.
+        $busyCoachIds = $this->busyCoachIds();
+        if ($this->selectedCoachId && in_array($this->selectedCoachId, $busyCoachIds, true)) {
+            $this->selectedCoachId = null;
+            $this->bookingStyle == 2 ? $this->calculateDateRangeTotal() : $this->updatedSelectedSlots();
+            $this->addError('coach', 'Huấn luyện viên bạn chọn vừa được đặt ở sân khác trong khung giờ này, vui lòng chọn HLV khác.');
+        }
+        $availableCoaches = ($this->coaches ?? collect())->reject(fn ($c) => in_array((int) $c->id, $busyCoachIds, true))->values();
+
         if ($this->fromBookingPage && (int) ($this->bookingStyle ?? 1) === 1) {
             return view('bladethemev1::components.product-detail.booking-checkout', [
                 'product'             => $this->product,
                 'additionalServices'  => $this->additionalServices ?? collect(),
                 'selectedServices'    => $this->selectedServices ?? [],
+                'selectedEquipment'   => $this->selectedEquipment ?? [],
+                'coaches'             => $availableCoaches,
+                'selectedCoachId'     => $this->selectedCoachId,
                 'selectedSlots'       => $this->selectedSlots ?? [],
                 'totalAmount'         => $this->totalAmount ?? 0,
                 // 'bulkDiscountAmount' gộp CẢ giảm giá theo số lượng khung giờ LẪN giảm giá khách
@@ -2793,6 +3031,9 @@ public function confirmBooking()
             'current_time' => $now->format('H:i:s'),
              'additionalServices' => $this->additionalServices ?? collect(),
             'selectedServices'   => $this->selectedServices ?? [],
+            'selectedEquipment'  => $this->selectedEquipment ?? [],
+            'coaches'            => $availableCoaches,
+            'selectedCoachId'    => $this->selectedCoachId,
         ]);
     }
 }

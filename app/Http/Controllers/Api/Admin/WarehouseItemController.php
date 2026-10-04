@@ -7,6 +7,7 @@ namespace App\Http\Controllers\Api\Admin;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Modules\Warehouse\App\Filament\Support\WarehousePrinter;
 use Modules\Warehouse\App\Models\WarehouseItem;
 
 /**
@@ -136,6 +137,52 @@ class WarehouseItemController extends Controller
         $item->update($data);
 
         return response()->json(['data' => $item->load(['category', 'unit', 'branch'])]);
+    }
+
+    /**
+     * GET /api/admin/warehouse/items/lookup?sku=
+     * Tra cứu vật tư theo SKU quét được (QR/mã vạch) — dùng cho app di động nhân viên kho khi
+     * chưa có màn hình Filament (quét trực tiếp qua app thay vì trình duyệt).
+     */
+    public function lookup(Request $request): JsonResponse
+    {
+        $sku = $request->string('sku')->trim()->value();
+        if ($sku === '') {
+            return response()->json(['message' => 'SKU is required.'], 422);
+        }
+
+        $query = WarehouseItem::query()->with(['category', 'unit', 'branch'])->where('sku', $sku);
+        $this->scopeToPartnerAndBranch($query, $request);
+
+        $item = $query->first();
+        if (! $item) {
+            return response()->json(['message' => 'No warehouse item found for this SKU.'], 404);
+        }
+
+        return response()->json(['data' => $item]);
+    }
+
+    /** GET /api/admin/warehouse/items/{id}/qr — trả PNG QR (base64) encode đúng SKU của vật tư. */
+    public function qr(Request $request, string $id): JsonResponse
+    {
+        $query = WarehouseItem::query();
+        $this->scopeToPartnerAndBranch($query, $request);
+
+        $item = $query->find($id);
+        if (! $item) {
+            return response()->json(['message' => 'Warehouse item not found.'], 404);
+        }
+
+        if (blank($item->sku)) {
+            return response()->json(['message' => 'This item has no SKU to generate a QR code from.'], 422);
+        }
+
+        return response()->json([
+            'data' => [
+                'sku'          => $item->sku,
+                'qr_png_base64' => WarehousePrinter::qrPng((string) $item->sku),
+            ],
+        ]);
     }
 
     /** DELETE /api/admin/warehouse/items/{id} */

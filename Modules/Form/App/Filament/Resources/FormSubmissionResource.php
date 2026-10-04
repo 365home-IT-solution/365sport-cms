@@ -52,6 +52,12 @@ class FormSubmissionResource extends Resource
         return (string) static::getModel()::count();
     }
 
+    // Bản ghi do khách gửi form phía website sinh ra, admin chỉ xem/đánh dấu đã xem — không tạo tay.
+    public static function canCreate(): bool
+    {
+        return false;
+    }
+
     public static function form(Form $form): Form
     {
         return FormSubmissionForm::form($form);

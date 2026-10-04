@@ -32,6 +32,15 @@ class OpenMatchResource extends Resource
     protected static ?string $pluralModelLabel = 'Tìm bạn chơi';
     protected static ?int    $navigationSort   = 9;
 
+    // Lọc theo chi nhánh đang chọn ở header (nút "Chuyển đổi chi nhánh").
+    public static function getEloquentQuery(): Builder
+    {
+        $query = parent::getEloquentQuery();
+        $branchIds = auth()->user()?->effectiveBranchIds() ?? [];
+
+        return $branchIds ? $query->whereIn('open_matches.category_id', $branchIds) : $query;
+    }
+
     public static function canViewAny(): bool
     {
         return auth()->user()?->isSuperAdmin() ?? false;

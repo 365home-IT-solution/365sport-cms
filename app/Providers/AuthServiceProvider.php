@@ -38,6 +38,20 @@ use Modules\Post\Entities\Post;
 use Modules\Post\Entities\PostPolicy;
 use Modules\Process\Entities\Process;
 use Modules\Process\Entities\ProcessPolicy;
+use Modules\Employee\Entities\AllowanceType;
+use Modules\Employee\Entities\AllowanceTypePolicy;
+use Modules\Employee\Entities\DeductionType;
+use Modules\Employee\Entities\DeductionTypePolicy;
+use Modules\Employee\Entities\Department;
+use Modules\Employee\Entities\DepartmentPolicy;
+use Modules\Employee\Entities\Position;
+use Modules\Employee\Entities\PositionPolicy;
+use Modules\Employee\Entities\SalaryTemplate;
+use Modules\Employee\Entities\SalaryTemplatePolicy;
+use Modules\Employee\Entities\SalaryType;
+use Modules\Employee\Entities\SalaryTypePolicy;
+use Modules\Employee\Entities\ConsultationLog;
+use Modules\Employee\Entities\ConsultationLogPolicy;
 use Modules\Product\App\Models\Product;
 use Modules\Product\App\Models\RoomAmenity;
 use Modules\Product\App\Models\RoomImage;
@@ -91,6 +105,15 @@ class AuthServiceProvider extends ServiceProvider
         Business::class           => BusinessPolicy::class,
         Tag::class                => TagPolicy::class,
         User::class               => UserPolicy::class,
+        // Policy của module Employee (đã có file nhưng trước đây CHƯA đăng ký -> Mẫu lương/Phòng ban/Chức danh...
+        // mở cho mọi tài khoản vào admin).
+        AllowanceType::class    => AllowanceTypePolicy::class,
+        DeductionType::class    => DeductionTypePolicy::class,
+        Department::class       => DepartmentPolicy::class,
+        Position::class         => PositionPolicy::class,
+        SalaryTemplate::class   => SalaryTemplatePolicy::class,
+        SalaryType::class       => SalaryTypePolicy::class,
+        ConsultationLog::class  => ConsultationLogPolicy::class,
     ];
 
     /**

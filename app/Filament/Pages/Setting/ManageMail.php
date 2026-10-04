@@ -114,7 +114,6 @@ class ManageMail extends SettingsPage
             'local_domain'       => $decode('local_domain'),
             'from_address'       => $decode('from_address'),
             'from_name'          => $decode('from_name'),
-            'lock_notify_emails' => $decode('lock_notify_emails', []),
             // 2 trường này là nguồn gốc lỗi — giải mã riêng từng trường, lỗi thì để trống.
             'username'           => $decryptSafely('username'),
             'password'           => $decryptSafely('password'),
@@ -191,15 +190,6 @@ class ManageMail extends SettingsPage
                                         ->icon('heroicon-o-at-symbol')
                                 ])->fullWidth(),
                             ]),
-
-                        Forms\Components\Section::make('Thông báo Check-in / Check-out')
-                            ->icon('heroicon-o-bell')
-                            ->schema([
-                                Forms\Components\TagsInput::make('lock_notify_emails')
-                                    ->label('Email nhận thông báo mở khóa')
-                                    ->placeholder('Nhập email rồi nhấn Enter...')
-                                    ->helperText('Nhập từng địa chỉ email rồi nhấn Enter để thêm. Hệ thống sẽ gửi email đến tất cả khi có sự kiện check-in / check-out.'),
-                            ])
                     ])
                     ->columnSpan([
                         "md" => 1

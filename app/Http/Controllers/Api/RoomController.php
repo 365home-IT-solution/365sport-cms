@@ -403,13 +403,19 @@ class RoomController extends Controller
 
     private function buildServices(Product $room): array
     {
+        $room->loadMissing('additionalServices.warehouseItem');
+
         return $room->additionalServices
             ->where('is_active', true)
             ->map(fn ($s) => [
-                'id'    => $s->id,
-                'name'  => $s->name,
-                'price' => $s->price,
-                'image' => $s->image ? Storage::disk('public')->url($s->image) : null,
+                'id'                  => $s->id,
+                'name'                => $s->name,
+                'price'               => $s->price,
+                'image'               => $s->image ? Storage::disk('public')->url($s->image) : null,
+                // Dịch vụ CHO THUÊ dụng cụ (gắn warehouse_item) — trả kèm tồn khả dụng để app hiển
+                // thị "còn X" / ẩn nút chọn khi hết hàng, thay vì để khách chọn rồi mới báo lỗi lúc
+                // đặt sân. Dịch vụ thường (không gắn kho) luôn trả null — không giới hạn số lượng.
+                'available_quantity'  => $s->warehouseItem?->quantity_reserve,
             ])->values()->toArray();
     }
 

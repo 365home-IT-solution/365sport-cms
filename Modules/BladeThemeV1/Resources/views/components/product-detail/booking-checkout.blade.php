@@ -80,14 +80,18 @@
                 </div>
             @endif
 
-            @if (($bulkDiscountAmount ?? 0) > 0)
-                <p class="text-sm text-emerald-300">Giảm giá: <span class="font-bold">- {{ number_format((float) $bulkDiscountAmount, 0, ',', '.') }} đ</span></p>
-            @endif
             <p class="mt-3 text-sm">Tổng giờ: <span class="font-bold">{{ $totalHoursLabel }}</span></p>
-            <p class="text-sm">Tổng tiền: <span class="font-bold text-amber-300">{{ number_format((float) $totalAmount, 0, ',', '.') }} đ</span></p>
         </div>
 
-        {{-- Thêm dịch vụ --}}
+        @php
+            // Ba nguồn dữ liệu độc lập trên UI: dịch vụ thuần, dụng cụ kho và HLV theo chi nhánh.
+            $serviceItems = $additionalServices->filter(fn ($item) => is_null($item->warehouse_item_id));
+            $equipmentItems = $additionalServices->filter(fn ($item) => ! is_null($item->warehouse_item_id));
+            $selectedCoach = $coaches?->firstWhere('id', $selectedCoachId);
+        @endphp
+
+        {{-- 1. Dịch vụ thuần — không gắn vật tư kho. Chi nhánh không có gì để chọn thì ẩn hẳn. --}}
+        @if ($serviceItems->isNotEmpty())
         <div x-data="{ openServices: false }" class="mb-3">
             <button type="button" @click="openServices = !openServices"
                     class="w-full rounded-xl border border-white/30 bg-white/5 py-3 text-center text-sm font-bold text-white hover:bg-white/15">
@@ -96,7 +100,7 @@
             </button>
 
             <div x-show="openServices" x-cloak class="mt-2 rounded-xl bg-white p-3">
-                @forelse ($additionalServices as $service)
+                @foreach ($serviceItems as $service)
                     <div class="flex items-center justify-between gap-3 border-b border-gray-100 py-2 last:border-0" wire:key="svc-{{ $service->id }}">
                         <div class="min-w-0">
                             <p class="truncate text-sm font-semibold text-gray-900">{{ $service->name }}</p>
@@ -110,11 +114,176 @@
                                     class="flex h-7 w-7 items-center justify-center rounded-full border border-gray-300 text-gray-600 hover:bg-gray-50">+</button>
                         </div>
                     </div>
-                @empty
-                    <p class="py-2 text-center text-sm text-gray-400">Chưa có dịch vụ bổ sung.</p>
-                @endforelse
+                @endforeach
             </div>
         </div>
+        @endif
+
+        {{-- 2. Thuê vật tư — chỉ các mục gắn warehouse_item, có giới hạn tồn kho riêng --}}
+        @if ($equipmentItems->isNotEmpty())
+        <div x-data="{ openEquipment: false }" class="mb-3">
+            <button type="button" @click="openEquipment = !openEquipment"
+                    class="w-full rounded-xl border border-white/30 bg-white/5 py-3 text-center text-sm font-bold text-white hover:bg-white/15">
+                <span x-show="!openEquipment">+ Thuê vật tư</span>
+                <span x-show="openEquipment" x-cloak>− Ẩn danh sách vật tư</span>
+            </button>
+
+            <div x-show="openEquipment" x-cloak class="mt-2 rounded-xl bg-white p-3">
+                @foreach ($equipmentItems as $equipment)
+                    @php
+                        $available = $equipment->warehouseItem?->quantity_reserve ?? 0;
+                        $qty = $selectedEquipment[$equipment->id] ?? 0;
+                    @endphp
+                    <div class="flex items-center justify-between gap-3 border-b border-gray-100 py-2 last:border-0" wire:key="equipment-{{ $equipment->id }}">
+                        <div class="min-w-0">
+                            <p class="truncate text-sm font-semibold text-gray-900">{{ $equipment->name }}</p>
+                            <p class="text-xs text-gray-500">{{ number_format((float) $equipment->price, 0, ',', '.') }} đ · Còn {{ $available }}</p>
+                        </div>
+                        <div class="flex shrink-0 items-center gap-2">
+                            <button type="button" wire:click="decrementEquipment({{ $equipment->id }})" class="flex h-7 w-7 items-center justify-center rounded-full border border-gray-300 text-gray-600">−</button>
+                            <span class="w-5 text-center text-sm font-semibold">{{ $qty }}</span>
+                            <button type="button" wire:click="incrementEquipment({{ $equipment->id }})" @disabled($available <= $qty)
+                                    class="flex h-7 w-7 items-center justify-center rounded-full border border-gray-300 text-gray-600 disabled:cursor-not-allowed disabled:opacity-40">+</button>
+                        </div>
+                    </div>
+                @endforeach
+            </div>
+        </div>
+        @endif
+
+        {{-- 3. Thuê HLV — module Coach riêng, chỉ xuất hiện trong booking sân của đúng chi nhánh --}}
+        @if ($coaches && $coaches->isNotEmpty())
+        <div x-data="{ openCoaches: false, detail: null }" class="mb-3">
+            <button type="button" @click="openCoaches = !openCoaches"
+                    class="w-full rounded-xl border border-white/30 bg-white/5 py-3 text-center text-sm font-bold text-white hover:bg-white/15">
+                <span x-show="!openCoaches">+ Thuê huấn luyện viên</span>
+                <span x-show="openCoaches" x-cloak>− Ẩn danh sách huấn luyện viên</span>
+            </button>
+
+            <div x-show="openCoaches" x-cloak class="mt-2 rounded-xl bg-white p-3">
+                @foreach ($coaches as $coach)
+                    @php
+                        // Chữ cái đại diện: bỏ tiền tố kiểu "[DEMO] " để không hiện ra ký tự "[".
+                        $coachInitial = mb_strtoupper(mb_substr(trim(preg_replace('/^\[[^\]]*\]\s*/u', '', $coach->name)) ?: $coach->name, 0, 1));
+                    @endphp
+                    <div class="flex items-center gap-3 border-b border-gray-100 py-3 last:border-0" wire:key="coach-{{ $coach->id }}">
+                        <div class="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full bg-emerald-100 font-bold text-emerald-700">
+                            @if($coach->photo)<img src="{{ asset('storage/' . $coach->photo) }}" class="h-full w-full object-cover" alt="{{ $coach->name }}">@else{{ $coachInitial }}@endif
+                        </div>
+                        <div class="min-w-0 flex-1">
+                            <p class="truncate text-sm font-bold text-gray-900">{{ $coach->name }}</p>
+                            <p class="truncate text-xs text-gray-500">{{ $coach->specialties ?: 'Huấn luyện theo yêu cầu' }}</p>
+                            <p class="text-xs font-semibold text-emerald-700">{{ number_format($coach->hourly_rate, 0, ',', '.') }} đ / giờ</p>
+                        </div>
+                        <div class="flex shrink-0 flex-col gap-1.5">
+                            <button type="button" @click="detail = {{ json_encode($coach->only(['name', 'photo', 'specialties', 'certifications', 'bio', 'years_experience', 'hourly_rate'])) }}"
+                                    class="rounded-lg border border-gray-200 px-2.5 py-1 text-xs font-semibold text-gray-600">Chi tiết</button>
+                            @if($selectedCoachId === $coach->id)
+                                <button type="button" wire:click="removeCoach" class="rounded-lg bg-red-50 px-2.5 py-1 text-xs font-bold text-red-600">Bỏ chọn</button>
+                            @else
+                                <button type="button" wire:click="selectCoach({{ $coach->id }})" class="rounded-lg bg-emerald-600 px-2.5 py-1 text-xs font-bold text-white">Chọn</button>
+                            @endif
+                        </div>
+                    </div>
+                @endforeach
+                @error('coach')<p class="mt-2 text-xs font-semibold text-red-600">{{ $message }}</p>@enderror
+            </div>
+
+            <div x-show="detail" x-cloak class="fixed inset-0 z-[10050] flex items-center justify-center bg-black/60 p-4" @click.self="detail=null">
+                <div class="w-full max-w-md rounded-2xl bg-white p-5 shadow-2xl">
+                    <div class="flex items-start justify-between gap-3"><h3 class="text-xl font-extrabold text-gray-900" x-text="detail?.name"></h3><button type="button" @click="detail=null" class="text-2xl text-gray-400">×</button></div>
+                    <p class="mt-3 text-sm font-semibold text-emerald-700" x-text="new Intl.NumberFormat('vi-VN').format(detail?.hourly_rate || 0) + ' đ / giờ'"></p>
+                    <dl class="mt-4 space-y-3 text-sm">
+                        <div><dt class="font-bold text-gray-700">Chuyên môn</dt><dd class="text-gray-600" x-text="detail?.specialties || 'Chưa cập nhật'"></dd></div>
+                        <div><dt class="font-bold text-gray-700">Chứng chỉ</dt><dd class="text-gray-600" x-text="detail?.certifications || 'Chưa cập nhật'"></dd></div>
+                        <div><dt class="font-bold text-gray-700">Kinh nghiệm</dt><dd class="text-gray-600" x-text="(detail?.years_experience || 0) + ' năm'"></dd></div>
+                        <div><dt class="font-bold text-gray-700">Giới thiệu</dt><dd class="whitespace-pre-line text-gray-600" x-text="detail?.bio || 'Chưa cập nhật'"></dd></div>
+                    </dl>
+                </div>
+            </div>
+        </div>
+
+        @endif
+
+        {{-- Chi tiết thanh toán — GOM mọi khoản (sân, giảm giá, phụ thu, dịch vụ, vật tư, HLV) về
+             ĐÚNG 1 chỗ, cùng thứ tự với card "Tổng thanh toán" bên admin (total-amount-card.blade.php).
+             Tiền sân lấy PHẦN CÒN LẠI của $totalAmount sau khi trừ các khoản khác (cộng lại giảm
+             giá) để tổng các dòng LUÔN khớp đúng số sẽ thu, kể cả ca "Đặt full ngày" (bỏ khuyến mãi
+             khung giờ) — xem ProductDetail::updatedSelectedSlots(). --}}
+        @php
+            $fmt = fn ($v) => number_format((float) $v, 0, ',', '.');
+            $pickedServices = collect($selectedServices ?? [])
+                ->map(fn ($qty, $id) => ['item' => $serviceItems->firstWhere('id', $id), 'qty' => (int) $qty])
+                ->filter(fn ($r) => $r['item'] && $r['qty'] > 0)->values();
+            $pickedEquipment = collect($selectedEquipment ?? [])
+                ->map(fn ($qty, $id) => ['item' => $equipmentItems->firstWhere('id', $id), 'qty' => (int) $qty])
+                ->filter(fn ($r) => $r['item'] && $r['qty'] > 0)->values();
+            $addonsTotal = $pickedServices->merge($pickedEquipment)->sum(fn ($r) => (float) $r['item']->price * $r['qty']);
+            $coachTotal = $selectedCoach ? $this->selectedCoachTotal() : 0;
+            $guestFee = (float) ($this->extraFee ?? 0);
+            $discountLines = collect([
+                'Đặt full ngày' => (float) ($this->fullBookingDiscount ?? 0),
+                'Giảm giá theo số khung giờ' => (float) ($bulkDiscountAmount ?? 0),
+                'Giảm giá khách quen' => (float) ($this->loyaltyDiscountAmount ?? 0),
+                'Mã giảm giá' => (float) ($this->couponDiscountAmount ?? 0),
+            ])->filter(fn ($v) => $v > 0);
+            $courtTotal = max(0, (float) $totalAmount - $addonsTotal - $coachTotal - $guestFee + $discountLines->sum());
+        @endphp
+        @if (! empty($selectedSlots))
+        <div class="mb-3 rounded-xl bg-white p-4 text-sm text-gray-700 shadow-sm">
+            <p class="mb-2 flex items-center gap-1.5 font-bold text-gray-900">
+                <x-heroicon-o-receipt-percent class="h-4 w-4 text-emerald-600" /> Chi tiết thanh toán
+            </p>
+            <div class="space-y-1.5">
+                <div class="flex justify-between gap-3">
+                    <span>Tiền sân ({{ count($selectedSlots) }} khung giờ)</span>
+                    @if ($usePackage)
+                        <span class="font-semibold text-emerald-700">{{ count($selectedSlots) }} buổi trong gói</span>
+                    @else
+                        <span class="font-semibold text-gray-900">{{ $fmt($courtTotal) }} đ</span>
+                    @endif
+                </div>
+                @unless ($usePackage)
+                    @foreach ($discountLines as $label => $amount)
+                        <div class="flex justify-between gap-3 text-emerald-700">
+                            <span>{{ $label }}</span><span class="font-semibold">- {{ $fmt($amount) }} đ</span>
+                        </div>
+                    @endforeach
+                    @if ($guestFee > 0)
+                        <div class="flex justify-between gap-3">
+                            <span>Phụ thu khách thêm</span><span class="font-semibold text-gray-900">+ {{ $fmt($guestFee) }} đ</span>
+                        </div>
+                    @endif
+                @endunless
+                @foreach ($pickedServices as $row)
+                    <div class="flex justify-between gap-3">
+                        <span class="min-w-0 truncate">{{ $row['item']->name }} <span class="text-gray-400">× {{ $row['qty'] }}</span></span>
+                        <span class="shrink-0 font-semibold text-gray-900">+ {{ $fmt($row['item']->price * $row['qty']) }} đ</span>
+                    </div>
+                @endforeach
+                @foreach ($pickedEquipment as $row)
+                    <div class="flex justify-between gap-3">
+                        <span class="min-w-0 truncate">Thuê {{ $row['item']->name }} <span class="text-gray-400">× {{ $row['qty'] }}</span></span>
+                        <span class="shrink-0 font-semibold text-gray-900">+ {{ $fmt($row['item']->price * $row['qty']) }} đ</span>
+                    </div>
+                @endforeach
+                @if ($selectedCoach)
+                    <div class="flex justify-between gap-3">
+                        <span class="min-w-0 truncate">HLV {{ $selectedCoach->name }} <span class="text-gray-400">· {{ $fmt($selectedCoach->hourly_rate) }} đ/giờ × {{ $totalHoursLabel }}</span></span>
+                        <span class="shrink-0 font-semibold text-gray-900">+ {{ $fmt($coachTotal) }} đ</span>
+                    </div>
+                @endif
+            </div>
+            <div class="mt-3 flex items-center justify-between border-t border-gray-200 pt-3">
+                <span class="font-bold text-gray-900">Tổng thanh toán</span>
+                @if ($usePackage)
+                    <span class="text-base font-extrabold text-emerald-700">{{ count($selectedSlots) }} buổi trong gói</span>
+                @else
+                    <span class="text-base font-extrabold text-emerald-700">{{ $fmt($totalAmount) }} đ</span>
+                @endif
+            </div>
+        </div>
+        @endif
 
         {{-- Thông tin khách hàng --}}
         <div class="mb-2">

@@ -49,6 +49,7 @@ use Modules\Employee\App\Filament\EmployeePlugin;
 use Modules\ThemeSetting\App\Filament\ThemePlugin;
 use Modules\User\App\Filament\UserPlugin;
 use Modules\Warehouse\App\Filament\WarehousePlugin;
+use Modules\Coach\App\Filament\CoachPlugin;
 use TomatoPHP\FilamentMediaManager\FilamentMediaManagerPlugin;
 use App\Filament\Pages\Auth\Login;
 use App\Filament\Pages\Auth\RequestPasswordReset;
@@ -82,12 +83,8 @@ class AdminPanelProvider extends PanelProvider
             ->viteTheme('resources/css/filament/admin/theme.css')
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\\Filament\\Resources')
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\\Filament\\Pages')
-            ->navigationGroups([
-                'Quản lý',
-                'Cấu hình web',
-                'Phân quyền',
-                'Quản lý API',
-            ])
+            // Menu theo NGHIỆP VỤ — xem App\Filament\Support\AdminNavigation (bảng nhóm/thứ tự duy nhất).
+            ->navigation(fn (\Filament\Navigation\NavigationBuilder $builder) => \App\Filament\Support\AdminNavigation::build($builder))
             ->pages([
                 \Modules\Dashboard\App\Filament\Pages\Dashboard::class,
             ])
@@ -115,6 +112,7 @@ class AdminPanelProvider extends PanelProvider
             ->authMiddleware([
                 Authenticate::class,
                 RedirectUnauthorizedDashboard::class,
+                \App\Http\Middleware\RedirectExpiredSubscription::class,
             ])
             ->plugins([
                 FilamentShieldPlugin::make()
@@ -168,6 +166,7 @@ class AdminPanelProvider extends PanelProvider
                 AppPagePlugin::make(),
                 AuditLogPlugin::make(),
                 WarehousePlugin::make(),
+                CoachPlugin::make(),
                 EmployeePlugin::make(),
                 QAPlugin::make(),
             ])

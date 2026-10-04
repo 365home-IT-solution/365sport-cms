@@ -138,7 +138,7 @@ class Products extends Component
         }
 
         // --- Build base query ---
-        $query = Product::where('is_activated', true)
+        $query = Product::where('is_activated', true)->excludingCoaches()
             ->where('is_in_stock', true)
             ->orderBy('sort_order');
 

@@ -60,8 +60,12 @@ return new class extends Migration
         DB::table('orders')->whereNull('partner_id')->update(['partner_id' => $partnerId]);
         DB::table('coupons')->whereNull('partner_id')->update(['partner_id' => $partnerId]);
         DB::table('promotions')->whereNull('partner_id')->update(['partner_id' => $partnerId]);
-        DB::table('access_codes')->whereNull('partner_id')->update(['partner_id' => $partnerId]);
-        DB::table('ttlock_accounts')->whereNull('partner_id')->update(['partner_id' => $partnerId]);
+        if (Schema::hasTable('access_codes')) {
+            DB::table('access_codes')->whereNull('partner_id')->update(['partner_id' => $partnerId]);
+        }
+        if (Schema::hasTable('ttlock_accounts')) {
+            DB::table('ttlock_accounts')->whereNull('partner_id')->update(['partner_id' => $partnerId]);
+        }
         DB::table('audit_logs')->whereNull('partner_id')->update(['partner_id' => $partnerId]);
     }
 

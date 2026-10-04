@@ -158,18 +158,16 @@
             };
 
             const bounds = [];
-            this.venues.forEach((v, i) => {
-                const style = sportStyle(v.sport_label);
-                const icon = L.divIcon({
-                    className: '',
-                    html: `<div class='map-pin-icon' style='color:${style.color}'><svg viewBox='0 0 24 24' fill='currentColor' stroke='none'><path d='M12 2C7.58 2 4 5.58 4 10c0 5.25 8 12 8 12s8-6.75 8-12c0-4.42-3.58-8-8-8z'/></svg><svg class='map-pin-glyph' viewBox='0 0 24 24' fill='none'>${style.shapes}</svg></div>`,
-                    iconSize: [42, 42],
-                    iconAnchor: [21, 39],
-                });
-                const marker = L.marker([v.lat, v.lng], { icon }).addTo(this.map)
-                    .bindTooltip(v.name, { permanent: false, direction: 'top' })
-                    .on('click', () => this.selectVenue(v, i));
-                this.markers[i] = marker;
+            // Nhãn giá (Từ 120.000đ) thay cho ghim (giống homestay): viền/chấm màu theo môn thể thao, đậm lên
+            // khi rê chuột vào sân ở danh sách hoặc vào chính nhãn. Khoá marker theo slug chi nhánh (danh
+            // sách bên trái đã lọc/sắp xếp lại nên chỉ số mảng không còn khớp với marker).
+            this.sportStyle = sportStyle;
+            this.venues.forEach((v) => {
+                const marker = L.marker([v.lat, v.lng], { icon: this.pillIcon(v, false), riseOnHover: true }).addTo(this.map)
+                    .on('click', () => this.selectVenue(v, this.venues.indexOf(v)))
+                    .on('mouseover', () => this.hoverVenue(v, false))
+                    .on('mouseout', () => this.unhoverVenue());
+                this.markers[v.slug] = marker;
                 bounds.push([v.lat, v.lng]);
             });
             // Khung nhìn toàn Việt Nam (bao gồm cả 2 quần đảo Hoàng Sa/Trường Sa, toạ độ thật xa
@@ -189,10 +187,16 @@
                  đó nên phải điều hướng kèm query lat/lng, xem findNearby() trong
                  components/home/search-bar.blade.php) — lia thẳng tới đây, KHÔNG cần tự định vị lại
                  vì toạ độ đã có sẵn từ trang trước. --}}
-            @if ($initialLat && $initialLng)
-                this.showMyLocationMarker({{ $initialLat }}, {{ $initialLng }});
-                this.map.setView([{{ $initialLat }}, {{ $initialLng }}], 15);
-            @else
+            {{-- KHÔNG dùng @if/@else của Blade ở đây: nằm trong thuộc tính x-data của component Livewire,
+                 Livewire 3 chèn <!--[if BLOCK]><![endif]--> vào chỗ @if — trong JS `<!--` là chú thích
+                 1 dòng nên NUỐT MẤT lệnh showMyLocationMarker() (bug đã gặp: bản đồ lia đúng toạ độ
+                 nhưng không có chấm vị trí, myLat/myLng luôn null nên tab Chỉ đường báo thiếu vị trí).
+                 Rẽ nhánh bằng JS thuần với giá trị truyền qua @js(). --}}
+            const initialPos = @js($initialLat && $initialLng ? [(float) $initialLat, (float) $initialLng] : null);
+            if (initialPos) {
+                this.showMyLocationMarker(initialPos[0], initialPos[1]);
+                this.map.setView(initialPos, 15);
+            } else {
                 // enableHighAccuracy + maximumAge: trước đây gọi mặc định (không set gì) khiến
                 // trình duyệt LUÔN dò lại vị trí từ đầu bằng nguồn kém chính xác nhất có sẵn
                 // (thường là định vị theo Wi-Fi/IP trên máy tính không có GPS thật) — sai số có thể
@@ -216,7 +220,7 @@
                     // Trình duyệt không hỗ trợ định vị — cùng phương án dự phòng.
                     fitAllVenues();
                 }
-            @endif
+            }
 
             // Cho phép gọi từ ngoài Alpine scope này (nút Tìm sân gần đây ở popup lọc dùng chung,
             // components/home/search-bar.blade.php) — bấm nút đó khi đang Ở SẴN trang bản đồ chỉ
@@ -296,6 +300,61 @@
             distancesMeters.forEach((m, i) => {
                 if (m != null) this.routeDistancesKm[withDist[i].v.slug] = m / 1000;
             });
+        },
+        sportStyle: null,
+        hoveredSlug: null,
+        hoverCard: null,
+        // Escape HTML dựng bằng mã ký tự: đoạn JS này nằm TRONG thuộc tính x-data nên không được chứa
+        // dấu nháy kép hay thực thể HTML (&quot; &amp;...) — trình duyệt giải mã/ngắt thuộc tính sai.
+        escHtml(t) {
+            return String(t == null ? '' : t).replace(/[\x26\x3c\x3e\x22\x27]/g, (c) => String.fromCharCode(38) + '#' + c.charCodeAt(0) + ';');
+        },
+        formatPrice(v) {
+            return v.price_from ? ('Từ ' + new Intl.NumberFormat('vi-VN').format(v.price_from) + 'đ') : v.name;
+        },
+        pillIcon(v, active) {
+            const color = (this.sportStyle ? this.sportStyle(v.sport_label).color : '#0B6B3A');
+            const label = this.escHtml(this.formatPrice(v));
+            return L.divIcon({
+                className: 'map-price-icon' + (active ? ' is-active' : ''),
+                html: `<div class='map-price-pill' style='--pill:${color}'><i></i>${label}</div>`,
+                iconSize: [0, 0],
+            });
+        },
+        // Rê chuột vào 1 sân (danh sách bên trái hoặc nhãn giá trên bản đồ): nhãn đậm lên, bản đồ lia tới sân
+        // đó và hiện thẻ nhỏ (ảnh, tên, giá, nút xem) — giống homestay. pan=true khi rê từ danh sách (marker
+        // có thể đang ngoài khung nhìn); rê từ chính marker thì không cần lia.
+        hoverVenue(v, pan = true) {
+            if (!this.map || !v) return;
+            this.unhoverVenue(true);
+            this.hoveredSlug = v.slug;
+            const m = this.markers[v.slug];
+            if (m) { m.setIcon(this.pillIcon(v, true)); m.setZIndexOffset(1000); }
+            if (pan) {
+                this.map.stop();
+                this.map.panTo([v.lat, v.lng], { animate: true, duration: 0.4 });
+            }
+            const esc = (t) => this.escHtml(t);
+            const img = v.image_url
+                ? `<img src='${esc(v.image_url)}' alt='' style='width:100%;height:110px;object-fit:cover;display:block'>`
+                : `<div style='height:60px;background:#f3f4f6'></div>`;
+            const html = `<div style='width:220px'>${img}<div style='padding:8px 10px 10px'>`
+                + `<div style='font-weight:700;font-size:13px;color:#111827;white-space:nowrap;overflow:hidden;text-overflow:ellipsis'>${esc(v.name)}</div>`
+                + `<div style='font-size:12px;color:#6b7280;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis'>${esc(v.address)}</div>`
+                + (v.price_from ? `<div style='font-weight:800;font-size:14px;color:#0B6B3A;margin-top:4px'>${esc(this.formatPrice(v))} <span style='font-weight:500;font-size:11px;color:#6b7280'>/ giờ</span></div>` : '')
+                + `<a href='${esc(v.url)}' style='display:block;margin-top:8px;text-align:center;background:#0B6B3A;color:#fff;border-radius:8px;padding:6px 0;font-size:12px;font-weight:700'>Xem sân →</a>`
+                + `</div></div>`;
+            this.hoverCard = L.popup({ closeButton: false, autoPan: false, offset: [0, -14], className: 'map-venue-card', minWidth: 220 })
+                .setLatLng([v.lat, v.lng]).setContent(html).openOn(this.map);
+        },
+        unhoverVenue(keepCard = false) {
+            if (this.hoveredSlug) {
+                const prev = this.venues.find((x) => x.slug === this.hoveredSlug);
+                const m = this.markers[this.hoveredSlug];
+                if (m && prev) { m.setIcon(this.pillIcon(prev, false)); m.setZIndexOffset(0); }
+                this.hoveredSlug = null;
+            }
+            if (!keepCard && this.hoverCard && this.map) { this.map.closePopup(this.hoverCard); this.hoverCard = null; }
         },
         goTo(v) {
             if (!this.map) return;
@@ -711,12 +770,23 @@
 
     {{-- Cột trái: danh sách tìm kiếm HOẶC panel chi tiết sân (khi đã chọn 1 sân) --}}
     <div x-show="sidebarOpen" x-cloak
-         class="absolute inset-y-0 left-0 z-[400] flex w-full max-w-md flex-col border-r border-gray-200 bg-white shadow-lg lg:w-[600px]"
-         :class="selected ? '' : 'pt-14'">
+         class="absolute inset-x-0 bottom-0 z-[400] flex h-[48dvh] w-full flex-col overflow-hidden rounded-t-2xl border-t border-gray-200 bg-white shadow-[0_-8px_30px_rgba(0,0,0,0.14)] lg:inset-y-0 lg:left-0 lg:right-auto lg:h-auto lg:max-w-[600px] lg:rounded-none lg:border-r lg:border-t-0 lg:shadow-lg"
+         :class="selected ? '' : 'lg:pt-14'">
+
+        {{-- Tay nắm bottom-sheet trên mobile: giữ panel tìm kiếm/thông tin ngay trên menu dưới,
+             đồng thời luôn chừa phần trên cho khách quan sát và thao tác với bản đồ. --}}
+        <div class="relative flex h-6 shrink-0 items-center justify-center lg:hidden">
+            <span class="h-1 w-10 rounded-full bg-gray-300"></span>
+            <button type="button" @click="sidebarOpen = false"
+                    class="absolute right-3 top-1 flex h-5 w-5 items-center justify-center rounded-full text-gray-400"
+                    aria-label="Thu gọn thông tin để xem bản đồ">
+                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+            </button>
+        </div>
 
         {{-- ===== Danh sách tìm kiếm ===== --}}
         <template x-if="!selected">
-            <div class="flex h-full flex-col">
+            <div class="flex min-h-0 flex-1 flex-col">
                 <div class="border-b border-gray-100 p-3">
                     <div class="flex items-center gap-2 rounded-full border border-gray-200 px-3 py-2">
                         <svg class="h-4 w-4 shrink-0 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -751,6 +821,7 @@
                 <div class="flex-1 overflow-y-auto">
                     <template x-for="(v, i) in filtered" :key="i">
                         <button type="button" @click="selectVenue(v, i)"
+                                @mouseenter="hoverVenue(v)" @mouseleave="unhoverVenue()" @focus="hoverVenue(v)" @blur="unhoverVenue()"
                                 class="flex w-full items-start gap-3 border-b border-gray-50 px-4 py-3 text-left hover:bg-gray-50">
                             <svg class="mt-0.5 h-4 w-4 shrink-0 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a2 2 0 01-2.828 0l-4.243-4.243a8 8 0 1111.314 0z"/>
@@ -760,9 +831,12 @@
                                 <span class="block text-sm font-semibold text-gray-900" x-text="v.name"></span>
                                 <span class="block text-xs text-gray-500" x-text="v.address"></span>
                             </span>
-                            <span x-show="venueDistanceKm(v) !== null" x-cloak
-                                  class="shrink-0 rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-semibold text-gray-600"
-                                  x-text="venueDistanceKm(v) !== null ? venueDistanceKm(v).toFixed(1) + ' km' : ''"></span>
+                            <span class="flex shrink-0 flex-col items-end gap-1">
+                                <span x-show="venueDistanceKm(v) !== null" x-cloak
+                                      class="rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-semibold text-gray-600"
+                                      x-text="venueDistanceKm(v) !== null ? venueDistanceKm(v).toFixed(1) + ' km' : ''"></span>
+                                <span x-show="v.price_from" x-cloak class="text-[11px] font-bold text-[#0B6B3A]" x-text="formatPrice(v)"></span>
+                            </span>
                         </button>
                     </template>
 
@@ -773,7 +847,7 @@
 
         {{-- ===== Panel chi tiết sân ===== --}}
         <template x-if="selected">
-            <div class="flex h-full flex-col overflow-y-auto">
+            <div class="flex min-h-0 flex-1 flex-col overflow-y-auto">
                 <div class="flex items-center gap-2 border-b border-gray-100 p-3">
                     <button type="button" @click="closeDetail()" class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-gray-500 hover:bg-gray-100">
                         <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18"/></svg>
@@ -908,7 +982,8 @@
                         <div x-show="routeSteps.length && !routeLoading" x-cloak class="rounded-xl border border-gray-100 bg-gray-50 p-3">
                             <div class="mb-2 flex items-center justify-between">
                                 <p class="text-xs font-bold uppercase tracking-wide text-gray-500">Hướng dẫn đi đường</p>
-                                <button type="button" @click="clearRoute()" class="text-gray-400 hover:text-gray-600">
+                                <button type="button" @click="clearRoute(); activeTab = 'info'" class="text-gray-400 hover:text-gray-600"
+                                        aria-label="Đóng hướng dẫn và quay lại thông tin sân">
                                     <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
                                 </button>
                             </div>
@@ -1113,6 +1188,16 @@
             .map-pin-icon { position: relative; width: 42px; height: 42px; filter: drop-shadow(0 2px 3px rgba(0,0,0,.35)); }
             .map-pin-icon svg:first-child { position: absolute; inset: 0; width: 42px; height: 42px; }
             .map-pin-glyph { position: absolute; inset: 0; width: 42px; height: 42px; }
+            /* Nhãn giá trên bản đồ (giống homestay): pill trắng viền màu môn, đậm khi hover. */
+            .map-price-icon { background: none; border: 0; }
+            .map-price-pill { position: absolute; transform: translate(-50%, -50%); white-space: nowrap; display: flex; align-items: center; gap: 5px;
+                background: #fff; color: #111827; border: 1.5px solid var(--pill, #0B6B3A); border-radius: 999px; padding: 4px 10px 4px 7px;
+                font-size: 12px; font-weight: 800; box-shadow: 0 2px 6px rgba(0,0,0,.25); transition: background .12s, color .12s, transform .12s; cursor: pointer; }
+            .map-price-pill i { width: 9px; height: 9px; border-radius: 50%; background: var(--pill, #0B6B3A); display: inline-block; }
+            .map-price-icon.is-active .map-price-pill { background: var(--pill, #0B6B3A); color: #fff; transform: translate(-50%, -50%) scale(1.12); }
+            .map-price-icon.is-active .map-price-pill i { background: #fff; }
+            .map-venue-card .leaflet-popup-content-wrapper { padding: 0; overflow: hidden; border-radius: 12px; }
+            .map-venue-card .leaflet-popup-content { margin: 0; }
             .island-label {
                 display: inline-block; white-space: nowrap; font-weight: 700; font-size: 12px;
                 color: #0f4c81; letter-spacing: .03em; text-shadow: 0 1px 2px rgba(255,255,255,.9), 0 0 4px rgba(255,255,255,.9);

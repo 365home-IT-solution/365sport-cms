@@ -49,7 +49,7 @@ class ProvinceList extends Component
         }
 
         // Lấy 1 ảnh sản phẩm đại diện cho mỗi branch (1 query)
-        $productsWithMedia = Product::where('is_activated', true)
+        $productsWithMedia = Product::where('is_activated', true)->excludingCoaches()
             ->whereHas('media')
             ->whereHas('categories', fn ($q) => $q->whereIn('categories.id', $allCatIds))
             ->with(['categories:id', 'media'])

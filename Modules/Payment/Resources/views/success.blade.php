@@ -373,6 +373,18 @@
 </head>
 
 <body>
+    @if(empty($order))
+    <div class="success-container">
+        <div class="success-header">
+            <div class="success-icon"><i class="fas fa-exclamation"></i></div>
+            <h1 class="success-title">Không tìm thấy đơn hàng</h1>
+            <p class="success-subtitle">{{ $error ?? 'Không tìm thấy đơn hàng' }}</p>
+        </div>
+        <div class="actions">
+            <a href="/" class="btn btn-primary"><i class="fas fa-home"></i> Về trang chủ</a>
+        </div>
+    </div>
+    @else
     <div class="success-container">
         <!-- Header -->
         @php $isDepositOrder = isset($order) && $order && $order->deposit_percent !== null && $order->status === 'deposit'; @endphp
@@ -481,7 +493,7 @@
                                     $overNight = $desc['over_night'] ?? 0;
                                 @endphp
                                 @if($overNight == 1)
-                                    span class="room-badge"><i class="fas fa-moon"></i> Qua đêm</span>
+                                    <span class="room-badge"><i class="fas fa-moon"></i> Qua đêm</span>
                                 @endif
                             @endif
                         </div>
@@ -514,18 +526,18 @@
                 </h3>
 
                 @php
-                $itemCount = $order->items->count();
-                $originalTotal = $order->items->sum('price');
-                $totalExtraFee = $order->items->sum('extra_fee');
-                $bulkDiscountRate = 0;
-                if ($itemCount === 2) {
-                $bulkDiscountRate = 0.05;
-                } elseif ($itemCount >= 3) {
-                $bulkDiscountRate = 0.10;
-                }
-
-                $bulkDiscount = ($originalTotal - $totalExtraFee) * $bulkDiscountRate;
-                $finalTotal = $originalTotal - $bulkDiscount;
+                // Số liệu THẬT của đơn (không tự đoán % giảm giá như trước — bản cũ gán cứng 5%/10%
+                // và bỏ sót dịch vụ/vật tư/HLV nên "Tổng thanh toán" lệch với số khách đã trả).
+                $courtItems    = $order->items->where('extra_fee', 0);
+                $itemCount     = $courtItems->count();
+                $originalTotal = (int) $courtItems->sum('price');
+                $totalExtraFee = (int) $order->items->sum('extra_fee');
+                $addons        = $order->addonBreakdown();
+                $addonsTotal   = $addons['services_total'] + $addons['equipment_total'] + $addons['coaches_total'];
+                $finalTotal    = (int) $order->amount;
+                // Mọi khoản giảm (khuyến mãi khung giờ, giảm theo số khung, khách quen, mã giảm giá)
+                // = phần chênh giữa tổng các khoản và số thực thu.
+                $bulkDiscount  = max(0, $originalTotal + $totalExtraFee + $addonsTotal - $finalTotal);
                 @endphp
 
                 <div class="price-summary">
@@ -553,17 +565,18 @@
                         Số tiền còn lại <strong>{{ number_format($depositRemaining, 0, ',', '.') }}đ</strong> sẽ được thanh toán khi bạn tra cứu đơn hoặc khi nhận sân. Mã mở khóa cổng sẽ được cấp sau khi thanh toán đủ.
                     </div>
                     @else
-                    {{-- Full payment breakdown --}}
-                    @if($bulkDiscount > 0)
+                    {{-- Full payment breakdown — cùng thứ tự với trang xác nhận đặt lịch/admin:
+                         tiền sân → giảm giá → phụ thu → dịch vụ → thuê vật tư → HLV → tổng. --}}
                     <div class="price-row original">
-                        <span>Tổng giá gốc ({{ $itemCount }} khung):</span>
-                        <span class="price-value">{{ number_format($originalTotal - $totalExtraFee, 0, ',', '.') }}đ</span>
+                        <span>Tiền sân ({{ $itemCount }} khung giờ):</span>
+                        <span class="price-value">{{ number_format($originalTotal, 0, ',', '.') }}đ</span>
                     </div>
 
+                    @if($bulkDiscount > 0)
                     <div class="price-row bulk-discount">
                         <span>
                                 <i class="fas fa-percent"></i>
-                                Giảm đặt {{ $itemCount }} khung ({{ $bulkDiscountRate * 100 }}%):
+                                Giảm giá:
                             </span>
                         <span>-{{ number_format($bulkDiscount, 0, ',', '.') }}đ</span>
                     </div>
@@ -579,16 +592,31 @@
                     </div>
                     @endif
 
+                    @foreach ([['Dịch vụ thêm', 'fa-concierge-bell', $addons['services']], ['Thuê vật tư', 'fa-box-open', $addons['equipment']]] as [$addonTitle, $addonIcon, $addonRows])
+                        @foreach ($addonRows as $addonRow)
+                        <div class="price-row">
+                            <span><i class="fas {{ $addonIcon }}"></i> {{ $addonTitle }}: {{ $addonRow->service_name }} × {{ $addonRow->quantity }}</span>
+                            <span>+{{ number_format($addonRow->subtotal, 0, ',', '.') }}đ</span>
+                        </div>
+                        @endforeach
+                    @endforeach
+
+                    @foreach ($addons['coaches'] as $coachRow)
+                    <div class="price-row">
+                        <span><i class="fas fa-user-tie"></i> HLV {{ $coachRow->coach_name }} ({{ $coachRow->starts_at?->format('H:i') }}–{{ $coachRow->ends_at?->format('H:i') }}):</span>
+                        <span>+{{ number_format($coachRow->subtotal, 0, ',', '.') }}đ</span>
+                    </div>
+                    @endforeach
+
                     <div class="price-row total">
                         <span><strong>Tổng thanh toán</strong></span>
                         <span><strong>{{ number_format($finalTotal, 0, ',', '.') }}đ</strong></span>
                     </div>
 
-                    @if($itemCount >= 2)
+                    @if($bulkDiscount > 0)
                     <div class="discount-note">
                         <i class="fas fa-info-circle"></i>
-                        Bạn đã tiết kiệm {{ number_format($bulkDiscount, 0, ',', '.') }}đ nhờ ưu đãi đặt nhiều khung
-                        giờ!
+                        Bạn đã tiết kiệm {{ number_format($bulkDiscount, 0, ',', '.') }}đ cho đơn này!
                     </div>
                     @endif
                     @endif
@@ -617,6 +645,7 @@
             </a>
         </div>
     </div>
+    @endif
 </body>
 
 </html>

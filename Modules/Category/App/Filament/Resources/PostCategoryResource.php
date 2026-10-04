@@ -17,6 +17,31 @@ class PostCategoryResource extends Resource
 {
     protected static ?string $model = Category::class;
 
+    public static function canViewAny(): bool
+    {
+        return auth()->user()?->can('view_any_post::category') ?? false;
+    }
+
+    public static function canCreate(): bool
+    {
+        return auth()->user()?->can('create_post::category') ?? false;
+    }
+
+    public static function canEdit($record): bool
+    {
+        return auth()->user()?->can('update_post::category') ?? false;
+    }
+
+    public static function canDelete($record): bool
+    {
+        return auth()->user()?->can('delete_post::category') ?? false;
+    }
+
+    public static function canDeleteAny(): bool
+    {
+        return auth()->user()?->can('delete_any_post::category') ?? false;
+    }
+
     public static function getNavigationIcon(): string
     {
         return 'heroicon-o-document-text';

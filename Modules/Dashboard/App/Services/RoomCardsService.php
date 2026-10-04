@@ -86,7 +86,9 @@ class RoomCardsService
             // cancelled_at NOT NULL = khách đã tự huỷ đơn (xem OrderCancellationService) — không
             // còn thật sự chiếm chỗ nữa dù status vẫn 'paid'/'deposit', loại khỏi cả thẻ sân lẫn
             // lưới "Lịch" (2 view cùng dùng chung $allItems này).
-            ->whereHas('order', fn ($q) => $q->whereNotIn('status', ['cancelled', 'failed'])->where('exclude_from_stats', false)->whereNull('cancelled_at'))
+            // Hủy QR (cancelled_payment)/hoàn tiền cũng KHÔNG còn giữ sân — trước đây chỉ loại
+            // 'cancelled'/'failed' nên đơn Hủy QR vẫn hiện "Đã đặt" trên lưới dù client đã thấy trống.
+            ->whereHas('order', fn ($q) => $q->holdingSlot()->where('exclude_from_stats', false))
             ->orderByDesc('created_at')
             ->get()
             ->groupBy('product_id');

@@ -5,12 +5,16 @@ declare(strict_types=1);
 namespace Modules\Warehouse\App\Filament\Resources\WarehouseItemResource\Forms;
 
 use Filament\Forms\Components\Grid;
+use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Forms\Form;
+use Illuminate\Support\HtmlString;
 use Modules\Category\Entities\Category;
+use Modules\Warehouse\App\Filament\Support\WarehousePrinter;
+use Modules\Warehouse\App\Models\WarehouseItem;
 
 class WarehouseItemForm
 {
@@ -131,6 +135,13 @@ class WarehouseItemForm
                     ->label('Ghi chú')
                     ->rows(3)
                     ->columnSpanFull(),
+
+                Placeholder::make('qr_preview')
+                    ->label('Mã QR')
+                    ->content(fn (?WarehouseItem $record) => $record && filled($record->sku)
+                        ? new HtmlString('<img src="data:image/png;base64,' . WarehousePrinter::qrPng((string) $record->sku) . '" alt="QR ' . e($record->sku) . '" style="width:100%;max-width:300px;aspect-ratio:1/1;background:#fff;">')
+                        : 'Nhập SKU và lưu để có mã QR.')
+                    ->visibleOn('edit'),
             ]),
         ]);
     }

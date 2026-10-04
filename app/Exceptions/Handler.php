@@ -3,6 +3,7 @@
 namespace App\Exceptions;
 
 use BezhanSalleh\FilamentExceptions\FilamentExceptions;
+use Illuminate\Auth\AuthenticationException;
 use Illuminate\Foundation\Exceptions\Handler as ExceptionHandler;
 use Throwable;
 
@@ -49,6 +50,20 @@ class Handler extends ExceptionHandler
         'password',
         'password_confirmation',
     ];
+
+    /**
+     * Dự án không có route tên 'login' (mặc định của Laravel) nên chưa đăng nhập mà vào route bảo
+     * vệ sẽ bị RouteNotFoundException → 500. API luôn trả JSON 401 (kể cả client quên header
+     * Accept: application/json), trang web chuyển tới trang đăng nhập admin.
+     */
+    protected function unauthenticated($request, AuthenticationException $exception)
+    {
+        if ($request->expectsJson() || $request->is('api/*')) {
+            return response()->json(['message' => $exception->getMessage()], 401);
+        }
+
+        return redirect()->guest(route('filament.admin.auth.login'));
+    }
 
     /**
      * Register the exception handling callbacks for the application.

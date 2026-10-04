@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\DB;
 use Guava\Calendar\Contracts\Eventable;
 use Guava\Calendar\ValueObjects\CalendarEvent;
 use Modules\Payment\App\Models\OrderService;
+use Modules\Coach\App\Models\OrderCoach;
 class Order extends Model implements Eventable
 {
     use HasFactory, BelongsToPartner;
@@ -152,8 +153,18 @@ class Order extends Model implements Eventable
 
     // % hoàn lại khi khách TỰ huỷ đơn online — áp trên số tiền ĐÃ THANH TOÁN thật (không phải tổng
     // giá trị đơn), khớp đúng câu chữ đã hiển thị cho khách lúc đặt sân (xem
-    // infomation-book-room.blade.php: "hoàn từ 70% khi hủy, 10% phí xử lý").
+    // Chính sách khách tự huỷ: hoàn đúng 70% số đã thanh toán; 30% là phí huỷ và xử lý.
     public const CUSTOMER_CANCEL_REFUND_RATE = 0.70;
+
+    // Trạng thái đơn KHÔNG còn giữ sân/HLV/vật tư (huỷ QR, thanh toán thất bại, huỷ, hoàn tiền) —
+    // khung giờ của các đơn này phải hiện "Trống" ở MỌI lưới lịch (client lẫn admin).
+    public const SLOT_RELEASED_STATUSES = ['cancelled', 'cancelled_payment', 'failed', 'refunded'];
+
+    // Đơn còn thực sự chiếm chỗ: không nằm trong SLOT_RELEASED_STATUSES và khách chưa tự huỷ.
+    public function scopeHoldingSlot($query)
+    {
+        return $query->whereNotIn('status', self::SLOT_RELEASED_STATUSES)->whereNull('cancelled_at');
+    }
 
     public function isCancelled(): bool
     {
@@ -305,6 +316,14 @@ class Order extends Model implements Eventable
 
     protected static function booted(): void
     {
+        static::saving(function (self $order): void {
+            // Sport bookings no longer collect identity-card data. Keep legacy
+            // columns nullable during the transition, but never persist new data.
+            foreach (['cccd_front', 'cccd_back', 'cccd_front_2', 'cccd_back_2', 'cccd_data', 'cccd_data_2', 'buyer_phone_2'] as $field) {
+                $order->{$field} = null;
+            }
+        });
+
         static::creating(function (self $order): void {
             if (empty($order->order_code)) {
                 do {
@@ -332,6 +351,12 @@ class Order extends Model implements Eventable
             // đơn, áp dụng lại cho luồng XOÁ ở đây).
             $itemsByProduct = $order->items()->whereNotNull('product_id')->get()->groupBy('product_id');
 
+            // Trả lại dụng cụ đang mượn (nếu có order_service nào gắn warehouse_item) TRƯỚC khi
+            // xoá order_services — $order->services()->delete() bên dưới là DELETE hàng loạt qua
+            // query builder (không phải Eloquent::delete() từng dòng), không tự bắn được sự kiện gì
+            // để ta xử lý kho, nên phải gọi tay ở đây.
+            app(\Modules\Warehouse\App\Services\WarehouseRentalService::class)->releaseForOrder($order);
+
             $order->items()->delete();
             $order->services()->delete();
 
@@ -346,6 +371,12 @@ class Order extends Model implements Eventable
         static::updated(function (self $order): void {
             if ($order->wasChanged('status') && $order->status === 'paid') {
                 self::rewardReferrerIfEligible($order);
+            }
+
+            // Đơn chuyển sang trạng thái KHÔNG còn khả năng diễn ra (thất bại/huỷ/hoàn tiền) —
+            // trả lại dụng cụ đang mượn (nếu có) về kho ngay, không đợi tới lượt dọn tự động.
+            if ($order->wasChanged('status') && in_array($order->status, self::SLOT_RELEASED_STATUSES, true)) {
+                app(\Modules\Warehouse\App\Services\WarehouseRentalService::class)->releaseForOrder($order);
             }
         });
     }
@@ -684,6 +715,52 @@ class Order extends Model implements Eventable
     public function services()
     {
         return $this->hasMany(OrderService::class);
+    }
+
+    public function coachBookings()
+    {
+        return $this->hasMany(OrderCoach::class);
+    }
+
+    // Trong số các additional_services.id truyền vào, id nào là "thuê vật tư" (gắn warehouse_item)
+    // — order_services lưu chung cả dịch vụ lẫn vật tư, đây là cách DUY NHẤT để tách 2 nhóm.
+    public static function equipmentServiceIds(iterable $serviceIds): array
+    {
+        $ids = collect($serviceIds)->filter()->unique()->values();
+        if ($ids->isEmpty()) {
+            return [];
+        }
+
+        return \Modules\BladeThemeV1\App\Models\AdditionService::query()
+            ->whereIn('id', $ids)
+            ->whereNotNull('warehouse_item_id')
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
+    }
+
+    /**
+     * Các khoản đi kèm tiền sân, tách thành 3 nhóm độc lập — dùng CHUNG cho mọi trang chi tiết
+     * đơn (client + admin + API) để không nơi nào gộp lẫn/thiếu:
+     *   services  = dịch vụ thuần, equipment = thuê vật tư (gắn kho), coaches = thuê HLV.
+     */
+    public function addonBreakdown(): array
+    {
+        $services = $this->relationLoaded('services') ? $this->services : $this->services()->get();
+        $coaches  = ($this->relationLoaded('coachBookings') ? $this->coachBookings : $this->coachBookings()->get())
+            ->sortBy('starts_at')->values();
+
+        $equipmentIds = self::equipmentServiceIds($services->pluck('service_id'));
+        [$equipment, $pureServices] = $services->partition(fn ($s) => in_array((int) $s->service_id, $equipmentIds, true));
+
+        return [
+            'services'        => $pureServices->values(),
+            'equipment'       => $equipment->values(),
+            'coaches'         => $coaches,
+            'services_total'  => (int) $pureServices->sum('subtotal'),
+            'equipment_total' => (int) $equipment->sum('subtotal'),
+            'coaches_total'   => (int) $coaches->sum('subtotal'),
+        ];
     }
 
     public function bankTransferConfirmedBy()

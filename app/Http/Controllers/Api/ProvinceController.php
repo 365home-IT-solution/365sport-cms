@@ -38,30 +38,8 @@ class ProvinceController extends Controller
             ]);
         }
 
-        // Chỉ hiển thị tỉnh/thành có ít nhất 1 chi nhánh đang hoạt động (province_branches.status)
-        // và chi nhánh đó có ít nhất 1 sân đang bán (is_activated + is_in_stock) — cùng logic
-        // lọc "chi nhánh có sân" đang dùng ở RoomSearchService/RoomTypeController.
-        $activeBranches = ProvinceBranch::where('status', true)->get(['province_id', 'categorie_id']);
-
-        $branchCategoryIds = $activeBranches->pluck('categorie_id')->unique()->values();
-        $childCategoriesByParent = Category::whereIn('parent_id', $branchCategoryIds)
-            ->get(['id', 'parent_id'])
-            ->groupBy('parent_id');
-
-        $provinceIdsWithRooms = $activeBranches
-            ->filter(function (ProvinceBranch $branch) use ($childCategoriesByParent) {
-                $categoryIds = collect([$branch->categorie_id])
-                    ->merge($childCategoriesByParent->get($branch->categorie_id, collect())->pluck('id'));
-
-                return Product::where('is_activated', true)
-                    ->where('is_in_stock', true)
-                    ->whereHas('categories', fn ($q) => $q->whereIn('category_id', $categoryIds))
-                    ->exists();
-            })
-            ->pluck('province_id')
-            ->unique();
-
-        $provinces = Province::whereIn('id', $provinceIdsWithRooms)
+        // Chỉ tỉnh/thành có sân thật — quy tắc dùng chung, xem Province::idsWithCourts().
+        $provinces = Province::withCourts()
             ->orderByRaw('code IS NULL, code ASC')
             ->orderBy('name')
             ->get();

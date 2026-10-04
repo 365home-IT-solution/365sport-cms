@@ -382,10 +382,14 @@ class OrderForm
                                                                     // Chỉ liệt kê đối tác ĐÃ ĐƯỢC XÁC NHẬN (verification_status =
                                                                     // 'approved') — đối tác đang chờ duyệt/bị từ chối chưa đủ điều
                                                                     // kiện vận hành thật, không nên đặt sân hộ cho họ.
-                                                                    ->options(fn () => \App\Models\Partner::query()
-                                                                        ->where('verification_status', 'approved')
+                                                                    // Sửa/xem đơn CŨ của 1 đối tác chưa/không còn "approved": vẫn phải
+                                                                    // có đối tác đó trong danh sách, nếu không Select hiện UUID thô.
+                                                                    ->options(fn ($record) => \App\Models\Partner::query()
+                                                                        ->where(fn ($q) => $q->where('verification_status', 'approved')
+                                                                            ->when($record?->partner_id, fn ($q, $id) => $q->orWhere('id', $id)))
                                                                         ->orderBy('name')
                                                                         ->pluck('name', 'id'))
+                                                                    ->getOptionLabelUsing(fn ($value) => \App\Models\Partner::withTrashed()->find($value)?->name)
                                                                     ->searchable()
                                                                     ->preload()
                                                                     // Mở lại 1 đơn ĐÃ ĐẶT (sửa đơn): field này dehydrated(false) nên
@@ -656,6 +660,17 @@ class OrderForm
                                                     Hidden::make('orderServices')
                                                         ->default([])
                                                         ->dehydrated(),
+
+                                                    // HLV khách đã thuê kèm (bảng order_coaches, KHÔNG nằm trong
+                                                    // order_services) — chỉ ĐỌC để cộng vào tổng/hiện trên card
+                                                    // "Tổng thanh toán", thiếu field này thì admin mở đơn có HLV sẽ
+                                                    // thấy tổng thấp hơn số khách đã trả và tự tính ra "hoàn tiền" giả.
+                                                    Hidden::make('orderCoaches')
+                                                        ->default([])
+                                                        ->dehydrated(false)
+                                                        ->afterStateHydrated(function ($component, $record) {
+                                                            $component->state(self::coachRowsForRecord($record));
+                                                        }),
 
                                                     ViewField::make('orderServices_display')
                                                         ->label('')
@@ -1156,7 +1171,10 @@ class OrderForm
 
                                                                         $surcharge = (float) ($get('surcharge') ?? 0);
 
-                                                                        $total = self::computeOrderTotal($items, $servicesFormState) + $surcharge;
+                                                                        $coaches = $get('orderCoaches');
+                                                                        $coaches = is_array($coaches) ? $coaches : [];
+
+                                                                        $total = self::computeOrderTotal($items, $servicesFormState, $coaches) + $surcharge;
 
                                                                         $expandedItems = self::expandOrderItemsForPersistence($items);
 
@@ -1169,6 +1187,7 @@ class OrderForm
                                                                             'originalItems' => $items,
                                                                             'record' => $record,
                                                                             'servicesFormState' => $servicesFormState,
+                                                                            'coaches' => $coaches,
                                                                             'surcharge' => $surcharge,
                                                                         ]);
                                                                     }),
@@ -3308,10 +3327,12 @@ class OrderForm
         $items     = $get('../../orderItems') ?? $get('orderItems') ?? [];
         $services  = $get('../../orderServices') ?? $get('orderServices') ?? [];
         $surcharge = $get('../../surcharge') ?? $get('surcharge') ?? 0;
+        $coaches   = $get('../../orderCoaches') ?? $get('orderCoaches') ?? [];
 
         $total = self::computeOrderTotal(
             is_array($items) ? $items : [],
-            is_array($services) ? $services : []
+            is_array($services) ? $services : [],
+            is_array($coaches) ? $coaches : []
         ) + (float) $surcharge;
 
         $set('../../amount', $total);
@@ -3437,6 +3458,13 @@ class OrderForm
                 continue;
             }
 
+            // Tên sân gốc (không kèm khung giờ) — mỗi khung giờ tách ra phải mang ĐÚNG nhãn khung
+            // của chính nó (giống client ProductDetail::confirmBooking(): "<tên sân> - <khung giờ>"),
+            // thay vì chép nguyên 'name' của dòng gộp (vốn là tên khung ĐẦU TIÊN) cho mọi khung.
+            $productName = ! empty($item['product_id'])
+                ? Product::withoutGlobalScope('partner')->find($item['product_id'])?->name
+                : null;
+
             foreach ($selectedSlots as $selected) {
                 $slot = RoomTimeSlot::with(['timeSlot', 'promotions' => fn ($q) => $q->where('is_active', true)])
                     ->find($selected['slot_id']);
@@ -3459,6 +3487,13 @@ class OrderForm
                 $expandedItem['checkout_date'] = $end->format('Y-m-d H:i:s');
                 $expandedItem['price']         = (int) $promo['final_price'];
                 $expandedItem['discount']      = (int) $slot->price;
+
+                $slotLabel = $slot->timeSlot->label
+                    ?: (substr((string) $slot->timeSlot->start_time, 0, 5) . ' - ' . substr((string) $slot->timeSlot->end_time, 0, 5));
+                $expandedItem['slot_label'] = $slotLabel;
+                if ($productName) {
+                    $expandedItem['name'] = $productName . ' - ' . $slotLabel;
+                }
 
                 $expanded[] = $expandedItem;
             }
@@ -3677,7 +3712,27 @@ class OrderForm
         return $result;
     }
 
-    public static function computeOrderTotal(array $items, array $services): float
+    // Các dòng HLV (order_coaches) của đơn ở dạng mảng dùng chung cho form/card — mỗi dòng 1 giờ
+    // HLV gắn với 1 khung giờ sân (xem ProductDetail::lockAndBuildCoachBookings()).
+    public static function coachRowsForRecord($record): array
+    {
+        if (! $record instanceof \Modules\Payment\Entities\Order || ! $record->exists) {
+            return [];
+        }
+
+        return $record->coachBookings()->orderBy('starts_at')->get()
+            ->map(fn ($c) => [
+                'coach_name'  => $c->coach_name,
+                'hourly_rate' => (int) $c->hourly_rate,
+                'minutes'     => (int) $c->minutes,
+                'subtotal'    => (int) $c->subtotal,
+                'starts_at'   => $c->starts_at?->toDateTimeString(),
+                'ends_at'     => $c->ends_at?->toDateTimeString(),
+            ])
+            ->all();
+    }
+
+    public static function computeOrderTotal(array $items, array $services, array $coaches = []): float
     {
         // Loại dòng order_item "Phụ phí khách thêm" CŨ (extra_fee > 0, product_id = null — do
         // luồng đặt sân cũ ProductDetail.php tự tạo riêng 1 dòng cho phụ thu khách). Phụ thu
@@ -3720,6 +3775,9 @@ class OrderForm
         }
 
         $total += collect($services)->sum(fn ($s) => (float) ($s['subtotal'] ?? 0));
+
+        // Tiền thuê HLV — cùng quy ước với ExtraChargeService::calculateRealTotal().
+        $total += collect($coaches)->sum(fn ($c) => (float) ($c['subtotal'] ?? 0));
 
         return $total;
     }

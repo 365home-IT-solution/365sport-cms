@@ -7,8 +7,10 @@ namespace App\Http\Controllers\Api;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use Modules\Payment\Entities\Order;
+use Modules\Warehouse\App\Services\WarehouseRentalService;
 
 class OrderServiceController extends Controller
 {
@@ -77,12 +79,19 @@ class OrderServiceController extends Controller
             ];
         }
 
-        // Xóa services cũ và thêm lại (replace)
-        $order->services()->delete();
+        // Toàn bộ replace (trả dụng cụ cũ → xoá → tạo lại → mượn dụng cụ mới) phải ATOMIC — nếu 1
+        // dịch vụ mới hết tồn kho giữa chừng (WarehouseRentalService::rent() ném
+        // ValidationException), phải rollback lại đúng danh sách CŨ, không để đơn hàng dở dang
+        // (mất services cũ nhưng chưa có đủ services mới).
+        DB::transaction(function () use ($order, $servicesData) {
+            app(WarehouseRentalService::class)->releaseForOrder($order);
 
-        foreach ($servicesData as $svc) {
-            $order->services()->create($svc);
-        }
+            $order->services()->delete();
+
+            foreach ($servicesData as $svc) {
+                $order->services()->create($svc);
+            }
+        });
 
         // Cập nhật lại amount (giá gốc) và full_amount (giá thực tế sau giảm giá)
         $roomPrice   = (int) $order->items->sum('price');

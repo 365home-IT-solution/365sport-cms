@@ -2,6 +2,7 @@
 
 namespace Modules\BladeThemeV1\Livewire;
 
+use App\Models\Province;
 use App\Models\ProvinceBranch;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\View\View;
@@ -19,6 +20,11 @@ use Modules\Product\App\Models\RoomType;
  * MapPage — xem $typeSlug trong MapPage::mount()) — bấm 1 chip lọc lại NGAY danh sách chi nhánh
  * hiện có ít nhất 1 sân đúng môn đó, không rời trang. "Tất cả" (activeType = null) luôn là lựa
  * chọn mặc định khi mở trang lần đầu.
+ *
+ * Hàng chip lọc theo TỈNH/THÀNH — chỉ gồm tỉnh có sân thật (Province::idsWithCourts(), cùng quy tắc với
+ * bộ lọc Khu vực và API /provinces; tỉnh không có sân thì không hiện). Chọn tỉnh đồng bộ với phần còn
+ * lại của trang chủ (Lịch đặt sân trực tuyến, gợi ý chi nhánh...) qua localStorage `home_province_id` +
+ * sự kiện window 'province-selected' (xem venue-grid.blade.php); "Tất cả khu vực" chỉ bỏ lọc lưới này.
  */
 class VenueGrid extends Component
 {
@@ -28,13 +34,41 @@ class VenueGrid extends Component
 
     public ?string $activeType = null;
 
+    /** @var list<array{id:int,name:string,slug:string}> */
+    public array $provinces = [];
+
+    public ?int $activeProvinceId = null;
+
     public function mount(): void
     {
         $this->roomTypes = RoomType::orderBy('name')->get(['id', 'name', 'slug'])
             ->map(fn ($rt) => ['name' => $rt->name, 'slug' => $rt->slug])
             ->toArray();
 
+        $this->provinces = Province::withCourts()
+            ->orderByRaw('code IS NULL, code ASC')
+            ->orderBy('name')
+            ->get(['id', 'name', 'slug'])
+            ->map(fn ($p) => ['id' => $p->id, 'name' => $p->name, 'slug' => $p->slug])
+            ->toArray();
+
         $this->loadVenues();
+    }
+
+    // Chọn tỉnh (chip, hoặc sự kiện 'province-selected' từ nơi khác trên trang chủ) — null = "Tất cả
+    // khu vực". Id không thuộc danh sách tỉnh có sân (vd localStorage cũ) thì bỏ qua, không đổi gì.
+    public function setProvince(?int $id): void
+    {
+        if ($id !== null && ! in_array($id, array_column($this->provinces, 'id'), true)) {
+            return;
+        }
+        if ($id === $this->activeProvinceId) {
+            return;
+        }
+
+        $this->activeProvinceId = $id;
+        $this->loadVenues();
+        $this->dispatch('venues-updated');
     }
 
     // Gọi lại khi bấm 1 chip môn thể thao (wire:click="selectType('...')" ở venue-grid.blade.php)
@@ -58,6 +92,7 @@ class VenueGrid extends Component
         $this->venues = ProvinceBranch::query()
             ->where('status', true)
             ->whereHas('category', fn ($q) => $q->where('status', true))
+            ->when($this->activeProvinceId, fn ($q, $provinceId) => $q->where('province_id', $provinceId))
             // KHÔNG dùng ->limit(1) trong closure eager-load của quan hệ morphedByMany (products)
             // — xem giải thích chi tiết trong MapPage.php (bug: limit áp cho toàn bộ query, không
             // phải riêng từng category, khiến chỉ 1 category nhận được product).
