@@ -28,7 +28,7 @@ class AdminNavigation
         // Vận hành hằng ngày của chủ sân: đơn -> sân -> giá -> thi đấu -> kho -> camera -> đối tác (theo thứ tự công việc).
         'Quản lý' => [
             'Đặt sân & Đơn hàng' => [
-                'OrderResource', 'PackageOrderResource', 'PendingRefunds', 'CccdDeclarationResource', 'RoomHousekeepingResource',
+                'OrderResource', 'PackageOrderResource', 'PendingRefunds', 'InvoiceRequestResource', 'CccdDeclarationResource', 'RoomHousekeepingResource',
             ],
             'Sân & Chi nhánh' => [
                 'CategoryResource', 'ProductResource', 'RoomTypeResource', 'RoomImageResource', 'RoomAmenityResource',
@@ -38,7 +38,7 @@ class AdminNavigation
                 'BookResource', 'PriceBoardResource', 'PromotionResource', 'CouponResource', 'PackagePlanResource', 'CustomerPackageResource',
             ],
             'Thi đấu & Cộng đồng' => [
-                'OpenMatchResource', 'TeamResource', 'BookingFundResource', 'CoachResource',
+                'OpenMatchResource', 'TeamResource', 'TournamentResource', 'BookingFundResource', 'CoachResource',
             ],
             'Kho & Dụng cụ' => [
                 'WarehouseItemResource', 'WarehouseCategoryResource', 'WarehouseUnitResource', 'WarehouseStockInResource',
@@ -46,7 +46,7 @@ class AdminNavigation
             ],
             'Camera an ninh' => ['CameraMonitor', 'CameraResource', 'CameraAlertResource'],
             'Đối tác & Gói dịch vụ' => [
-                'MySubscription', 'PartnerResource', 'PartnerLeadResource', 'PartnerPlanResource', 'PartnerFeatureMatrix',
+                'MySubscription', 'PartnerResource', 'PartnerLeadResource', 'PartnerPlanResource', 'PartnerFeatureMatrix', 'PartnerSettlementResource',
                 'SubscriptionPaymentResource',
             ],
         ],
@@ -57,7 +57,7 @@ class AdminNavigation
                 'ManageGeneral', 'SettingCompanyResource', 'BranchResource', 'ProvinceResource',
             ],
             'Thanh toán & Tích hợp' => [
-                'PaymentConfigurationResource', 'GHNConfigPage', 'GHTKConfigPage', 'ManageMail', 'GoogleLoginSettings',
+                'PaymentSetup', 'PaymentConfigurationResource', 'ManageMail', 'GoogleLoginSettings',
                 'DirectionsSettings', 'ManageCamera',
             ],
             'Giao diện website' => [
@@ -69,14 +69,14 @@ class AdminNavigation
             ],
             'Biểu mẫu & Phản hồi' => [
                 'FormResource', 'FormSubmissionResource', 'FormNotificationResource', 'EmailSettingResource',
-                'CommentResource', 'CommentPostResource', 'CommentProductResource',
+                'CommentResource', 'CommentPostResource', 'CommentProductResource', 'RoomRatingResource',
             ],
         ],
 
         // Con người: khách hàng, nhân viên, vai trò, lương, nhật ký.
         'Phân quyền' => [
             'Khách hàng' => [
-                'CustomerResource', 'GuestCustomerResource', 'MembershipTierResource', 'CorporateAccountResource',
+                'CustomerResource', 'PlayerSkillLevelResource', 'GuestCustomerResource', 'MembershipTierResource', 'LoyaltyTransactionResource', 'CorporateAccountResource',
                 'CustomerChat', 'ConsultationLogResource',
             ],
             'Tài khoản & Vai trò' => [
@@ -84,7 +84,7 @@ class AdminNavigation
             ],
             'Nhân sự & Lương' => [
                 'DepartmentResource', 'PositionResource', 'SalaryTypeResource', 'AllowanceTypeResource',
-                'DeductionTypeResource', 'SalaryTemplateResource', 'SalaryReport',
+                'DeductionTypeResource', 'SalaryTemplateResource', 'EmployeeAttendanceResource', 'PayrollPeriodResource', 'SalaryReport',
             ],
             'Nhật ký & Tài liệu' => ['AuditLogResource', 'ExceptionResource', 'DocumentationResource'],
         ],
@@ -122,6 +122,61 @@ class AdminNavigation
 
     /** @var array<string, array<string, list<string>>> nhóm cấp 1 => cột => nhãn mục (sau đổi tên), điền khi build() */
     private static array $columns = [];
+
+    /**
+     * Tuỳ chọn cho ô "Lọc theo module" ở màn phân quyền: cùng các nhóm/cột như megamenu (dạng optgroup).
+     * Giá trị: 'grp:Nhóm' = cả nhóm cấp 1, 'col:Nhóm|Cột' = một cột, 'other' = mục chưa xếp vào menu.
+     *
+     * @return array<string, array<string, string>>
+     */
+    public static function moduleFilterOptions(): array
+    {
+        $options = [];
+        foreach (self::MENU as $group => $columns) {
+            $options[$group] = ['grp:' . $group => "Tất cả mục \"{$group}\""];
+            foreach (array_keys($columns) as $column) {
+                $options[$group]['col:' . $group . '|' . $column] = $column;
+            }
+        }
+        $options['Khác'] = ['other' => 'Chưa xếp vào menu'];
+
+        return $options;
+    }
+
+    /** Nhóm + cột megamenu của một class Resource/Page (null nếu chưa được xếp vào menu). */
+    public static function moduleOf(string $fqcn): ?array
+    {
+        static $map = null;
+        if ($map === null) {
+            $map = [];
+            foreach (self::MENU as $group => $columns) {
+                foreach ($columns as $column => $keys) {
+                    foreach ($keys as $key) {
+                        $map[$key] = [$group, $column];
+                    }
+                }
+            }
+        }
+
+        return $map[$fqcn] ?? $map[class_basename($fqcn)] ?? null;
+    }
+
+    /** Class có thuộc lựa chọn lọc module không (lựa chọn rỗng = tất cả). */
+    public static function matchesModuleFilter(?string $filter, string $fqcn): bool
+    {
+        if ($filter === null || $filter === '') {
+            return true;
+        }
+
+        $module = self::moduleOf($fqcn);
+
+        return match (true) {
+            $filter === 'other' => $module === null,
+            str_starts_with($filter, 'grp:') => $module !== null && $module[0] === substr($filter, 4),
+            str_starts_with($filter, 'col:') => $module !== null && ($module[0] . '|' . $module[1]) === substr($filter, 4),
+            default => true,
+        };
+    }
 
     /** Cột (tiêu đề => nhãn mục) của một nhóm cấp 1 — view megamenu dùng để chia dropdown thành nhiều cột. */
     public static function columnMap(string $groupLabel): array

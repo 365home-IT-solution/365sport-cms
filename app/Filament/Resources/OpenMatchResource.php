@@ -23,6 +23,10 @@ use Illuminate\Database\Eloquent\Builder;
 // BookingFundResource (canCreate/canEdit đều false — quỹ nhóm cũng do khách tự quản lý).
 class OpenMatchResource extends Resource
 {
+    use \App\Filament\Support\GatedByFeature;
+
+    protected static string $featureFlag = 'open_match';
+
     protected static ?string $model = OpenMatch::class;
 
     protected static ?string $navigationIcon   = 'heroicon-o-user-plus';
@@ -43,7 +47,7 @@ class OpenMatchResource extends Resource
 
     public static function canViewAny(): bool
     {
-        return auth()->user()?->isSuperAdmin() ?? false;
+        return static::featureEnabled() && (auth()->user()?->isSuperAdmin() ?? false);
     }
 
     public static function canCreate(): bool

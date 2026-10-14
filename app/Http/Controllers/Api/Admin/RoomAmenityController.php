@@ -89,7 +89,7 @@ class RoomAmenityController extends Controller
 
         $amenity = RoomAmenity::create([
             'partner_id'   => $partnerId,
-            'amenity_type' => $data['amenity_type'] ?? null,
+            'amenity_type' => $data['amenity_type'] ?? 'Khác', // cột bắt buộc: không gửi thì xếp vào nhóm "Khác"
             'icon'         => $data['icon'] ?? null,
             'name'         => $data['name'],
             'status'       => $data['status'] ?? true,

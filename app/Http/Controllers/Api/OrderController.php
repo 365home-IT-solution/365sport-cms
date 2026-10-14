@@ -126,7 +126,7 @@ class OrderController extends Controller
         // ── Phụ thu khách ─────────────────────────────────────────────────────
         if ($request->has('guest_count')) {
             $newGuestCount = (int) $request->input('guest_count');
-            $hasOvernight  = $order->items->contains('over_night', true);
+            $hasOvernight  = config('features.lodging') && $order->items->contains('over_night', true); // khai báo lưu trú chỉ khi bật cờ
 
             // Tăng số khách cho đơn qua đêm — khách mới (guest_index vượt số đã khai báo) phải
             // có CCCD kèm theo trong chính request này (guests[{index}][front/back]), giống hệt
@@ -889,7 +889,7 @@ class OrderController extends Controller
         $result = $service->regenerateExtraChargeQr($order);
 
         if (isset($result['error'])) {
-            return response()->json(['message' => $result['error']], 422);
+            return response()->json(['message' => $result['error']], ! empty($result['gateway_error']) ? 502 : 422);
         }
 
         return response()->json($result);

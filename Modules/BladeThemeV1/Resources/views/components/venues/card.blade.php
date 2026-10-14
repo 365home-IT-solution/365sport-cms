@@ -69,6 +69,15 @@
             </span>
         @endif
 
+        {{-- Chi nhánh có bán gói nhiều buổi (PackagePlan::categoryIdsWithActivePlans()) — icon hộp
+             quà nhỏ báo cho khách biết có thể mua gói ở đây. --}}
+        @if (! empty($venue['has_package']))
+            <span class="absolute bottom-2 left-2 flex h-7 w-7 items-center justify-center rounded-full bg-[#F5A623] text-white shadow-sm"
+                  title="Có bán gói nhiều giờ" aria-label="Có bán gói nhiều giờ">
+                <x-heroicon-o-gift class="h-4 w-4" />
+            </span>
+        @endif
+
         <div class="absolute bottom-2 right-2 flex items-center gap-1.5">
             {{-- Nút yêu thích THẬT — trước đây chỉ toggle 1 class CSS không có style nào áp dụng
                  (bug đã gặp: bấm không thấy đổi gì) và KHÔNG lưu lại (mất trạng thái khi tải lại

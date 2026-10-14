@@ -123,6 +123,17 @@ class RoleResource extends Resource implements HasShieldPermissions
                                 'lg' => 3,
                             ]),
                     ]),
+                // Lọc danh sách quyền theo nhóm/cột megamenu. Chỉ ẩn bằng CSS (không dùng visible()) vì Filament không lưu state của field đang ẩn —
+                // dùng visible() sẽ làm MẤT các quyền đã tick ở mục bị ẩn khi bấm Lưu. Không lưu vào DB (dehydrated(false)).
+                Forms\Components\Select::make('module_filter')
+                    ->label('Lọc theo module')
+                    ->helperText('Chọn nhóm menu (vd: Kho & Dụng cụ, Camera an ninh…) để chỉ hiện các quyền của nhóm đó. Quyền đã tick ở nhóm khác vẫn được giữ khi lưu.')
+                    ->options(\App\Filament\Support\AdminNavigation::moduleFilterOptions())
+                    ->placeholder('Tất cả module')
+                    ->searchable()
+                    ->live()
+                    ->dehydrated(false)
+                    ->columnSpan('full'),
                 Forms\Components\Tabs::make('Permissions')
                     ->contained()
                     ->tabs([
@@ -290,6 +301,9 @@ class RoleResource extends Resource implements HasShieldPermissions
                 return Forms\Components\Section::make($sectionLabel)
                     ->description(fn () => new HtmlString('<span style="word-break: break-word;">' . Utils::showModelPath($entity['fqcn']) . '</span>'))
                     ->compact()
+                    ->extraAttributes(fn (\Livewire\Component $livewire): array => \App\Filament\Support\AdminNavigation::matchesModuleFilter($livewire->data['module_filter'] ?? null, $entity['fqcn'])
+                        ? []
+                        : ['style' => 'display:none'])
                     ->schema([
                         static::getCheckBoxListComponentForResource($entity, $allowedPerms),
                     ])

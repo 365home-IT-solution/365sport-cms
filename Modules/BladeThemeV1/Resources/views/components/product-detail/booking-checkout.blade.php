@@ -22,6 +22,8 @@
     }, 0);
     $totalHoursLabel = intdiv($totalMinutes, 60) . 'h' . ($totalMinutes % 60 > 0 ? $totalMinutes % 60 : '');
     $firstSlotDate = $selectedSlots[0]['date'] ?? null;
+    // Sân của đối tác chưa thiết lập thanh toán thì không nhận đặt online (xem Partner::hasUsablePaymentMethod()).
+    $paymentReady = $product?->partner?->hasUsablePaymentMethod() ?? true;
 @endphp
 
 <div class="min-h-screen" style="background: linear-gradient(160deg, #0B6B3A 0%, #128A4A 45%, #1AA859 100%);"
@@ -41,6 +43,13 @@
             </a>
             <h1 class="text-base font-extrabold uppercase tracking-wide text-white sm:text-lg">Xác nhận đặt lịch</h1>
         </div>
+
+        @unless ($paymentReady)
+            <div class="mb-3 flex items-start gap-2.5 rounded-xl border-2 border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                <x-heroicon-o-exclamation-triangle class="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
+                <p><strong>Sân này tạm thời chưa nhận đặt trực tuyến.</strong> Chủ sân chưa thiết lập phương thức thanh toán. Vui lòng liên hệ chủ sân hoặc chọn sân khác.</p>
+            </div>
+        @endunless
 
         {{-- Thông tin sân --}}
         <div class="mb-3 rounded-xl bg-white/10 p-4 text-white">
@@ -66,14 +75,15 @@
             @if (empty($selectedSlots))
                 <p class="mt-2 text-sm italic text-white/70">Chưa chọn khung giờ nào.</p>
             @else
+                @php $pkgBreakdown = $this->packageBreakdown(); @endphp
                 <div class="mt-2 space-y-1">
-                    @foreach ($selectedSlots as $slot)
+                    @foreach ($selectedSlots as $slotIndex => $slot)
                         <p class="text-sm">
                             - {{ $slot['roomName'] ?? $product?->name }}: {{ substr($slot['startTime'], 0, 5) }} - {{ substr($slot['endTime'], 0, 5) }}
-                            @if (! $usePackage)
-                                | <span class="font-bold text-amber-300">{{ number_format((float) $slot['price'], 0, ',', '.') }} đ</span>
-                            @else
+                            @if ($pkgBreakdown && in_array($slotIndex, $pkgBreakdown['covered'], true))
                                 | <span class="font-bold text-emerald-200">Dùng 1 buổi trong gói</span>
+                            @else
+                                | <span class="font-bold text-amber-300">{{ number_format((float) $slot['price'], 0, ',', '.') }} đ</span>
                             @endif
                         </p>
                     @endforeach
@@ -229,20 +239,88 @@
             ])->filter(fn ($v) => $v > 0);
             $courtTotal = max(0, (float) $totalAmount - $addonsTotal - $coachTotal - $guestFee + $discountLines->sum());
         @endphp
+        {{-- Mã giảm giá — dùng chung logic với trang chi tiết sân (ProductDetail::applyCoupon/removeCoupon/quickApplyCoupon).
+             Mã riêng/được gán cho khách chỉ dùng được bởi đúng chủ (kiểm tra ở applyCoupon và kiểm tra lại lúc xác nhận),
+             mã hết hạn/hết lượt bị từ chối. Gợi ý "mã của bạn" chỉ liệt kê mã của chính khách đang đăng nhập. --}}
+        @if (! empty($selectedSlots) && ! $usePackage)
+        @php $appliedCodes = collect($appliedCoupons)->pluck('code')->all(); @endphp
+        <div class="mb-3 rounded-xl bg-white p-4 text-sm text-gray-700 shadow-sm">
+            <p class="mb-2 flex items-center gap-1.5 font-bold text-gray-900">
+                <x-heroicon-o-ticket class="h-4 w-4 text-emerald-600" /> Mã giảm giá
+            </p>
+
+            @foreach ($appliedCoupons as $coupon)
+                <div class="mb-2 flex items-start justify-between gap-2 rounded-lg border border-emerald-300 bg-emerald-50 p-2.5" wire:key="applied-{{ $coupon->id }}">
+                    <div class="min-w-0">
+                        <p class="text-sm font-bold text-emerald-800">{{ $coupon->code }}
+                            <span class="font-medium text-emerald-700">· {{ $coupon->type === 'percentage' ? rtrim(rtrim(number_format((float) $coupon->value, 2), '0'), '.') . '%' : number_format((float) $coupon->value, 0, ',', '.') . 'đ' }}</span>
+                        </p>
+                        <p class="text-xs text-emerald-700">Bạn được giảm {{ number_format((float) ($couponDiscounts[$coupon->id] ?? 0), 0, ',', '.') }} đ</p>
+                    </div>
+                    <button type="button" wire:click="removeCoupon('{{ $coupon->id }}')" class="shrink-0 rounded-md px-2 py-1 text-xs font-semibold text-red-600 hover:bg-red-50">Bỏ mã</button>
+                </div>
+            @endforeach
+
+            @if ($isAuthUser && count($myCoupons) > 0 && count(array_diff(array_column($myCoupons, 'code'), $appliedCodes)) > 0)
+                <div class="mb-2 space-y-1.5">
+                    <p class="text-xs font-semibold text-gray-500">Mã của bạn</p>
+                    @foreach ($myCoupons as $mc)
+                        @continue(in_array($mc['code'], $appliedCodes))
+                        <div class="flex items-center gap-2 rounded-lg border border-dashed border-emerald-400 bg-emerald-50/50 px-2.5 py-1.5" wire:key="mine-{{ $mc['code'] }}">
+                            <span class="shrink-0 rounded-full bg-emerald-600 px-2 py-0.5 text-[11px] font-bold tracking-wide text-white">{{ $mc['code'] }}</span>
+                            <div class="min-w-0 flex-1">
+                                <p class="truncate text-xs font-medium text-gray-800">{{ $mc['name'] ?? 'Mã giảm giá' }}</p>
+                                <p class="text-[11px] font-semibold text-emerald-700">Giảm {{ $mc['value_label'] }}</p>
+                            </div>
+                            <button type="button" wire:click="quickApplyCoupon('{{ $mc['code'] }}')" wire:loading.attr="disabled"
+                                    class="shrink-0 rounded-full bg-emerald-600 px-3 py-1 text-xs font-bold text-white hover:opacity-90 disabled:opacity-50">Dùng</button>
+                        </div>
+                    @endforeach
+                </div>
+            @endif
+
+            <div class="flex items-stretch gap-2">
+                <input type="text" wire:model="couponCode" wire:keydown.enter="applyCoupon" placeholder="Nhập mã giảm giá"
+                       class="min-w-0 flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm uppercase text-gray-900 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500">
+                <button type="button" wire:click="applyCoupon" wire:loading.attr="disabled" wire:target="applyCoupon"
+                        class="shrink-0 rounded-lg bg-emerald-600 px-4 text-sm font-bold text-white hover:opacity-90 disabled:opacity-50">Áp dụng</button>
+            </div>
+
+            @if ($couponErrorMessage)
+                <p class="mt-2 rounded-lg border border-red-200 bg-red-50 px-2.5 py-1.5 text-xs font-medium text-red-700">{{ $couponErrorMessage }}</p>
+            @endif
+            @if (! $isAuthUser)
+                <p class="mt-2 text-xs text-gray-500">Đăng nhập để dùng các mã giảm giá riêng của bạn. Mã dành riêng cho tài khoản khác sẽ không áp dụng được.</p>
+            @endif
+        </div>
+        @endif
+
         @if (! empty($selectedSlots))
         <div class="mb-3 rounded-xl bg-white p-4 text-sm text-gray-700 shadow-sm">
             <p class="mb-2 flex items-center gap-1.5 font-bold text-gray-900">
                 <x-heroicon-o-receipt-percent class="h-4 w-4 text-emerald-600" /> Chi tiết thanh toán
             </p>
+            @php $pb = $this->packageBreakdown(); @endphp
             <div class="space-y-1.5">
+                @if ($pb)
+                    @if ($pb['covered_count'] > 0)
+                        <div class="flex justify-between gap-3">
+                            <span>Tiền sân ({{ $pb['covered_count'] }} khung giờ)</span>
+                            <span class="font-semibold text-emerald-700">{{ $pb['covered_count'] }} buổi trong gói</span>
+                        </div>
+                    @endif
+                    @if ($pb['paid_count'] > 0)
+                        <div class="flex justify-between gap-3">
+                            <span>Tiền sân ({{ $pb['paid_count'] }} khung giờ vượt số buổi trong gói)</span>
+                            <span class="font-semibold text-gray-900">+ {{ $fmt($pb['court_due']) }} đ</span>
+                        </div>
+                    @endif
+                @else
                 <div class="flex justify-between gap-3">
                     <span>Tiền sân ({{ count($selectedSlots) }} khung giờ)</span>
-                    @if ($usePackage)
-                        <span class="font-semibold text-emerald-700">{{ count($selectedSlots) }} buổi trong gói</span>
-                    @else
-                        <span class="font-semibold text-gray-900">{{ $fmt($courtTotal) }} đ</span>
-                    @endif
+                    <span class="font-semibold text-gray-900">{{ $fmt($courtTotal) }} đ</span>
                 </div>
+                @endif
                 @unless ($usePackage)
                     @foreach ($discountLines as $label => $amount)
                         <div class="flex justify-between gap-3 text-emerald-700">
@@ -276,8 +354,15 @@
             </div>
             <div class="mt-3 flex items-center justify-between border-t border-gray-200 pt-3">
                 <span class="font-bold text-gray-900">Tổng thanh toán</span>
-                @if ($usePackage)
-                    <span class="text-base font-extrabold text-emerald-700">{{ count($selectedSlots) }} buổi trong gói</span>
+                @if ($pb)
+                    <span class="text-right text-base font-extrabold text-emerald-700">
+                        @if ($pb['due'] > 0)
+                            {{ $fmt($pb['due']) }} đ
+                            @if ($pb['covered_count'] > 0)<span class="block text-xs font-semibold text-emerald-600">+ {{ $pb['covered_count'] }} buổi trong gói</span>@endif
+                        @else
+                            {{ $pb['covered_count'] }} buổi trong gói
+                        @endif
+                    </span>
                 @else
                     <span class="text-base font-extrabold text-emerald-700">{{ $fmt($totalAmount) }} đ</span>
                 @endif
@@ -328,7 +413,7 @@
                         Dùng gói "{{ $availablePackage->name }}" — còn {{ $availablePackage->sessions_remaining }} buổi
                     </p>
                     <p class="text-xs text-emerald-100 mt-0.5">
-                        Mỗi khung giờ đã chọn trừ đúng 1 buổi trong gói, không cần thanh toán thêm.
+                        Mỗi khung giờ trừ 1 buổi trong gói (các khung sớm nhất được trừ trước). Khung giờ vượt số buổi còn lại, dịch vụ, thuê vật tư và HLV sẽ tính tiền.
                         @if ($availablePackage->category_id)
                             Áp dụng cho mọi sân tại {{ $availablePackage->category?->name }}.
                         @endif
@@ -336,9 +421,10 @@
                             Hết hạn {{ $availablePackage->expires_at->format('d/m/Y') }}.
                         @endif
                     </p>
-                    @if ($usePackage && count($selectedSlots) > $availablePackage->sessions_remaining)
-                        <p class="text-xs text-red-200 font-semibold mt-1">
-                            ⚠ Bạn đang chọn {{ count($selectedSlots) }} khung giờ nhưng gói chỉ còn {{ $availablePackage->sessions_remaining }} buổi — bỏ bớt khung giờ hoặc bỏ chọn dùng gói.
+                    @php $pkgInfo = $usePackage ? $this->packageBreakdown() : null; @endphp
+                    @if ($pkgInfo && $pkgInfo['paid_count'] > 0)
+                        <p class="text-xs text-amber-200 font-semibold mt-1">
+                            ℹ Bạn chọn {{ count($selectedSlots) }} khung giờ nhưng gói chỉ còn {{ $availablePackage->sessions_remaining }} buổi: {{ $pkgInfo['covered_count'] }} khung trừ vào gói, {{ $pkgInfo['paid_count'] }} khung còn lại thanh toán {{ number_format($pkgInfo['court_due'], 0, ',', '.') }} đ.
                         </p>
                     @endif
                 </div>
@@ -356,7 +442,8 @@
         @php $bookingEffectiveMethod = $this->product->partner?->effectivePaymentMethod() ?? 'payos'; @endphp
         {{-- Ẩn banner "chuyển khoản ngân hàng" khi khách chọn Dùng gói — không có khoản tiền nào
              cần chuyển khoản trong trường hợp này. --}}
-        @if ($bookingEffectiveMethod === 'bank_transfer' && ! $usePackage)
+        @php $pkgDue = $this->packageBreakdown(); @endphp
+        @if ($bookingEffectiveMethod === 'bank_transfer' && (! $usePackage || ($pkgDue && $pkgDue['due'] > 0)))
         <div class="mb-3 rounded-xl border-2 border-white/30 bg-white/10 px-4 py-2.5 flex items-start gap-2.5">
             <svg class="w-4 h-4 text-white shrink-0 mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 8h6m-5 4h4m1 8H8a2 2 0 01-2-2V6a2 2 0 012-2h5.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V18a2 2 0 01-2 2z" /></svg>
             <p class="text-sm text-white">Thanh toán bằng <span class="font-semibold">chuyển khoản ngân hàng</span> — bạn sẽ nhận mã QR sau khi xác nhận.</p>
@@ -388,20 +475,24 @@
          class="sticky bottom-0 left-0 right-0 z-20 shadow-[0_-4px_16px_rgba(0,0,0,.12)]">
         <div class="flex items-center justify-between px-4 py-2.5 sm:px-6 text-sm font-semibold text-white" style="background: linear-gradient(135deg, #0B6B3A 0%, #128A4A 100%);">
             <span>Tổng giờ: <b>{{ $totalHoursLabel }}</b></span>
-            @if ($usePackage)
-                <span>Thanh toán: <b>{{ count($selectedSlots) }} buổi trong gói</b></span>
+            @if ($usePackage && ($pkgDue = $this->packageBreakdown()))
+                @if ($pkgDue['due'] > 0)
+                    <span>Thanh toán: <b>{{ number_format($pkgDue['due'], 0, ',', '.') }} đ</b>@if ($pkgDue['covered_count'] > 0) + {{ $pkgDue['covered_count'] }} buổi gói @endif</span>
+                @else
+                    <span>Thanh toán: <b>{{ $pkgDue['covered_count'] }} buổi trong gói</b></span>
+                @endif
             @else
                 <span>Tổng tiền: <b>{{ number_format((float) $totalAmount, 0, ',', '.') }} đ</b></span>
             @endif
         </div>
         <button type="button" wire:click="confirmBooking" wire:loading.attr="disabled" wire:target="confirmBooking"
-                @if (empty($selectedSlots)) disabled @endif
+                @if (empty($selectedSlots) || ! $paymentReady) disabled @endif
                 class="flex w-full items-center justify-center gap-2 bg-[#F5A623] py-3.5 sm:py-4 text-sm font-extrabold uppercase tracking-wide text-gray-900 hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-50">
             <svg wire:loading wire:target="confirmBooking" class="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24">
                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
             </svg>
-            <span wire:loading.remove wire:target="confirmBooking">{{ $usePackage ? 'Xác nhận dùng gói' : 'Xác nhận & thanh toán' }}</span>
+            <span wire:loading.remove wire:target="confirmBooking">{{ ($usePackage && ($pkgDue = $this->packageBreakdown()) && $pkgDue['due'] <= 0) ? 'Xác nhận dùng gói' : 'Xác nhận & thanh toán' }}</span>
             <span wire:loading wire:target="confirmBooking">Đang xử lý...</span>
         </button>
     </div>

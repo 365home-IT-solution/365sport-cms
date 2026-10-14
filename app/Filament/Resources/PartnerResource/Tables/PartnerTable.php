@@ -80,7 +80,7 @@ class PartnerTable
                 Action::make('approveSignup')->label('Duyệt đăng ký')->icon('heroicon-o-check-badge')->color('success')
                     ->visible(fn (Partner $r) => app(PartnerOnboardingService::class)->awaitingSignupApproval($r))
                     ->requiresConfirmation()
-                    ->modalDescription('Tặng dùng thử, kích hoạt đối tác, tự tạo tài khoản chủ đối tác và gửi email đăng nhập.')
+                    ->modalDescription('Kích hoạt đối tác, tặng dùng thử tháng đầu (nếu đủ điều kiện), tự tạo tài khoản chủ đối tác và gửi email đăng nhập.')
                     ->action(function (Partner $record) {
                         try {
                             $res = app(PartnerOnboardingService::class)->approveSignup($record, auth()->user());

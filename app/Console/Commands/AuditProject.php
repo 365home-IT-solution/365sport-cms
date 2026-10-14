@@ -91,8 +91,8 @@ class AuditProject extends Command
         foreach (app('router')->getRoutes() as $route) {
             $uri = $route->uri();
             $isApi = str_starts_with($uri, 'api/') || preg_match('#^admin/api/#', $uri);
-            if (! $isApi) {
-                continue;
+            if (! $isApi || \App\Support\FeatureRoutes::disabledFlagFor($uri) !== null) {
+                continue; // không phải API, hoặc thuộc tính năng đang tắt
             }
             foreach (array_diff($route->methods(), ['HEAD']) as $method) {
                 $norm = $this->norm($uri);
@@ -183,13 +183,28 @@ class AuditProject extends Command
         return [$status, $msg];
     }
 
+    /** Resource / trang gắn cờ tính năng (GatedByFeature hoặc SalaryReport) đang tắt. */
+    private function featureOff(string $class): bool
+    {
+        if (property_exists($class, 'featureFlag')) {
+            return ! config('features.' . (new \ReflectionClass($class))->getStaticPropertyValue('featureFlag'), false);
+        }
+
+        return $class === \App\Filament\Pages\SalaryReport::class && ! config('features.payroll', false);
+    }
+
     // ── 1+2. Filament ────────────────────────────────────────────────────────────────────────
 
     private function auditFilament($panel): array
     {
         $items = [];
+        $disabled = (array) config('audit.disabled_features', []);
+
         foreach ($panel->getResources() as $class) {
             $short = class_basename($class);
+            if (in_array($short, $disabled, true) || $this->featureOff($class)) {
+                continue; // tính năng thừa kế bị tắt bằng cờ config/features.php
+            }
             $pages = array_keys($class::getPages());
             $model = $class::getModel();
             Filament::setCurrentPanel($panel);
@@ -235,6 +250,9 @@ class AuditProject extends Command
 
         foreach ($panel->getPages() as $class) {
             $short = class_basename($class);
+            if (in_array($short, $disabled, true) || $this->featureOff($class)) {
+                continue;
+            }
             try {
                 Filament::setCurrentPanel($panel);
                 $url = $class::getUrl([], false);

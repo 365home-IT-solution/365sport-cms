@@ -16,6 +16,10 @@ use Modules\Employee\Entities\SalaryTemplate;
 // Nhân viên, không sửa/xoá lại được sau khi tạo.
 class SalaryTemplateResource extends Resource
 {
+    use \App\Filament\Support\GatedByFeature;
+
+    protected static string $featureFlag = 'payroll';
+
     protected static ?string $model = SalaryTemplate::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-calculator';

@@ -57,15 +57,21 @@ class WeatherPolicyService
             // Đơn deposit: số ĐÃ thu thật là 'amount' (tiền cọc); đơn paid: 'full_amount' (đã trả
             // đủ) — cùng công thức với Order::computeCustomerCancelRefundAmount(), chỉ khác TỶ LỆ
             // hoàn (100% ở đây vì lỗi KHÔNG phải do khách, khác 70% khi khách tự huỷ).
-            $refundAmount = $locked->status === 'deposit'
-                ? (int) ($locked->amount ?? 0)
-                : (int) ($locked->full_amount ?? $locked->amount ?? 0);
+            $paidByPackage = $locked->isPaidByPackage();
+            $refundAmount = $paidByPackage
+                ? $locked->packageCashAmount() // dùng gói: trả lại buổi vào gói (bên dưới), chỉ hoàn phần tiền mặt đã trả (nếu có)
+                : ($locked->status === 'deposit'
+                    ? (int) ($locked->amount ?? 0)
+                    : (int) ($locked->full_amount ?? $locked->amount ?? 0));
 
             $locked->update([
                 'weather_affected_at' => now(),
                 'weather_resolution'  => 'refunded',
             ]);
 
+            if ($paidByPackage) {
+                \App\Models\CustomerPackage::refundRedemptionsForOrder($locked);
+            }
             if ($refundAmount > 0) {
                 $this->extraChargeService->recordPendingRefund($locked, $refundAmount);
             }
@@ -103,8 +109,10 @@ class WeatherPolicyService
     }
 
     /**
-     * Dời khung giờ/ngày của đơn sang ngày mới do mưa — KHÔNG phát sinh thu thêm/hoàn tiền (đổi
-     * lịch thuần tuý). Chỉ dời được nếu khung giờ mới CÒN TRỐNG (dùng đúng kiểu kiểm tra trùng
+     * Dời khung giờ/ngày của đơn sang ngày mới do mưa. Có thể thu thêm PHÍ ĐỔI LỊCH ($fee, VND):
+     * cộng vào extra_charge_amount của đơn (khoản phát sinh chưa thu — admin xác nhận tiền mặt/
+     * chuyển khoản/PayOS qua luồng phát sinh sẵn có, xem ExtraChargeService). $fee = 0 thì đổi
+     * lịch thuần tuý. Chỉ dời được nếu khung giờ mới CÒN TRỐNG (dùng đúng kiểu kiểm tra trùng
      * lịch như lúc tạo đơn — xem BuildsRoomBooking::buildDailyItems()/buildSlotItems()).
      *
      * Đơn giản hoá cho MVP: dời TOÀN BỘ items của đơn sang cùng 1 khoảng [newCheckin, newCheckout)
@@ -114,8 +122,16 @@ class WeatherPolicyService
      *
      * @return array{ok: true}|array{ok: false, error: string}
      */
-    public function reschedule(Order $order, string $newCheckinDate, string $newCheckoutDate, ?User $admin = null): array
-    {
+    public function reschedule(
+        Order $order,
+        string $newCheckinDate,
+        string $newCheckoutDate,
+        ?User $admin = null,
+        int $fee = 0,
+        ?string $slotLabel = null,
+    ): array {
+        $fee = max(0, $fee);
+
         $newCheckin  = Carbon::parse($newCheckinDate);
         $newCheckout = Carbon::parse($newCheckoutDate);
 
@@ -123,7 +139,7 @@ class WeatherPolicyService
             return ['ok' => false, 'error' => 'New checkout time must be after the new checkin time.'];
         }
 
-        $result = DB::transaction(function () use ($order, $newCheckin, $newCheckout): array {
+        $result = DB::transaction(function () use ($order, $newCheckin, $newCheckout, $fee, $slotLabel): array {
             $locked = Order::query()->lockForUpdate()->findOrFail($order->getKey());
             $locked->load('items.product.roomType');
 
@@ -168,20 +184,36 @@ class WeatherPolicyService
                 $itemNewCheckin  = $cursor->copy();
                 $itemNewCheckout = $cursor->copy()->addMinutes($durationMinutes);
 
-                $item->update([
+                $itemUpdate = [
                     'checkin_date'  => $itemNewCheckin,
                     'checkout_date' => $itemNewCheckout,
-                ]);
+                ];
+
+                // Đơn 1 khung giờ: cập nhật nhãn khung giờ hiển thị cho khớp khung giờ mới.
+                if ($slotLabel !== null && $itemsSorted->count() === 1) {
+                    $itemUpdate['slot_label'] = $slotLabel;
+                }
+
+                $item->update($itemUpdate);
 
                 $cursor = $itemNewCheckout->copy();
             }
 
             $oldItemsByProduct = $locked->items->whereNotNull('product_id')->groupBy('product_id');
 
-            $locked->update([
+            $orderUpdate = [
                 'weather_affected_at' => now(),
                 'weather_resolution'  => 'rescheduled',
-            ]);
+            ];
+
+            // Phí đổi lịch → khoản phát sinh chưa thu; xoá dấu "đã thu" cũ (nếu có) để khoản mới
+            // hiện là còn phải thu.
+            if ($fee > 0) {
+                $orderUpdate['extra_charge_amount']  = (int) ($locked->extra_charge_amount ?? 0) + $fee;
+                $orderUpdate['extra_charge_paid_at'] = null;
+            }
+
+            $locked->update($orderUpdate);
 
             return ['ok' => true, 'items_by_product' => $oldItemsByProduct];
         });
@@ -203,6 +235,7 @@ class WeatherPolicyService
             'weather_resolution'  => $order->weather_resolution,
             'new_checkin_date'    => $order->items->min('checkin_date')?->toIso8601String(),
             'new_checkout_date'   => $order->items->max('checkout_date')?->toIso8601String(),
+            'reschedule_fee'      => $fee,
         ], $order->customer_id);
 
         Log::info('Order weather reschedule', [
@@ -210,6 +243,7 @@ class WeatherPolicyService
             'order_code' => $order->order_code,
             'new_checkin_date'  => $newCheckin->toIso8601String(),
             'new_checkout_date' => $newCheckout->toIso8601String(),
+            'reschedule_fee'    => $fee,
             'admin_id'   => $admin?->id,
         ]);
 

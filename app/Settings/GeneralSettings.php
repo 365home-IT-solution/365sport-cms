@@ -141,6 +141,35 @@ class GeneralSettings extends Settings
     public ?string $article_modified_time;
 
     /**
+     * Zalo OA / ZNS — OTP đăng nhập qua Zalo và thông báo đặt sân. Nhập ở admin > Cấu hình web >
+     * Cài đặt chung > tab "Zalo". Giá trị nhập ở đây GHI ĐÈ biến ZALO_* trong .env lúc chạy (xem
+     * AppServiceProvider::applyZaloSettings()); để trống thì dùng giá trị trong .env.
+     * app_secret / access_token / refresh_token được mã hoá trong DB (xem encrypted()).
+     */
+    public ?string $zalo_app_id = null;
+    public ?string $zalo_app_secret = null;
+    public ?string $zalo_access_token = null;
+    public ?string $zalo_refresh_token = null;
+    public ?string $zalo_otp_template_id = null;
+    public ?string $zalo_template_booking_success = null;
+    public ?string $zalo_template_booking_reminder = null;
+    public ?string $zalo_template_booking_cancelled = null;
+
+    /**
+     * Các thuộc tính được mã hoá khi lưu vào DB.
+     *
+     * @return array<int, string>
+     */
+    public static function encrypted(): array
+    {
+        return [
+            'zalo_app_secret',
+            'zalo_access_token',
+            'zalo_refresh_token',
+        ];
+    }
+
+    /**
      * Defines the group name for the settings.
      *
      * @return string The group name.

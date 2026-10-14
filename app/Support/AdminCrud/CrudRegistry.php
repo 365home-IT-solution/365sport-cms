@@ -16,6 +16,7 @@ use App\Models\Province;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Validation\Rule;
 use Modules\AppPage\App\Models\AppPage;
 use Modules\AppPage\App\Models\Banner;
 use Modules\AuditLog\Entities\AuditLog;
@@ -23,7 +24,11 @@ use Modules\BladeThemeV1\App\Models\AdditionService;
 use Modules\Comment\Entities\Comment;
 use Modules\DataPermission\Entities\DataScope;
 use Modules\DataPermission\Entities\UserBranchPermission;
+use Modules\Category\Entities\Category;
 use Modules\Employee\Entities\ConsultationLog;
+use Modules\Menu\Entities\Menu;
+use Modules\Post\Entities\Post;
+use Modules\ThemeSetting\App\Models\Theme;
 use Modules\Form\Entities\EmailSetting;
 use Modules\Form\Entities\Form;
 use Modules\Form\Entities\FormNotification;
@@ -247,10 +252,138 @@ final class CrudRegistry
             'forms' => ['model' => Form::class, 'permission' => 'form', 'search' => ['name']],
             'form-submissions' => [
                 'model' => FormSubmission::class, 'permission' => 'form::submission',
-                'ops' => ['index', 'show', 'update', 'destroy'], 'filters' => ['form_id', 'is_viewed'],
+                'ops' => ['index', 'show', 'update', 'destroy'], 'filters' => ['form_id', 'is_viewed'], 'with' => ['formFieldValues.field'],
+                'transform' => fn (Model $m) => $m->toArray() + ['fields' => $m->formFieldValues->map(fn ($v) => ['field' => $v->field?->label ?? $v->field?->name, 'value' => $v->value])->values()->all()],
             ],
             'form-notifications' => ['model' => FormNotification::class, 'permission' => 'form::notification', 'filters' => ['form_id']],
             'email-settings' => ['model' => EmailSetting::class, 'permission' => 'email::setting', 'filters' => ['form_id'], 'search' => ['to_email', 'subject']],
+            // Ghi chú tư vấn khách của lễ tân (căn cứ tính lương theo lượt) — employee_id phải là nhân viên cùng đối tác.
+            'consultation-logs' => [
+                'model' => ConsultationLog::class, 'permission' => 'consultation::log',
+                'search' => ['customer_name', 'customer_phone'], 'filters' => ['employee_id'], 'sort' => ['consulted_at', 'desc'],
+                'with' => ['employee:id,name'],
+                'rules' => [
+                    'employee_id' => fn (bool $partial) => [$partial ? 'sometimes' : 'required', 'integer', Rule::exists('employees', 'id')->where(function ($q) {
+                        $user = request()->user();
+                        if ($user instanceof User && ! $user->isSuperAdmin()) {
+                            $q->where('partner_id', $user->partner_id);
+                        }
+                    })],
+                ],
+            ],
+
+            // Khoá thanh toán nền tảng: trả về dạng che (••••1234); gửi lại giá trị đã che thì giữ nguyên khoá cũ.
+            'payment-configurations' => [
+                'model' => PaymentConfiguration::class, 'permission' => 'payment::configuration',
+                'transform' => fn (Model $m) => ['id' => $m->id, 'client_id' => $m->client_id, 'api_key' => self::mask($m->api_key), 'checksum_key' => self::mask($m->checksum_key), 'updated_at' => $m->updated_at],
+                'before' => function (array $data, ?Model $m, $request) {
+                    foreach (['api_key', 'checksum_key'] as $field) {
+                        if (isset($data[$field]) && str_starts_with((string) $data[$field], str_repeat('•', 8))) {
+                            unset($data[$field]);
+                        }
+                    }
+
+                    return $data;
+                },
+            ],
+
+            // Khách để lại thông tin muốn làm đối tác (biểu mẫu "Đăng ký làm đối tác") — chỉ super admin.
+            'partner-leads' => [
+                'model' => FormSubmission::class, 'permission' => null, 'ops' => ['index', 'show', 'update', 'destroy'],
+                'filters' => ['is_viewed'], 'with' => ['formFieldValues.field'],
+                'scope' => fn (Builder $q) => $q->whereHas('form', fn ($f) => $f->where('name', 'Đăng ký làm đối tác')),
+                'transform' => fn (Model $m) => $m->toArray() + ['fields' => $m->formFieldValues->map(fn ($v) => ['field' => $v->field?->label ?? $v->field?->name, 'value' => $v->value])->values()->all()],
+            ],
+
+            // ── Bài viết & nội dung website ─────────────────────────────────────────────────
+            // Bài viết: ảnh chính (collection 'Ảnh chính' như form Filament), chuyên mục (categories[] = id), thẻ (tags[] = tên).
+            'posts' => [
+                'model' => Post::class, 'permission' => 'post',
+                'search' => ['title', 'slug'], 'filters' => ['status', 'author_id'], 'sort' => ['created_at', 'desc'],
+                'with' => ['categories:id,name', 'tags'],
+                'except' => ['author_id', 'editor_id', 'seo_keywords'],
+                'rules' => [
+                    'seo_keywords' => ['sometimes', 'nullable', 'string', 'max:500'],
+                    'categories' => ['sometimes', 'array', 'max:20'], 'categories.*' => ['integer', Rule::exists('categories', 'id')->where('category_type', 'post')],
+                    'tags' => ['sometimes', 'array', 'max:30'], 'tags.*' => ['string', 'max:60'],
+                    'image' => ['sometimes', 'nullable', 'file', 'image', 'max:8192'],
+                ],
+                'before' => function (array $data, ?Model $m, $request) {
+                    if (($data['status'] ?? $m?->status) === 'published' && empty($data['published_at'] ?? $m?->published_at)) {
+                        $data['published_at'] = now();
+                    }
+                    if ($m) {
+                        $data['editor_id'] = $request->user()->getKey();
+                    }
+                    if ($request->has('seo_keywords')) {
+                        $data['seo_keywords'] = $request->input('seo_keywords');
+                    }
+
+                    return $data;
+                },
+                'after' => function (Model $m, $request, bool $created) {
+                    if ($request->has('categories')) {
+                        $m->categories()->sync((array) $request->input('categories'));
+                    }
+                    if ($request->has('tags')) {
+                        $m->syncTags((array) $request->input('tags'));
+                    }
+                    if ($request->hasFile('image')) {
+                        $m->clearMediaCollection('Ảnh chính');
+                        $m->addMediaFromRequest('image')->toMediaCollection('Ảnh chính');
+                    }
+                },
+                'transform' => fn (Model $m) => array_merge($m->toArray(), [
+                    'image_url' => $m->getFirstMediaUrl('Ảnh chính') ?: null,
+                    'tags' => $m->tags->pluck('name')->values()->all(),
+                    'category_ids' => $m->categories->pluck('id')->values()->all(),
+                ]),
+            ],
+            // Chuyên mục bài viết (Category loại 'post') — không đụng tới chi nhánh sân (loại 'product').
+            'post-categories' => [
+                'model' => Category::class, 'permission' => 'post::category',
+                'search' => ['name', 'slug'], 'filters' => ['parent_id', 'status'], 'sort' => ['sort_order', 'asc'],
+                'files' => ['image' => 'categories'],
+                'except' => ['category_type', 'partner_id', 'area_sqm', 'established_year', 'lodging_type', 'timezone', 'operation_manager_name', 'checkin_time', 'checkout_time', 'default_policy', 'cancellation_tiers'],
+                'scope' => fn (Builder $q) => $q->where('category_type', 'post'),
+                'before' => function (array $data, ?Model $m, $request) {
+                    $data['category_type'] = 'post';
+
+                    return $data;
+                },
+                'deletable' => fn (Model $m) => $m->children()->exists() ? 'This category has sub-categories.' : (Post::query()->whereHas('categories', fn ($q) => $q->where('categories.id', $m->getKey()))->exists() ? 'Posts still use this category.' : null),
+            ],
+            // Trang tĩnh: thông tin trang + SEO. Nội dung từng khối của trang vẫn dựng bằng trình dựng trang trong Filament; API trả về danh sách khối để đọc.
+            'pages' => [
+                'model' => \Modules\Page\Entities\Page::class, 'permission' => 'page',
+                'search' => ['title'], 'with' => ['pageComponents'],
+            ],
+            // Menu điều hướng: tên + hiển thị; các mục con đọc qua show (menuItems).
+            'menus' => [
+                'model' => Menu::class, 'permission' => 'menu', 'search' => ['name'], 'filters' => ['is_visible'],
+                'fields' => ['name', 'is_visible'], 'with' => ['menuItems'],
+                'rules' => ['name' => fn (bool $partial) => [$partial ? 'sometimes' : 'required', 'string', 'max:255'], 'is_visible' => ['sometimes', 'boolean']],
+                'deletable' => fn (Model $m) => $m->locations()->exists() ? 'This menu is assigned to a location; unassign it first.' : null,
+            ],
+            // Theme giao diện: chỉ một theme được bật; bật theme này thì tắt các theme còn lại (giống bảng Filament).
+            'themes' => [
+                'model' => Theme::class, 'permission' => 'theme', 'search' => ['name'], 'filters' => ['is_active'],
+                'files' => ['preview_image' => 'themes'],
+                'after' => function (Model $m, $request, bool $created) {
+                    if ($m->is_active) {
+                        Theme::query()->whereKeyNot($m->getKey())->update(['is_active' => false]);
+                    }
+                },
+                'deletable' => fn (Model $m) => $m->is_active ? 'The active theme cannot be deleted.' : null,
+            ],
+
+            // Popup (ảnh chào trên app/web): ảnh bắt buộc khi tạo, thứ tự theo sort_order.
+            'popups' => [
+                'model' => \Modules\AppPage\App\Models\PopupImage::class, 'permission' => 'page_ManagePopups',
+                'files' => ['image' => 'popups'], 'sort' => ['sort_order', 'asc'],
+                'rules' => ['image' => fn (bool $partial) => $partial ? ['sometimes', 'file', 'image', 'max:5120'] : ['required', 'file', 'image', 'max:5120']],
+            ],
+
             'media' => ['model' => Media::class, 'permission' => 'media', 'ops' => ['index', 'show', 'destroy'], 'search' => ['name', 'file_name'], 'filters' => ['collection_name', 'model_type']],
             'folders' => ['model' => Folder::class, 'permission' => 'folder', 'search' => ['name']],
         ];

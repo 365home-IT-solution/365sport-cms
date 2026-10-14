@@ -321,7 +321,7 @@ class OrderPaymentController extends Controller
         $result = $service->regenerateExtraChargeQr($order);
 
         if (isset($result['error'])) {
-            return response()->json(['message' => $result['error']], 422);
+            return response()->json(['message' => $result['error']], ! empty($result['gateway_error']) ? 502 : 422);
         }
 
         return response()->json($result);

@@ -190,6 +190,10 @@ class CategoryController extends Controller
             'image'       => self::IMAGE_RULE,
             // Chỉ super_admin được set — bỏ qua với user thường (xem bên dưới).
             'partner_id'  => 'nullable|uuid|exists:partners,id',
+            // Mốc hoàn tiền khi khách tự huỷ — xem Order::customerCancelRefundPercent().
+            'cancellation_tiers'                  => 'sometimes|nullable|array|max:10',
+            'cancellation_tiers.*.hours_before'   => 'required|numeric|min:0|max:720',
+            'cancellation_tiers.*.refund_percent' => 'required|integer|between:0,100',
         ]);
 
         $parent = null;
@@ -226,6 +230,7 @@ class CategoryController extends Controller
             'category_type' => 'product',
             'status'        => $request->has('status') ? $request->boolean('status') : true,
             'partner_id'    => $partnerId,
+            'cancellation_tiers' => $data['cancellation_tiers'] ?? null,
         ]);
 
         if ($request->hasFile('image')) {
@@ -255,6 +260,9 @@ class CategoryController extends Controller
             'status'      => 'sometimes|in:0,1,true,false',
             'image'       => self::IMAGE_RULE,
             'partner_id'  => 'nullable|uuid|exists:partners,id',
+            'cancellation_tiers'                  => 'sometimes|nullable|array|max:10',
+            'cancellation_tiers.*.hours_before'   => 'required|numeric|min:0|max:720',
+            'cancellation_tiers.*.refund_percent' => 'required|integer|between:0,100',
         ]);
 
         if (array_key_exists('parent_id', $data) && $data['parent_id']) {
@@ -421,6 +429,7 @@ class CategoryController extends Controller
             'image'          => $c->image,
             'image_url'      => $c->image ? asset('storage/' . $c->image) : null,
             'partner_id'     => $c->partner_id,
+            'cancellation_tiers' => $c->cancellation_tiers,
             'children_count' => $c->children_count ?? $c->children()->count(),
             'created_at'     => $c->created_at,
             'updated_at'     => $c->updated_at,

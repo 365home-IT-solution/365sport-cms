@@ -37,9 +37,8 @@ class OrderCancellationService
                 return ['ok' => false, 'error' => 'Đơn này không thể huỷ (đã huỷ trước đó, chưa thanh toán, hoặc đã tới/qua giờ nhận sân).'];
             }
 
-            $paidByPackage = PackageRedemption::where('order_id', $locked->id)
-                ->whereNull('refunded_at')->exists();
-            $refundAmount = $paidByPackage ? 0 : $locked->computeCustomerCancelRefundAmount();
+            $paidByPackage = $locked->isPaidByPackage();
+            $refundAmount = $locked->computeCustomerCancelRefundAmount(); // đơn dùng gói: chỉ tính trên phần tiền mặt (nếu có)
 
             $locked->update([
                 'cancelled_at'  => now(),
@@ -47,13 +46,15 @@ class OrderCancellationService
                 'cancel_reason' => $reason,
             ]);
 
+            $sessionsRestored = 0;
             if ($paidByPackage) {
-                CustomerPackage::refundRedemptionsForOrder($locked);
-            } elseif ($refundAmount > 0) {
+                $sessionsRestored = CustomerPackage::refundRedemptionsForOrder($locked);
+            }
+            if ($refundAmount > 0) {
                 $this->extraChargeService->recordPendingRefund($locked, $refundAmount);
             }
 
-            return ['ok' => true, 'refund_amount' => $refundAmount];
+            return ['ok' => true, 'refund_amount' => $refundAmount, 'sessions_restored' => $sessionsRestored];
         });
 
         if (! $result['ok']) {
@@ -85,6 +86,6 @@ class OrderCancellationService
             'reason'        => $reason,
         ]);
 
-        return ['ok' => true, 'refund_amount' => $refundAmount];
+        return ['ok' => true, 'refund_amount' => $refundAmount, 'sessions_restored' => (int) ($result['sessions_restored'] ?? 0)];
     }
 }

@@ -114,6 +114,9 @@ class AuthServiceProvider extends ServiceProvider
         SalaryTemplate::class   => SalaryTemplatePolicy::class,
         SalaryType::class       => SalaryTypePolicy::class,
         ConsultationLog::class  => ConsultationLogPolicy::class,
+        // Chấm công + kỳ lương (model nằm trong module nên Laravel không tự đoán được policy).
+        \Modules\Employee\Entities\EmployeeAttendance::class => \App\Policies\EmployeeAttendancePolicy::class,
+        \Modules\Employee\Entities\PayrollPeriod::class      => \App\Policies\PayrollPeriodPolicy::class,
     ];
 
     /**

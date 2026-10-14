@@ -79,6 +79,7 @@ class ExtraChargeService
             $pricing = \Modules\Payment\App\Filament\Resources\OrderResource\Forms\OrderForm::resolveProductGroupPricing(
                 $groupItems->all(),
                 $product,
+                $order->package_cash_amount !== null, // đơn dùng gói nhiều buổi: không áp giảm giá, khung do gói chi trả có giá 0
             );
             $total += $pricing['total'] + $pricing['guest_surcharge'];
 

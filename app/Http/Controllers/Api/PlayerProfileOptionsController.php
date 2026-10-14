@@ -38,7 +38,8 @@ class PlayerProfileOptionsController extends Controller
 
         return response()->json([
             'sports'            => $sports,
-            'skill_levels'      => $options(array_intersect_key(self::SKILL_LABELS, array_flip(OpenMatch::SKILL_LEVELS))),
+            'skill_levels'      => $options(array_intersect_key(self::SKILL_LABELS, array_flip(\App\Support\SkillLevels::keys()))),
+            'skill_level_details' => \App\Support\SkillLevels::options(),
             'goals'             => $options(Customer::PLAY_GOALS),
             'play_frequencies'  => $options(Customer::PLAY_FREQUENCIES),
         ]);

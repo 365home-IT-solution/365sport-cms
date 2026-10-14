@@ -281,12 +281,7 @@ class BookingController extends Controller
                 ]);
             }
 
-            $sessionsNeeded = count($itemsData);
-            if ($customerPackage->sessions_remaining < $sessionsNeeded) {
-                throw ValidationException::withMessages([
-                    'customer_package_id' => ["Gói không còn đủ buổi cho {$sessionsNeeded} khung giờ đã chọn (còn lại {$customerPackage->sessions_remaining} buổi)."],
-                ]);
-            }
+            // Số khung giờ vượt số buổi còn lại KHÔNG bị từ chối: các khung sớm nhất trừ buổi trong gói, phần vượt tính tiền (xem bước 6.5).
         }
 
         // ── 4.5 CCCD (tùy chọn) — khách chính + khách đi cùng nếu có khung giờ qua đêm ─────────
@@ -406,6 +401,27 @@ class BookingController extends Controller
         $slotFinalPrice = max(0, $basePrice - $discountAmount);
         $finalAmount    = $slotFinalPrice + $servicesTotal + $equipmentTotal + $guestSurcharge + $coachTotal;
 
+        // ── 6.5 Dùng gói nhiều buổi: gói chỉ chi trả TIỀN SÂN của các khung được trừ buổi ───────────
+        // Khung giờ sớm nhất được trừ trước (tối đa bằng số buổi còn lại); khung vượt gói, dịch vụ, thuê vật tư, HLV, phụ thu khách
+        // vẫn tính tiền. Khung do gói chi trả có giá 0 trên order_item; order.package_cash_amount = số tiền thật phải trả.
+        $packageCoveredIdx = [];
+        $packageCash       = null;
+        if ($customerPackage) {
+            $sortedItems = collect($itemsData)->map(fn ($it, $i) => ['i' => $i, 'k' => (string) ($it['checkin_date'] ?? '')])->sortBy('k')->values();
+            $packageCoveredIdx = $sortedItems->take(max(0, (int) $customerPackage->sessions_remaining))->pluck('i')->all();
+            $ratio = 1; // đơn dùng gói: phần khung phải trả tính theo giá niêm yết (không áp giảm giá), khớp OrderForm::resolveProductGroupPricing()
+            $courtDue = 0;
+            foreach ($itemsData as $i => $it) {
+                if (in_array($i, $packageCoveredIdx, true)) {
+                    $itemsData[$i]['price'] = 0;
+                } else {
+                    $courtDue += (float) ($it['price'] ?? 0) * $ratio;
+                }
+            }
+            $finalAmount = (int) round($courtDue) + $servicesTotal + $equipmentTotal + $guestSurcharge + $coachTotal;
+            $packageCash = $finalAmount;
+        }
+
         // ── Deposit (chỉ daily) ───────────────────────────────────────────────
         // Đơn corporate LUÔN dùng payment_method='corporate_account' — bỏ qua lựa chọn PayOS/cod
         // của request (nếu có gửi), vì đơn không thu tiền qua cổng thanh toán nào cả, chỉ trừ hạn
@@ -413,7 +429,7 @@ class BookingController extends Controller
         // create_orders_table), nên thêm giá trị mới ở đây không cần migration đổi schema.
         $paymentMethod = $corporateAccount
             ? 'corporate_account'
-            : ($customerPackage ? 'customer_package' : $request->input('payment_method', 'cod'));
+            : ($customerPackage && ($packageCash ?? 0) <= 0 ? 'customer_package' : $request->input('payment_method', 'cod'));
         $amountDue     = $finalAmount;
         $depositInfo   = null;
 
@@ -470,7 +486,7 @@ class BookingController extends Controller
         // trả qua hợp đồng/hoá đơn cuối kỳ, hạn mức bị trừ ngay nên đơn phải phản ánh đúng đã
         // "trả" — mirror đúng cách processPackagePayment() ở ProductDetail.php đánh dấu 'paid' ngay
         // khi redeem gói thành công (không qua PayOS/QR).
-        $initialStatus = ($corporateAccount || $customerPackage)
+        $initialStatus = ($corporateAccount || ($customerPackage && ($packageCash ?? 0) <= 0))
             ? 'paid'
             : ($paymentMethod === 'PayOS' ? 'pending' : $request->input('status', 'pending'));
 
@@ -480,7 +496,8 @@ class BookingController extends Controller
             $customer, $category, $itemsData, $servicesData, $equipmentData,
             $paymentMethod, $request, $depositPercentToSave,
             $admin, $initialStatus, $cccdFront, $cccdBack, $cccdData, $guestCccdRows,
-            $corporateAccount, $corporateHoursNeeded, $customerPackage, $quotedCoach, $coachRows
+            $corporateAccount, $corporateHoursNeeded, $customerPackage, $quotedCoach, $coachRows,
+            $packageCoveredIdx, $packageCash
         ) {
             Product::where('id', $room->id)->lockForUpdate()->first();
 
@@ -509,7 +526,7 @@ class BookingController extends Controller
                     ->lockForUpdate()
                     ->findOrFail($customerPackage->id);
 
-                if ($lockedPackage->sessions_remaining < count($itemsData)) {
+                if ($lockedPackage->sessions_remaining < count($packageCoveredIdx)) {
                     throw ValidationException::withMessages([
                         'customer_package_id' => ['Gói vừa bị dùng hết buổi bởi 1 đơn khác. Vui lòng thử lại.'],
                     ]);
@@ -538,6 +555,7 @@ class BookingController extends Controller
             $order = Order::create([
                 'amount'          => $finalAmount,
                 'full_amount'     => $finalAmount,
+                'package_cash_amount' => $packageCash,
                 'deposit_percent' => $depositPercentToSave,
                 // Admin có thể tự nhập mô tả; không gửi thì fallback về mô tả tự sinh như trước.
                 'description'       => $request->input('description') ?: ('Đặt sân (admin) - ' . $room->name),
@@ -606,8 +624,8 @@ class BookingController extends Controller
             // ProductDetail::processPackagePayment(), cùng transaction nên rollback trọn vẹn nếu
             // bước nào bên trên throw.
             if ($lockedPackage) {
-                foreach ($createdItems as $createdItem) {
-                    $lockedPackage->redeem($createdItem, $order);
+                foreach ($packageCoveredIdx as $idx) {
+                    $lockedPackage->redeem($createdItems[$idx], $order);
                 }
             }
 
@@ -709,7 +727,7 @@ class BookingController extends Controller
             'customer_package' => $customerPackage ? [
                 'id'                 => $customerPackage->id,
                 'name'               => $customerPackage->name,
-                'sessions_charged'   => count($itemsData),
+                'sessions_charged'   => count($packageCoveredIdx),
                 'sessions_remaining' => $customerPackage->fresh()->sessions_remaining,
             ] : null,
         ], 201);

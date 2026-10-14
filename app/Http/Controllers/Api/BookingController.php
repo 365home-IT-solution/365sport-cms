@@ -27,6 +27,10 @@ use Modules\Coach\App\Services\CoachBookingService;
 
 class BookingController extends Controller
 {
+    // buildEquipment() (thuê dụng cụ kèm đơn) nằm trong trait này; trước đây controller gọi $this->buildEquipment() mà không có hàm → MỌI đơn đặt sân qua API đều lỗi 500.
+    // Các hàm trùng tên đã có sẵn trong controller (buildServices, createPayOSLink...) vẫn được ưu tiên.
+    use \App\Http\Controllers\Api\Concerns\BuildsRoomBooking;
+
     public function store(Request $request): JsonResponse
     {
         $request->files->remove('cccd_front');
@@ -224,6 +228,11 @@ class BookingController extends Controller
         // Partner::effectivePaymentMethod() — KHÔNG cho client tự chọn, khớp đúng luồng web + đúng
         // GuestBookingController::store() (xem giải thích chi tiết ở đó). 'cod' vẫn client tự chọn
         // được nếu gửi rõ.
+        // Sân của đối tác chưa thiết lập thanh toán thì không nhận đặt online (khách không bị đẩy tới bước thanh toán rồi mới lỗi).
+        if ($room->partner && ! $room->partner->hasUsablePaymentMethod()) {
+            return response()->json(['message' => 'This court is not accepting online bookings yet: the owner has not set up a payment method.', 'code' => 'payment_not_configured'], 422);
+        }
+
         $paymentMethod = $request->input('payment_method') === 'cod'
             ? 'cod'
             : (($room->partner?->effectivePaymentMethod() ?? 'payos') === 'bank_transfer' ? 'bank_transfer' : 'PayOS');
@@ -1026,7 +1035,7 @@ class BookingController extends Controller
         }
 
         $config    = $room->room_config ?? [];
-        $fee       = (int) ($config['extra_guest_fee'] ?? 0);
+        $fee       = config('features.lodging') ? (int) ($config['extra_guest_fee'] ?? 0) : 0; // phụ thu số khách chỉ khi bật cờ lưu trú
         $threshold = (int) ($config['max_free_guests'] ?? 2);
         $guests    = (int) $request->guest_count;
 

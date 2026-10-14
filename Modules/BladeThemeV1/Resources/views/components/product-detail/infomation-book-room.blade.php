@@ -409,7 +409,7 @@
                         Dùng gói "{{ $availablePackage->name }}" — còn {{ $availablePackage->sessions_remaining }} buổi
                     </p>
                     <p class="text-xs text-emerald-600 mt-0.5">
-                        Mỗi khung giờ đã chọn trừ đúng 1 buổi trong gói, không cần thanh toán thêm.
+                        Mỗi khung giờ trừ 1 buổi trong gói; khung giờ vượt số buổi còn lại và dịch vụ sẽ tính tiền.
                         @if ($availablePackage->category_id)
                             Áp dụng cho mọi sân tại {{ $availablePackage->category?->name }}.
                         @endif
@@ -417,11 +417,6 @@
                             Hết hạn {{ $availablePackage->expires_at->format('d/m/Y') }}.
                         @endif
                     </p>
-                    @if ($usePackage && count($selectedSlots) > $availablePackage->sessions_remaining)
-                        <p class="text-xs text-red-600 font-medium mt-1">
-                            ⚠ Bạn đang chọn {{ count($selectedSlots) }} khung giờ nhưng gói chỉ còn {{ $availablePackage->sessions_remaining }} buổi — bỏ bớt khung giờ hoặc bỏ chọn dùng gói.
-                        </p>
-                    @endif
                 </div>
             </label>
         </div>

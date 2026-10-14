@@ -484,7 +484,15 @@ class AccountPage extends Component
                 // computeCustomerCancelRefundAmount() + OrderCancellationService::cancelByCustomer().
                 'is_cancelled'         => $order->isCancelled(),
                 'can_cancel'           => $order->canBeCancelledByCustomer(),
+                // Khách chỉ GỬI YÊU CẦU huỷ, admin duyệt — xem OrderCancelRequestService.
+                'can_request_cancel'   => $order->canRequestCancellation(),
+                'cancel_request_status' => $order->cancel_request_status,
+                'cancel_request_note'  => $order->cancel_request_note,
                 'cancel_refund_amount' => $order->canBeCancelledByCustomer() ? $order->computeCustomerCancelRefundAmount() : 0,
+                'cancel_refund_percent' => $order->canBeCancelledByCustomer() && ! $order->isFullyPaidByPackage() ? $order->customerCancelRefundPercent() : 0,
+                // Đơn trả bằng gói: không hoàn tiền, huỷ thì trả lại buổi vào gói.
+                'paid_by_package'      => $order->isFullyPaidByPackage(),
+                'package_sessions'     => $order->canBeCancelledByCustomer() ? $order->packageSessionsToRestore() : 0,
             ];
         })->toArray();
     }
@@ -494,11 +502,11 @@ class AccountPage extends Component
         return (int) ceil($this->totalCount / $this->perPage) ?: 1;
     }
 
-    // Khách tự huỷ đơn/xin hoàn tiền online — xem App\Services\OrderCancellationService. Chỉ được
-    // huỷ đơn CỦA CHÍNH MÌNH — dùng lại phoneQuery() (khớp buyer_phone/customer_id đang đăng nhập)
-    // làm điều kiện WHERE thay vì Order::find($orderId) trần, chặn khách sửa tay id trên
-    // wire:click để huỷ đơn của người khác.
-    public function cancelOrder(int $orderId): void
+    // Khách GỬI YÊU CẦU huỷ đơn/xin hoàn tiền — admin duyệt hoặc từ chối, xem
+    // App\Services\OrderCancelRequestService. Chỉ được gửi cho đơn CỦA CHÍNH MÌNH — dùng lại
+    // phoneQuery() (khớp buyer_phone/customer_id đang đăng nhập) làm điều kiện WHERE thay vì
+    // Order::find($orderId) trần, chặn khách sửa tay id trên wire:click để huỷ đơn của người khác.
+    public function requestCancelOrder(int $orderId): void
     {
         $order = $this->phoneQuery()->whereKey($orderId)->with('items')->first();
 
@@ -507,7 +515,7 @@ class AccountPage extends Component
             return;
         }
 
-        $result = app(\App\Services\OrderCancellationService::class)->cancelByCustomer($order);
+        $result = app(\App\Services\OrderCancelRequestService::class)->request($order);
 
         if (! $result['ok']) {
             $this->dispatch('notify', ['message' => $result['error'], 'type' => 'error']);
@@ -515,9 +523,7 @@ class AccountPage extends Component
         }
 
         $this->dispatch('notify', [
-            'message' => $result['refund_amount'] > 0
-                ? 'Đã huỷ đơn. Số tiền hoàn: ' . number_format($result['refund_amount'], 0, ',', '.') . 'đ.'
-                : 'Đã huỷ đơn.',
+            'message' => 'Đã gửi yêu cầu huỷ đơn. Vui lòng chờ quản trị viên duyệt, bạn sẽ nhận được thông báo phản hồi.',
             'type' => 'success',
         ]);
 

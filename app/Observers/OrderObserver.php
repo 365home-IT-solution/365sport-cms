@@ -213,6 +213,11 @@ class OrderObserver
         $newStatus = $order->status;
         $oldStatus = $order->getOriginal('status');
 
+        // Đơn dùng gói kết hợp tiền mặt: buổi đã trừ ngay lúc đặt — đơn chưa thanh toán mà hết hạn / thất bại thì trả buổi lại gói.
+        if (in_array($newStatus, ['failed', 'cancelled_payment'], true) && in_array($oldStatus, ['pending', 'deposit'], true)) {
+            \App\Models\CustomerPackage::refundRedemptionsForOrder($order);
+        }
+
         if ($newStatus === $oldStatus) {
             return;
         }
@@ -339,6 +344,12 @@ class OrderObserver
 
         // Trừ lại chi tiêu khi xóa đơn đã thanh toán
         if ($order->status === 'paid' && $order->customer_id && ! $order->exclude_from_stats) {
+            try {
+                app(\App\Services\LoyaltyService::class)->revokeForOrder($order);
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::warning('LoyaltyService::revokeForOrder (delete) failed: ' . $e->getMessage());
+            }
+
             $customer = Customer::find($order->customer_id);
             if ($customer) {
                 $amount = (float) ($order->full_amount ?? $order->amount ?? 0);
@@ -401,12 +412,25 @@ class OrderObserver
         } catch (\Throwable $e) {
             \Illuminate\Support\Facades\Log::warning('MembershipService::addSpending failed: ' . $e->getMessage());
         }
+
+        // Điểm thưởng — idempotent theo đơn, lỗi không được làm hỏng việc xác nhận thanh toán.
+        try {
+            app(\App\Services\LoyaltyService::class)->earnForOrder($order);
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('LoyaltyService::earnForOrder failed: ' . $e->getMessage());
+        }
     }
 
     private function deductMembershipSpending(Order $order): void
     {
         if (! $order->customer_id || $order->exclude_from_stats) {
             return;
+        }
+
+        try {
+            app(\App\Services\LoyaltyService::class)->revokeForOrder($order);
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('LoyaltyService::revokeForOrder failed: ' . $e->getMessage());
         }
 
         $customer = Customer::find($order->customer_id);

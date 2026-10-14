@@ -332,6 +332,11 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('orders',                                   [BookingController::class,     'store'])->name('api.orders.store');
         Route::post('orders/{order_code}',                   [OrderController::class,       'update'])->name('api.orders.update');
         Route::get('orders/{order_code}/payment-qr',         [OrderController::class,       'paymentQr'])->name('api.orders.payment-qr');
+        // Khách tự phục vụ trên đơn của mình — xem App\Http\Controllers\Api\OrderSelfServiceController.
+        Route::get('orders/{order_code}/cancel-preview',     [\App\Http\Controllers\Api\OrderSelfServiceController::class, 'cancelPreview'])->name('api.orders.cancel-preview');
+        Route::post('orders/{order_code}/cancel',            [\App\Http\Controllers\Api\OrderSelfServiceController::class, 'cancel'])->name('api.orders.cancel');
+        Route::post('orders/{order_code}/reschedule',        [\App\Http\Controllers\Api\OrderSelfServiceController::class, 'reschedule'])->name('api.orders.reschedule');
+        Route::get('orders/{order_code}/check-in-code',      [\App\Http\Controllers\Api\OrderSelfServiceController::class, 'checkInCode'])->name('api.orders.check-in-code');
         Route::post('orders/{order_code}/retry-payment',    [OrderController::class, 'retryPayment'])->name('api.orders.retry-payment');
         Route::post('orders/{order_code}/remaining-payment',[OrderController::class, 'remainingPayment'])->name('api.orders.remaining-payment');
         // Đơn payment_method='bank_transfer' — khớp booking-detail.blade.php (web).
@@ -403,6 +408,24 @@ Route::middleware(['auth:sanctum'])->prefix('notifications')->name('api.notifica
     Route::get('/',          [NotificationController::class, 'index'])->name('index');
     Route::post('read-all',  [NotificationController::class, 'markAllRead'])->name('read-all');
     Route::post('{id}/read', [NotificationController::class, 'markRead'])->name('read')->whereNumber('id');
+});
+
+/*
+|--------------------------------------------------------------------------
+| Trình độ người chơi (tự khai theo môn; nhân viên sân có thể xác nhận)
+| GET    /api/player-skills                          → trình độ của tôi + thang trình độ + danh sách môn
+| PUT    /api/player-skills/{sport}                  → tự khai trình độ một môn (sport = general hoặc sport_type của loại sân)
+| DELETE /api/player-skills/{sport}                  → bỏ trình độ tự khai
+| POST   /api/player-skills/{sport}/request-assessment → xin nhân viên sân đánh giá / xác nhận
+| GET    /api/player-skills/history                  → lịch sử thay đổi
+|--------------------------------------------------------------------------
+*/
+Route::middleware(['auth:sanctum', 'customer.active'])->prefix('player-skills')->name('api.player-skills.')->group(function () {
+    Route::get('/',                         [\App\Http\Controllers\Api\PlayerSkillController::class, 'index'])->name('index');
+    Route::get('history',                   [\App\Http\Controllers\Api\PlayerSkillController::class, 'history'])->name('history');
+    Route::put('{sport}',                   [\App\Http\Controllers\Api\PlayerSkillController::class, 'update'])->name('update');
+    Route::delete('{sport}',                [\App\Http\Controllers\Api\PlayerSkillController::class, 'destroy'])->name('destroy');
+    Route::post('{sport}/request-assessment', [\App\Http\Controllers\Api\PlayerSkillController::class, 'requestAssessment'])->name('request-assessment');
 });
 
 /*
@@ -523,8 +546,14 @@ Route::middleware(['auth:sanctum', 'customer.active'])->prefix('teams')->name('a
         Route::delete('members/{memberId}',     [TeamController::class, 'removeMember'])->name('members.remove')->whereNumber('memberId');
         Route::post('leave',                    [TeamController::class, 'leave'])->name('leave');
         Route::post('disband',                  [TeamController::class, 'disband'])->name('disband');
+        // Chat nhóm + chia sẻ lời mời (link/QR deep link).
+        Route::get('messages',                  [\App\Http\Controllers\Api\TeamChatController::class, 'messages'])->name('messages.index');
+        Route::post('messages',                 [\App\Http\Controllers\Api\TeamChatController::class, 'send'])->name('messages.send')->middleware('throttle:60,1');
+        Route::get('share',                     [\App\Http\Controllers\Api\TeamChatController::class, 'share'])->name('share');
     });
 });
+// Xem trước nhóm từ link mời (chưa đăng nhập): tên, trưởng nhóm, số thành viên — không lộ SĐT.
+Route::get('public/teams/{code}', [\App\Http\Controllers\Api\TeamChatController::class, 'preview'])->where('code', '[A-Za-z0-9]{8}')->middleware('throttle:30,1')->name('api.public.teams.preview');
 
 Route::middleware(['auth:sanctum', 'customer.active'])->prefix('booking-funds')->name('api.booking-funds.')->group(function () {
     Route::get('/',                              [BookingFundController::class, 'index'])->name('index');
@@ -570,3 +599,75 @@ Route::middleware(['auth:sanctum', 'customer.active'])->prefix('open-matches')->
 |--------------------------------------------------------------------------
 */
 Route::get('camera-media/{token}/{filename}', CameraMediaProxyController::class)->name('api.camera-media');
+
+/*
+|--------------------------------------------------------------------------
+| Gói nhiều buổi (thẻ trả trước) cho khách
+| GET  /api/package-plans                  → gói đang bán (?room_id= ?category_id= ?partner_id=)
+| POST /api/package-plans/{id}/purchase    → tạo đơn mua gói (auth); thanh toán qua /api/orders/{code}/payment-qr | payment-proof
+| GET  /api/my-packages(/{id})             → gói tôi đã mua + số buổi còn lại (auth)
+|--------------------------------------------------------------------------
+*/
+Route::get('package-plans', [\App\Http\Controllers\Api\CustomerPackageApiController::class, 'plans'])->name('api.package-plans.index');
+Route::middleware(['auth:sanctum', 'customer.active'])->group(function () {
+    Route::post('package-plans/{id}/purchase', [\App\Http\Controllers\Api\CustomerPackageApiController::class, 'purchase'])->whereNumber('id')->name('api.package-plans.purchase');
+    Route::get('my-packages',      [\App\Http\Controllers\Api\CustomerPackageApiController::class, 'mine'])->name('api.my-packages.index');
+    Route::get('my-packages/{id}', [\App\Http\Controllers\Api\CustomerPackageApiController::class, 'showMine'])->whereNumber('id')->name('api.my-packages.show');
+});
+
+/*
+|--------------------------------------------------------------------------
+| Nội dung CMS cho client (công khai)
+| GET  /api/posts, /api/posts/{slug}, /api/posts/{slug}/comments   POST /api/posts/{slug}/comments
+| GET  /api/rooms/{id}/comments                                    POST /api/rooms/{id}/comments
+| GET  /api/forms/{id}   POST /api/forms/{id}/submit               GET /api/menus/{location}
+|--------------------------------------------------------------------------
+*/
+Route::get('posts',                  [\App\Http\Controllers\Api\CmsClientController::class, 'posts'])->name('api.posts.index');
+Route::get('posts/{slug}',           [\App\Http\Controllers\Api\CmsClientController::class, 'post'])->name('api.posts.show');
+Route::get('posts/{slug}/comments',  [\App\Http\Controllers\Api\CmsClientController::class, 'postComments'])->name('api.posts.comments');
+Route::post('posts/{slug}/comments', [\App\Http\Controllers\Api\CmsClientController::class, 'commentOnPost'])->middleware('throttle:10,1')->name('api.posts.comments.store');
+Route::get('rooms/{id}/comments',    [\App\Http\Controllers\Api\CmsClientController::class, 'roomComments'])->name('api.rooms.comments');
+Route::post('rooms/{id}/comments',   [\App\Http\Controllers\Api\CmsClientController::class, 'commentOnRoom'])->middleware('throttle:10,1')->name('api.rooms.comments.store');
+Route::get('forms/{id}',             [\App\Http\Controllers\Api\CmsClientController::class, 'form'])->whereNumber('id')->name('api.forms.show');
+Route::post('forms/{id}/submit',     [\App\Http\Controllers\Api\CmsClientController::class, 'submitForm'])->whereNumber('id')->middleware('throttle:10,1')->name('api.forms.submit');
+Route::get('menus/{location}',       [\App\Http\Controllers\Api\CmsClientController::class, 'menu'])->name('api.menus.show');
+
+/*
+|--------------------------------------------------------------------------
+| Ví điểm thưởng (khách đăng nhập)
+| GET /api/wallet, GET /api/wallet/transactions, POST /api/wallet/redeem {points} → mã giảm giá riêng
+|--------------------------------------------------------------------------
+*/
+Route::middleware(['auth:sanctum', 'customer.active'])->prefix('wallet')->name('api.wallet.')->group(function () {
+    Route::get('/',             [\App\Http\Controllers\Api\WalletController::class, 'show'])->name('show');
+    Route::get('transactions',  [\App\Http\Controllers\Api\WalletController::class, 'transactions'])->name('transactions');
+    Route::post('redeem',       [\App\Http\Controllers\Api\WalletController::class, 'redeem'])->middleware('throttle:20,1')->name('redeem');
+});
+
+/*
+|--------------------------------------------------------------------------
+| Hoá đơn VAT (khách đăng nhập)
+| GET /api/invoices; GET|POST /api/orders/{order_code}/invoice
+|--------------------------------------------------------------------------
+*/
+Route::middleware(['auth:sanctum', 'customer.active'])->group(function () {
+    Route::get('invoices',                     [\App\Http\Controllers\Api\InvoiceRequestController::class, 'index'])->name('api.invoices.index');
+    Route::get('orders/{order_code}/invoice',  [\App\Http\Controllers\Api\InvoiceRequestController::class, 'show'])->name('api.orders.invoice.show');
+    Route::post('orders/{order_code}/invoice', [\App\Http\Controllers\Api\InvoiceRequestController::class, 'store'])->middleware('throttle:10,1')->name('api.orders.invoice.store');
+});
+
+/*
+|--------------------------------------------------------------------------
+| Giải đấu
+| GET /api/tournaments, GET /api/tournaments/{id} (công khai: đội, lịch, bảng xếp hạng)
+| POST /api/tournaments/{id}/register {team_code}, DELETE /api/tournaments/{id}/register/{team_code}, GET /api/my-tournaments (auth)
+|--------------------------------------------------------------------------
+*/
+Route::get('tournaments',      [\App\Http\Controllers\Api\TournamentController::class, 'index'])->name('api.tournaments.index');
+Route::get('tournaments/{id}', [\App\Http\Controllers\Api\TournamentController::class, 'show'])->whereNumber('id')->name('api.tournaments.show');
+Route::middleware(['auth:sanctum', 'customer.active'])->group(function () {
+    Route::post('tournaments/{id}/register',              [\App\Http\Controllers\Api\TournamentController::class, 'register'])->whereNumber('id')->middleware('throttle:20,1')->name('api.tournaments.register');
+    Route::delete('tournaments/{id}/register/{teamCode}', [\App\Http\Controllers\Api\TournamentController::class, 'cancel'])->whereNumber('id')->name('api.tournaments.cancel');
+    Route::get('my-tournaments',                          [\App\Http\Controllers\Api\TournamentController::class, 'mine'])->name('api.tournaments.mine');
+});

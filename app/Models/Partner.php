@@ -232,6 +232,25 @@ class Partner extends Model implements HasMedia
         return $this->hasPayosConfigured() || ! $this->hasBankTransferInfo();
     }
 
+    // Thông báo hiển thị cho khách khi sân của đối tác chưa nhận được thanh toán online.
+    public const PAYMENT_NOT_READY_MESSAGE = 'Sân này chưa thiết lập phương thức thanh toán nên tạm thời chưa nhận đặt sân trực tuyến. Vui lòng liên hệ chủ sân.';
+
+    // Đối tác đã thiết lập ĐỦ cách thu tiền để khách đặt sân online chưa: (1) chọn chuyển khoản và điền đủ ngân hàng / số tài khoản / chủ tài khoản,
+    // hoặc (2) có đủ 3 khoá PayOS riêng. Đối tác nền tảng luôn dùng được khoá PayOS chung; đối tác khác chỉ dùng khoá chung khi bật
+    // features.platform_payos_for_partners. Điểm DUY NHẤT quyết định "sân này có nhận đặt online không" (web, API khách, mua gói, bật bán sân).
+    public function hasUsablePaymentMethod(): bool
+    {
+        if ($this->isPlatformPartner()) {
+            return true;
+        }
+
+        if ($this->effectivePaymentMethod() === 'bank_transfer') {
+            return true;
+        }
+
+        return $this->hasPayosConfigured() || (bool) config('features.platform_payos_for_partners');
+    }
+
     // Phương thức thanh toán THẬT SỰ áp dụng cho đối tác này — ĐIỂM DUY NHẤT quyết định (dùng ở cả
     // ProductDetail::resolveEffectivePaymentMethod() và view hiển thị, đảm bảo client/server luôn
     // khớp nhau). Admin chọn CHÍNH XÁC 1 trong 3 lựa chọn qua 'payment_method_preference' (PayOS /

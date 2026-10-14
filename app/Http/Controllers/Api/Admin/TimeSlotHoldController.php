@@ -36,7 +36,7 @@ class TimeSlotHoldController extends Controller
 
         $data = $request->validate([
             'timeslot_id' => 'required|integer',
-            'date'        => 'required|string', // d-m-Y, khớp $date['date'] của GET .../time-slots
+            'date'        => 'required|date_format:d-m-Y', // khớp $date['date'] của GET .../time-slots
         ]);
 
         $room = Product::where('id', $id)->where('is_activated', true)->first();
@@ -76,7 +76,7 @@ class TimeSlotHoldController extends Controller
 
         $data = $request->validate([
             'timeslot_id' => 'required|integer',
-            'date'        => 'required|string',
+            'date'        => 'required|date_format:d-m-Y',
         ]);
 
         $holderId = 'admin:' . $admin->id;

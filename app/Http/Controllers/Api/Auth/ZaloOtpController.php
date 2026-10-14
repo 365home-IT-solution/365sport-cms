@@ -589,7 +589,7 @@ class ZaloOtpController extends Controller
             'companions.*.cccd_back'  => 'required|file|mimes:jpg,jpeg,png,webp|max:5120',
             'companions.*.full_name'  => 'nullable|string|max:255',
             // Trình độ chơi tự khai — dùng cho tính năng "Tìm bạn chơi" (App\Models\OpenMatch).
-            'skill_level'             => ['sometimes', 'nullable', 'string', 'in:' . implode(',', \App\Models\OpenMatch::SKILL_LEVELS)],
+            'skill_level'             => ['sometimes', 'nullable', 'string', 'in:' . implode(',', \App\Support\SkillLevels::keys())],
             // Hồ sơ người chơi cơ bản — các lựa chọn hợp lệ lấy qua GET /api/v1/player-profile-options.
             'height_cm'               => ['sometimes', 'nullable', 'integer', 'between:50,250'],
             'weight_kg'               => ['sometimes', 'nullable', 'numeric', 'between:20,300'],
@@ -603,7 +603,7 @@ class ZaloOtpController extends Controller
                     }
                 }
             }],
-            'sport_levels.*'          => ['nullable', 'string', 'in:' . implode(',', \App\Models\OpenMatch::SKILL_LEVELS)],
+            'sport_levels.*'          => ['nullable', 'string', 'in:' . implode(',', \App\Support\SkillLevels::keys())],
             'play_goals'              => ['sometimes', 'nullable', 'array', 'max:' . count(Customer::PLAY_GOALS)],
             'play_goals.*'            => ['string', 'distinct', 'in:' . implode(',', array_keys(Customer::PLAY_GOALS))],
             'play_frequency'          => ['sometimes', 'nullable', 'string', 'in:' . implode(',', array_keys(Customer::PLAY_FREQUENCIES))],
@@ -620,9 +620,10 @@ class ZaloOtpController extends Controller
             $data['date_of_birth'] = Carbon::createFromFormat('d-m-Y', $request->date_of_birth)->toDateString();
         }
 
-        if ($request->has('skill_level')) {
-            $data['skill_level'] = $request->skill_level;
-        }
+        // Trình độ chơi tự khai: ghi qua PlayerSkillService (bảng player_skill_levels + lịch sử); trình độ nhân viên đã xác nhận được giữ nguyên.
+        $declareGeneral = $request->has('skill_level');
+        $generalLevel   = $declareGeneral ? $request->input('skill_level') : null;
+        $declaredSports = null;
 
         // Hồ sơ người chơi: has() (không phải filled()) để app xoá được một trường bằng cách gửi rỗng/null.
         foreach (['height_cm', 'weight_kg', 'special_note', 'favorite_position', 'play_frequency'] as $field) {
@@ -633,7 +634,7 @@ class ZaloOtpController extends Controller
         }
         if ($request->has('sport_levels')) {
             // Bỏ môn không chọn trình độ (null/rỗng) — chỉ lưu môn đã chọn.
-            $data['sport_levels'] = array_filter((array) $request->input('sport_levels'), fn ($level) => $level !== null && $level !== '') ?: null;
+            $declaredSports = array_filter((array) $request->input('sport_levels'), fn ($level) => $level !== null && $level !== '');
         }
         if ($request->has('play_goals')) {
             $data['play_goals'] = array_values((array) $request->input('play_goals')) ?: null;
@@ -687,6 +688,11 @@ class ZaloOtpController extends Controller
 
         if (! empty($data)) {
             $customer->update($data);
+        }
+
+        if ($declareGeneral || $declaredSports !== null) {
+            app(\App\Services\PlayerSkillService::class)->applyProfileDeclaration($customer, $declareGeneral, $generalLevel, $declaredSports);
+            $customer->refresh();
         }
 
         // Thêm CCCD người đi cùng vào hồ sơ.
@@ -793,6 +799,8 @@ class ZaloOtpController extends Controller
                 'special_note'      => $customer->special_note,
                 'favorite_position' => $customer->favorite_position,
                 'sport_levels'      => $customer->sport_levels ?: (object) [],
+                // Chi tiết từng môn: nguồn (tự khai / nhân viên xác nhận), ghi chú, thời điểm đánh giá — xem GET /api/player-skills.
+                'skill_levels'      => app(\App\Services\PlayerSkillService::class)->presentFor($customer),
                 'play_goals'        => $customer->play_goals ?: [],
                 'play_frequency'    => $customer->play_frequency,
             ],

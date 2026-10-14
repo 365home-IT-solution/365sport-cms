@@ -16,6 +16,12 @@ class GHNConfigPage extends Page
         return false;
     }
 
+    // Giao hàng GHN/GHTK là di sản của dự án bán hàng, không dùng cho đặt sân — chặn truy cập trực tiếp bằng URL (bật lại bằng features.legacy_shop).
+    public static function canAccess(): bool
+    {
+        return (bool) config('features.legacy_shop');
+    }
+
     public static function getNavigationLabel(): string
     {
         return __('payment::ghn-config.page.navigation_label');

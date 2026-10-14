@@ -37,9 +37,12 @@ class Category extends Model
         'checkin_time',
         'checkout_time',
         'default_policy',
+        // Mốc hoàn tiền khi khách tự huỷ: [{hours_before, refund_percent}] — xem Order::customerCancelRefundPercent().
+        'cancellation_tiers',
     ];
 
     protected $casts = [
+        'cancellation_tiers' => 'array',
         'status'     => 'boolean',
         'area_sqm'   => 'decimal:2',
         'sort_order' => 'integer',

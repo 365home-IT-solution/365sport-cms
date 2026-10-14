@@ -31,6 +31,13 @@ class Kernel extends ConsoleKernel
             ->withoutOverlapping(2)
             ->appendOutputTo(storage_path('logs/checkin-reminders.log'));
 
+        // Nhắc khách (push FCM) khi sắp hết giờ chơi (15 phút) / đã hết giờ; cửa sổ 2 phút nên phải chạy MỖI PHÚT (cờ expiry_notified chống gửi trùng).
+        $schedule->command('lock:notify-expiry')
+            ->everyMinute()
+            ->timezone('Asia/Ho_Chi_Minh')
+            ->withoutOverlapping(2)
+            ->appendOutputTo(storage_path('logs/booking-expiry.log'));
+
         $schedule->command('guests:link-registered')
             ->hourly()
             ->timezone('Asia/Ho_Chi_Minh')

@@ -66,10 +66,15 @@ class ProductTable extends Table
                 ToggleColumn::make('is_activated')
                     ->label(__('product::product.table.label.is_activated'))
                     ->tooltip(function ($record) {
+                        if (! $record->is_activated && \Modules\Product\App\Models\Product::paymentSetupRequiredFor($record)) {
+                            return 'Cần thiết lập thanh toán (Cấu hình → Thiết lập thanh toán) trước khi mở bán sân.';
+                        }
+
                         return $record->is_activated
                             ? __('product::product.table.options.active')
                             : __('product::product.table.options.inactive');
                     })
+                    ->disabled(fn ($record) => ! $record->is_activated && \Modules\Product\App\Models\Product::paymentSetupRequiredFor($record))
                     ->onIcon(__('product::product.table.icons.active'))
                     ->offIcon(__('product::product.table.icons.inactive'))
                     ->alignCenter()

@@ -6,6 +6,7 @@ use App\Http\View\Composers\ProductColorComposer;
 use App\Models\GoogleOauthConfiguration;
 use App\Services\ContractSigning\ContractSigningManager;
 use App\Services\ContractSigning\Contracts\DigitalSignatureProvider;
+use App\Settings\GeneralSettings;
 use App\Settings\MailSettings;
 use Illuminate\Support\Facades\Config;
 use Filament\Tables\Table;
@@ -107,6 +108,8 @@ class AppServiceProvider extends ServiceProvider
             \Log::error('Failed to load mail settings: ' . $e->getMessage());
         }
 
+        $this->applyZaloSettings();
+
         // Đăng nhập Google cho khách hàng — client_id/secret nhập ở admin, không dùng .env (xem
         // App\Filament\Pages\GoogleLoginSettings, App\Models\GoogleOauthConfiguration).
         try {
@@ -146,5 +149,39 @@ class AppServiceProvider extends ServiceProvider
             return Route::post('/livewire/update', $handle)
                 ->middleware(['web', 'livewire.secure']);
         });
+    }
+
+    /**
+     * Zalo OA/ZNS nhập ở admin (Cài đặt chung > tab "Zalo") ghi đè .env: ZaloOtpService đọc
+     * config('zalo.*'), ZaloZnsService đọc config('services.zalo.*'). Giá trị trống → giữ .env.
+     */
+    private function applyZaloSettings(): void
+    {
+        try {
+            $s = app(GeneralSettings::class);
+
+            $map = [
+                'zalo.app_id'                               => $s->zalo_app_id,
+                'services.zalo.app_id'                      => $s->zalo_app_id,
+                'zalo.app_secret'                           => $s->zalo_app_secret,
+                'services.zalo.app_secret'                  => $s->zalo_app_secret,
+                'zalo.access_token'                         => $s->zalo_access_token,
+                'zalo.refresh_token'                        => $s->zalo_refresh_token,
+                'services.zalo.refresh_token'               => $s->zalo_refresh_token,
+                'zalo.otp_template_id'                      => $s->zalo_otp_template_id,
+                'services.zalo.templates.booking_success'   => $s->zalo_template_booking_success,
+                'services.zalo.templates.booking_reminder'  => $s->zalo_template_booking_reminder,
+                'services.zalo.templates.booking_cancelled' => $s->zalo_template_booking_cancelled,
+            ];
+
+            foreach ($map as $key => $value) {
+                if (filled($value)) {
+                    Config::set($key, $value);
+                }
+            }
+        } catch (\Throwable $e) {
+            // Chưa migrate settings / DB chưa sẵn sàng → dùng .env.
+            \Log::warning('Failed to load Zalo settings: ' . $e->getMessage());
+        }
     }
 }

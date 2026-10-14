@@ -1500,6 +1500,10 @@ class OrderForm
     // dấu over_night=true, vd khung 22:00 - 02:00).
     private static function requiresSecondGuestCccd(Get $get): bool
     {
+        if (! config('features.lodging')) {
+            return false; // khai báo lưu trú tắt cho đặt sân
+        }
+
         $items = $get('orderItems');
         if (! is_array($items)) {
             return false;
@@ -3437,11 +3441,38 @@ class OrderForm
     // tử phẳng — mỗi phần tử tương ứng ĐÚNG 1 order_item thật sự sẽ được lưu (1 khung giờ = 1
     // order_item, giống đúng cách client/API tạo dữ liệu). Dùng chung cho cả tính tổng tiền
     // (computeOrderTotal) LẪN lúc lưu đơn thật sự (CreateOrder/EditOrder).
+    /**
+     * Thời điểm bắt đầu (Y-m-d H:i:s) của các khung giờ đơn này ĐÃ ĐƯỢC GÓI NHIỀU BUỔI chi trả (lượt trừ buổi chưa hoàn).
+     * $anyItemId = id 1 order_item bất kỳ của đơn (dòng gộp trong form giữ id của dòng đại diện). Đơn mới tạo (chưa có id) → [].
+     *
+     * @return list<string>
+     */
+    public static function packageCoveredStarts($anyItemId): array
+    {
+        if (! $anyItemId) {
+            return [];
+        }
+        $orderId = OrderItem::query()->whereKey($anyItemId)->value('order_id');
+        if (! $orderId) {
+            return [];
+        }
+
+        return \App\Models\PackageRedemption::query()
+            ->where('package_redemptions.order_id', $orderId)
+            ->whereNull('package_redemptions.refunded_at')
+            ->join('order_items', 'order_items.id', '=', 'package_redemptions.order_item_id')
+            ->pluck('order_items.checkin_date')
+            ->map(fn ($d) => \Carbon\Carbon::parse($d)->format('Y-m-d H:i:s'))
+            ->all();
+    }
+
     public static function expandOrderItemsForPersistence(array $items): array
     {
         $expanded = [];
 
         foreach ($items as $item) {
+            $coveredStarts = self::packageCoveredStarts($item['id'] ?? null);
+
             $selectedSlots = $item['selected_slots'] ?? [];
             $selectedSlots = is_array($selectedSlots)
                 ? array_values(array_filter(
@@ -3487,6 +3518,13 @@ class OrderForm
                 $expandedItem['checkout_date'] = $end->format('Y-m-d H:i:s');
                 $expandedItem['price']         = (int) $promo['final_price'];
                 $expandedItem['discount']      = (int) $slot->price;
+
+                // Khung này đã trừ buổi trong gói nhiều buổi → không tính tiền (giữ nguyên giá 0 như lúc đặt).
+                if (in_array($expandedItem['checkin_date'], $coveredStarts, true)) {
+                    $expandedItem['price']           = 0;
+                    $expandedItem['discount']        = 0;
+                    $expandedItem['package_covered'] = true;
+                }
 
                 $slotLabel = $slot->timeSlot->label
                     ?: (substr((string) $slot->timeSlot->start_time, 0, 5) . ' - ' . substr((string) $slot->timeSlot->end_time, 0, 5));
@@ -3583,8 +3621,10 @@ class OrderForm
     // Hệ thống hiện giới hạn 1 sân/đơn nên không cần xử lý nhiều sân cùng lúc trong 1 lần gọi.
     // $groupItems: order_item ĐÃ expand (1 dòng = 1 khung giờ), CÙNG product_id — CHƯA cộng
     // extra_fee, caller tự cộng riêng (giống $noProductItems ở computeOrderTotal()).
-    public static function resolveProductGroupPricing(array $groupItems, ?Product $product): array
+    public static function resolveProductGroupPricing(array $groupItems, ?Product $product, bool $packageOrder = false): array
     {
+        // Đơn có khung do gói chi trả: tiền = giá các khung còn lại (không áp khuyến mãi / giảm giá hệ thống), giống luồng đặt dùng gói.
+        $packageOrder = $packageOrder || collect($groupItems)->contains(fn ($item) => ! empty($item['package_covered']));
         $basePrice = collect($groupItems)->sum(fn ($item) => (float) ($item['discount'] ?? $item['price'] ?? 0));
 
         $result = [
@@ -3632,6 +3672,10 @@ class OrderForm
                 'nights'       => $nights,
                 'total'        => $surcharge,
             ];
+        }
+
+        if ($packageOrder) {
+            return $result; // total = basePrice (+ phụ thu khách đã tính ở trên)
         }
 
         // ── "Đặt full ngày" (full_booking_discount) — y hệt checkFullDayBooking() ───────────────

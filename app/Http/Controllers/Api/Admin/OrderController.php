@@ -420,6 +420,7 @@ class OrderController extends Controller
         $rules = [
             'note_for_admin'     => 'sometimes|nullable|string|max:500',
             'description'        => 'sometimes|nullable|string|max:500',
+            'deposit_room'       => 'sometimes|nullable|string|max:500',
             'short_description'  => 'sometimes|nullable|string|max:255',
             'status'             => 'sometimes|in:pending,paid,deposit,failed,cancelled_payment,refunded',
             'surcharge'          => 'sometimes|nullable|numeric|min:0',
@@ -461,7 +462,7 @@ class OrderController extends Controller
         $updates   = [];
 
         // ── Field đơn giản ───────────────────────────────────────────────────
-        foreach (['note_for_admin', 'description', 'short_description'] as $field) {
+        foreach (['note_for_admin', 'description', 'short_description', 'deposit_room'] as $field) {
             if (array_key_exists($field, $data)) {
                 $updates[$field] = $data[$field];
             }
@@ -1104,6 +1105,7 @@ class OrderController extends Controller
     {
         return $this->toListItem($order) + [
             'note_for_admin'    => $order->note_for_admin,
+            'deposit_room'      => $order->deposit_room,
             'surcharge'         => (int) $order->surcharge,
             'guest_surcharge'   => $this->buildGuestSurchargeInfo($order),
             'checkout_url'      => $order->checkout_url,
@@ -1179,7 +1181,7 @@ class OrderController extends Controller
         }
 
         $config    = $product->room_config ?? [];
-        $fee       = (int) ($config['extra_guest_fee'] ?? 0);
+        $fee       = config('features.lodging') ? (int) ($config['extra_guest_fee'] ?? 0) : 0; // phụ thu số khách chỉ khi bật cờ lưu trú
         $threshold = (int) ($config['max_free_guests'] ?? 2);
         $guests    = (int) $order->guest_count;
         $extra     = max(0, $guests - $threshold);

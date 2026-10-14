@@ -503,7 +503,7 @@ trait BuildsRoomBooking
         }
 
         $config    = $room->room_config ?? [];
-        $fee       = (int) ($config['extra_guest_fee'] ?? 0);
+        $fee       = config('features.lodging') ? (int) ($config['extra_guest_fee'] ?? 0) : 0; // phụ thu số khách chỉ khi bật cờ lưu trú
         $threshold = (int) ($config['max_free_guests'] ?? 2);
         $guests    = (int) $request->guest_count;
 

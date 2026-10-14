@@ -48,13 +48,14 @@ class WarehouseStockCheckController extends Controller
 
     /**
      * POST /api/admin/warehouse/stock-checks
-     * Body: { note?, branch_id?, partner_id? (chỉ super_admin),
+     * Body: { note?, checked_at? (mặc định bây giờ), branch_id?, partner_id? (chỉ super_admin),
      *         items: [{ warehouse_item_id, actual_quantity, note? }, ...] }
      */
     public function store(Request $request): JsonResponse
     {
         $data = $request->validate([
             'note'                        => ['nullable', 'string'],
+            'checked_at'                  => ['nullable', 'date'],
             'branch_id'                   => ['nullable', 'integer', 'exists:categories,id'],
             'partner_id'                  => ['nullable', 'uuid'],
             'items'                       => ['required', 'array', 'min:1'],
@@ -68,6 +69,7 @@ class WarehouseStockCheckController extends Controller
         $stockCheck = DB::transaction(function () use ($data) {
             $stockCheck = WarehouseStockCheck::create([
                 'note'       => $data['note'] ?? null,
+                'checked_at' => $data['checked_at'] ?? now(),
                 'branch_id'  => $data['branch_id'] ?? null,
                 'partner_id' => $data['partner_id'] ?? null,
             ]);

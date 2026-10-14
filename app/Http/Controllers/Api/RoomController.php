@@ -42,8 +42,9 @@ class RoomController extends Controller
             ? $authUser->wishlists()->where('product_id', $room->id)->exists()
             : null;
 
+        // online_payment_ready=false: chủ sân chưa thiết lập thanh toán — app nên báo "chưa nhận đặt online" thay vì cho khách đặt rồi mới lỗi (đặt sẽ trả 422 payment_not_configured).
         return response()->json([
-            'data' => $this->buildRoomDetail($room, $wishlistStatus),
+            'data' => $this->buildRoomDetail($room, $wishlistStatus) + ['online_payment_ready' => $room->partner?->hasUsablePaymentMethod() ?? true],
         ]);
     }
 

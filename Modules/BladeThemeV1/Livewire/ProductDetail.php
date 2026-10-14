@@ -358,6 +358,8 @@ class ProductDetail extends Component
                 $this->authCccdFront = '';
                 $this->authCccdBack  = '';
                 $this->myCoupons     = [];
+                // Đăng xuất giữa chừng: mã riêng của khách vừa đăng xuất không được giữ lại trong giỏ.
+                $this->dropInvalidCoupons();
             }
             return;
         }
@@ -421,6 +423,61 @@ class ProductDetail extends Component
             ])
             ->values()
             ->toArray();
+    }
+
+    /**
+     * Lý do 1 mã KHÔNG dùng được ngay lúc này cho người mua hiện tại (null = dùng được): sai trạng thái, chưa/đã hết hạn,
+     * hết lượt, hoặc là mã riêng/được gán cho khách khác. Dùng để kiểm tra lại mã đã áp trước khi tạo đơn.
+     */
+    private function couponBlockedReason(Coupon $coupon): ?string
+    {
+        $fresh = Coupon::find($coupon->id);
+        if (! $fresh || ! $fresh->is_active) {
+            return 'không còn hiệu lực';
+        }
+
+        $now = now();
+        if (($fresh->start_at && $now->lt($fresh->start_at)) || ($fresh->end_at && $now->gt($fresh->end_at))) {
+            return 'đã hết hạn hoặc chưa đến thời gian áp dụng';
+        }
+        if ($fresh->usage_limit && $fresh->used_count >= $fresh->usage_limit) {
+            return 'đã hết lượt sử dụng';
+        }
+        if ($fresh->customer_id !== null || $fresh->customers()->exists()) {
+            $owns = $this->isAuthUser && $this->authUserId && (
+                $fresh->customer_id === $this->authUserId
+                || $fresh->customers()->where('customer_id', $this->authUserId)->exists()
+            );
+            if (! $owns) {
+                return 'không thuộc về tài khoản của bạn';
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Bỏ các mã đã áp nhưng không còn dùng được và tính lại tiền. Trả về danh sách thông báo (rỗng = mọi mã đều hợp lệ).
+     */
+    private function dropInvalidCoupons(): array
+    {
+        $messages = [];
+        foreach ($this->appliedCoupons as $id => $coupon) {
+            if ($reason = $this->couponBlockedReason($coupon)) {
+                $messages[] = sprintf('Mã "%s" %s nên đã được gỡ khỏi đơn.', $coupon->code, $reason);
+                unset($this->appliedCoupons[$id], $this->couponDiscounts[$id]);
+            }
+        }
+
+        if ($messages) {
+            if (((int) ($this->bookingStyle ?? 1)) === 2) {
+                $this->calculateDateRangeTotal();
+            } else {
+                $this->updatedSelectedSlots();
+            }
+        }
+
+        return $messages;
     }
 
     /**
@@ -806,6 +863,11 @@ class ProductDetail extends Component
             return;
         }
 
+        if (! ($this->product->partner?->hasUsablePaymentMethod() ?? true)) {
+            $this->dispatch('notify', ['message' => \App\Models\Partner::PAYMENT_NOT_READY_MESSAGE, 'type' => 'error']);
+            return;
+        }
+
         if (empty($this->buyerName) || empty($this->buyerPhone)) {
             $this->dispatch('notify', ['message' => 'Vui lòng nhập họ tên và số điện thoại trước khi mua gói.', 'type' => 'error']);
             $this->addError('buyerPhone', 'Bắt buộc để mua gói.');
@@ -1140,7 +1202,8 @@ class ProductDetail extends Component
 
         // Tính phụ phí theo cấu hình sân
         $cfg1 = $this->product ? ($this->product->room_config ?? []) : [];
-        $this->extraFee = $this->guests > (int)($cfg1['max_free_guests'] ?? 2)
+        // Phụ thu theo số khách là khái niệm lưu trú (homestay) — chỉ tính khi bật cờ features.lodging (mặc định tắt cho đặt sân).
+        $this->extraFee = config('features.lodging') && $this->guests > (int)($cfg1['max_free_guests'] ?? 2)
             ? ($this->guests - (int)($cfg1['max_free_guests'] ?? 2)) * (int)($cfg1['extra_guest_fee'] ?? 50000)
             : 0;
 
@@ -1446,6 +1509,11 @@ class ProductDetail extends Component
      */
     public function hasOvernightSlotSelected(): bool
     {
+        // Qua đêm / khai báo người đi cùng là nghiệp vụ lưu trú — tắt theo mặc định (cờ features.lodging).
+        if (! config('features.lodging')) {
+            return false;
+        }
+
         if ((int) ($this->bookingStyle ?? 1) === 2) {
             return true;
         }
@@ -1454,20 +1522,72 @@ class ProductDetail extends Component
             && collect($this->selectedSlots)->contains(fn ($slot) => ($slot['overNight'] ?? 0) == 1);
     }
 
+    /**
+     * Phân bổ khi dùng gói nhiều buổi: các khung giờ SỚM NHẤT lần lượt trừ buổi (tối đa bằng số buổi còn lại), các khung còn lại
+     * tính tiền sân bình thường; dịch vụ, thuê vật tư, HLV, phụ thu khách luôn tính tiền (gói chỉ trả tiền sân). Không áp mã giảm giá /
+     * giảm giá khách quen trong chế độ này. Trả về null nếu không dùng gói.
+     *
+     * @return array{covered: list<int>, covered_count: int, paid_count: int, court_due: float, addons: float, coach: float, guest_fee: float, due: float}|null
+     */
+    public function packageBreakdown(): ?array
+    {
+        if (! $this->usePackage || $this->bookingStyle != 1 || empty($this->selectedSlots)) {
+            return null;
+        }
+        $package = $this->getAvailablePackage();
+        if (! $package) {
+            return null;
+        }
+
+        $ordered = collect($this->selectedSlots)
+            ->map(fn ($s, $i) => ['i' => $i, 'k' => ($s['date'] ?? '') . ' ' . ($s['startTime'] ?? ''), 'price' => (float) ($s['price'] ?? 0)])
+            ->sortBy('k')->values();
+        $remaining = max(0, (int) $package->sessions_remaining);
+        $covered = $ordered->take($remaining);
+        $paid = $ordered->slice($remaining);
+
+        $addons = 0.0;
+        foreach ([$this->selectedServices ?? [], $this->selectedEquipment ?? []] as $picked) {
+            foreach ($picked as $serviceId => $qty) {
+                $svc = $this->additionalServices?->firstWhere('id', $serviceId);
+                if ($svc && (int) $qty > 0) {
+                    $addons += (float) $svc->price * (int) $qty;
+                }
+            }
+        }
+        $coach = (float) $this->selectedCoachTotal();
+        $guestFee = (float) ($this->extraFee ?? 0);
+        $courtDue = (float) $paid->sum('price');
+
+        return [
+            'covered'       => $covered->pluck('i')->all(),
+            'covered_count' => $covered->count(),
+            'paid_count'    => $paid->count(),
+            'court_due'     => $courtDue,
+            'addons'        => $addons,
+            'coach'         => $coach,
+            'guest_fee'     => $guestFee,
+            'due'           => $courtDue + $addons + $coach + $guestFee,
+        ];
+    }
+
     public function datPhong()
     {
+        if (! ($this->product?->partner?->hasUsablePaymentMethod() ?? true)) {
+            $this->dispatch('notify', ['message' => \App\Models\Partner::PAYMENT_NOT_READY_MESSAGE, 'type' => 'error']);
+            return;
+        }
+
         // Chặn sớm nếu khách chọn "Dùng gói" nhưng số khung giờ vượt quá buổi còn lại — báo ngay
         // ở đây thay vì để tới confirmBooking()/processPackagePayment() mới phát hiện (khách đã
         // phải mở modal xác nhận rồi mới bị từ chối).
-        if ($this->usePackage) {
-            $package = $this->getAvailablePackage();
-            if (! $package || count($this->selectedSlots) > $package->sessions_remaining) {
-                $this->dispatch('notify', [
-                    'message' => 'Gói không còn đủ buổi cho số khung giờ đã chọn. Vui lòng bỏ bớt khung giờ hoặc bỏ chọn dùng gói.',
-                    'type' => 'error',
-                ]);
-                return;
-            }
+        // Số khung giờ vượt số buổi còn lại KHÔNG bị chặn: các khung đầu trừ buổi trong gói, phần vượt (cùng dịch vụ, HLV...) tính tiền.
+        if ($this->usePackage && ! $this->getAvailablePackage()) {
+            $this->dispatch('notify', [
+                'message' => 'Gói của bạn không còn hiệu lực hoặc đã hết buổi. Vui lòng bỏ chọn dùng gói.',
+                'type' => 'error',
+            ]);
+            return;
         }
 
         // Kiểm tra riêng chính sách hoàn tiền để hiển thị lỗi cụ thể
@@ -1656,8 +1776,17 @@ public function confirmBooking()
 {
     $this->bookingConfirmError = '';
 
-    if ($this->usePackage && $this->selectedCoachId) {
-        $this->bookingConfirmError = 'Gói nhiều buổi chỉ thanh toán tiền sân, không bao gồm HLV. Vui lòng bỏ chọn dùng gói hoặc bỏ HLV.';
+    // Sân của đối tác chưa thiết lập thanh toán thì không nhận đặt (không để khách đi tới bước thanh toán rồi mới báo lỗi).
+    if (! ($this->product?->partner?->hasUsablePaymentMethod() ?? true)) {
+        $this->bookingConfirmError = \App\Models\Partner::PAYMENT_NOT_READY_MESSAGE;
+        $this->dispatch('notify', ['message' => $this->bookingConfirmError, 'type' => 'error']);
+        return;
+    }
+
+    // Kiểm tra lại mọi mã đã áp ngay trước khi tạo đơn (hết hạn/hết lượt/mã của khách khác — kể cả khi đăng xuất hoặc đổi tài khoản
+    // sau lúc áp mã). Có mã bị gỡ thì dừng để khách thấy lại tổng tiền mới rồi tự xác nhận.
+    if ($removed = $this->dropInvalidCoupons()) {
+        $this->bookingConfirmError = implode(' ', $removed) . ' Vui lòng kiểm tra lại tổng tiền rồi xác nhận lần nữa.';
         return;
     }
 
@@ -1802,6 +1931,16 @@ public function confirmBooking()
         $orderTotal   = $this->totalAmount ?? 0;
         $noteForAdmin = '';
 
+        // Dùng gói nhiều buổi: tiền phải trả = phần khung giờ vượt số buổi + dịch vụ + HLV + phụ thu (xem packageBreakdown()).
+        $packageBreakdown = $this->packageBreakdown();
+        if ($packageBreakdown) {
+            $orderTotal = (int) round($packageBreakdown['due']);
+        } elseif ($this->usePackage) {
+            $this->dispatch('close-booking-modal');
+            $this->dispatch('notify', ['message' => 'Gói của bạn không còn hiệu lực hoặc đã hết buổi. Vui lòng chọn lại.', 'type' => 'error']);
+            return;
+        }
+
         if ($this->ocrService && $this->ocrService->isConfigured() && !empty($this->cccdFrontText)) {
             $noteForAdmin = $this->ocrService->formatCccdInfo($this->cccdFrontText);
         }
@@ -1888,7 +2027,8 @@ public function confirmBooking()
         // TRANSACTION: conflict check + order creation trong cùng 1 transaction
         // lockForUpdate ngăn 2 request đồng thời cùng tạo đơn trùng khung giờ
         // =====================================================================
-        $order = DB::transaction(function () use ($frontPath, $backPath, $companionCccdList, $extraFee, $categoryId, $orderTotal, $noteForAdmin, $paymentAmount, $depositPercent, $fullAmount, $verifiedBuyerName, $verifiedBuyerPhone, $verifiedUserId, $cccdData, $effectivePaymentMethod) {
+        $coveredItemIds = [];
+        $order = DB::transaction(function () use ($frontPath, $backPath, $companionCccdList, $extraFee, $categoryId, $orderTotal, $noteForAdmin, $paymentAmount, $depositPercent, $fullAmount, $verifiedBuyerName, $verifiedBuyerPhone, $verifiedUserId, $cccdData, $effectivePaymentMethod, $packageBreakdown, &$coveredItemIds) {
 
             // HLV là module/phụ phí riêng của booking sân. Khoá HLV và kiểm tra trùng lịch trong
             // cùng transaction với khung giờ sân để không thể overbooking khi hai khách đặt đồng thời.
@@ -1939,14 +2079,15 @@ public function confirmBooking()
                 'partner_id'     => $this->product->partner_id,
                 // coupon_code giữ mã đầu tiên (backward compat, xem BookingController/OrderController
                 // API cùng quy ước) — coupon_codes (JSON) mới là nguồn đầy đủ khi áp nhiều mã.
-                'coupon_code'    => collect($this->appliedCoupons)->first()?->code,
-                'coupon_codes'   => collect($this->appliedCoupons)->pluck('code')->values()->all() ?: null,
-                'coupon_discount'=> $this->couponDiscountAmount,
+                'package_cash_amount' => $packageBreakdown ? $fullAmount : null,
+                'coupon_code'    => $packageBreakdown ? null : collect($this->appliedCoupons)->first()?->code,
+                'coupon_codes'   => $packageBreakdown ? null : (collect($this->appliedCoupons)->pluck('code')->values()->all() ?: null),
+                'coupon_discount'=> $packageBreakdown ? 0 : $this->couponDiscountAmount,
                 // Lưu riêng số tiền giảm giá khách quen (khác coupon_discount) — cần để trang admin
                 // (total-amount-card.blade.php) đối chiếu lại đúng giá khách đã thấy lúc đặt, không
                 // hiểu nhầm phần giảm giá này là "phát sinh thêm cần thu" khi mở lại đơn (bug đã
                 // gặp: đơn 200k giảm 10% còn 180k, admin mở lại tưởng thiếu 20k).
-                'loyalty_discount' => $this->loyaltyDiscountAmount,
+                'loyalty_discount' => $packageBreakdown ? 0 : $this->loyaltyDiscountAmount,
                 // Xem App\Services\BookingRateLimiter — chặn phá hoại theo IP thay vì SĐT.
                 'creator_ip'     => request()->ip(),
                 'note_for_admin' => $noteForAdmin,
@@ -2006,16 +2147,17 @@ public function confirmBooking()
                     'over_night'    => true,
                 ]);
             } else {
-                foreach ($this->selectedSlots as $slot) {
+                foreach ($this->selectedSlots as $slotIndex => $slot) {
                     $checkinDateTime  = Carbon::parse("{$slot['date']} {$slot['startTime']}");
                     $checkoutDateTime = Carbon::parse("{$slot['date']} {$slot['endTime']}");
                     if (isset($slot['overNight']) && $slot['overNight'] == 1) {
                         $checkoutDateTime->addDay();
                     }
-                    $order->items()->create([
+                    $coveredByPackage = $packageBreakdown && in_array($slotIndex, $packageBreakdown['covered'], true);
+                    $createdItem = $order->items()->create([
                         'product_id'    => $this->product->id,
                         'name'          => $this->product->name . ' - ' . $slot['timeslotLabel'],
-                        'price'         => $slot['price'],
+                        'price'         => $coveredByPackage ? 0 : $slot['price'],
                         'quantity'      => 1,
                         'extra_fee'     => 0,
                         'checkin_date'  => $checkinDateTime,
@@ -2024,6 +2166,9 @@ public function confirmBooking()
                         'slot_label'    => $slot['timeslotLabel'] ?? null,
                         'over_night'    => ($slot['overNight'] ?? 0) == 1,
                     ]);
+                    if ($coveredByPackage) {
+                        $coveredItemIds[] = $createdItem->id;
+                    }
                 }
             }
 
@@ -2089,8 +2234,10 @@ public function confirmBooking()
                 $order->coachBookings()->create($coachBooking);
             }
 
-            foreach ($this->appliedCoupons as $appliedCoupon) {
-                $appliedCoupon->incrementUsage();
+            if (! $packageBreakdown) {
+                foreach ($this->appliedCoupons as $appliedCoupon) {
+                    $appliedCoupon->incrementUsage();
+                }
             }
 
             return $order;
@@ -2105,14 +2252,19 @@ public function confirmBooking()
         // thanh toán ngay (xem processPackagePayment()). Re-check lại package NGAY TẠI ĐÂY (không
         // tin property $usePackage/kết quả getAvailablePackage() gọi TRƯỚC KHI vào transaction) —
         // buổi có thể vừa bị dùng hết bởi request khác chen giữa lúc khách đang điền form.
-        if ($this->usePackage) {
+        if ($packageBreakdown) {
             $package = $this->getAvailablePackage();
-            $slotCount = $order->items()->where('product_id', $this->product->id)->count();
 
-            if ($package && $package->sessions_remaining >= $slotCount) {
-                $this->processPackagePayment($order, $package);
-                return;
-            }
+            if ($package && $this->redeemPackageForOrder($order, $package, $coveredItemIds)) {
+                // Trả hoàn toàn bằng gói (không còn khoản tiền nào) → đơn đã thanh toán ngay; còn tiền (khung vượt gói, dịch vụ, HLV...) → thanh toán như đơn thường.
+                if ((int) $order->amount <= 0) {
+                    return $this->finishPackageOnlyOrder($order, count($coveredItemIds));
+                }
+                $this->dispatch('notify', [
+                    'message' => 'Đã giữ ' . count($coveredItemIds) . ' buổi trong gói; vui lòng thanh toán phần còn lại để hoàn tất đặt sân.',
+                    'type'    => 'success',
+                ]);
+            } else {
 
             // Gói không còn đủ buổi (vd bị dùng hết ở tab/thiết bị khác) — KHÔNG âm thầm chuyển
             // sang PayOS thu tiền thật thay thế (khách không có ý định trả tiền), huỷ đơn vừa tạo
@@ -2124,6 +2276,7 @@ public function confirmBooking()
                 'type'    => 'error',
             ]);
             return;
+            }
         }
 
         if ($effectivePaymentMethod === 'bank_transfer') {
@@ -2389,39 +2542,43 @@ public function confirmBooking()
      * Redeem TRONG transaction + lockForUpdate() để 2 request cùng lúc (khách mở 2 tab, hoặc admin
      * đang xử lý) không thể cùng trừ vượt quá sessions_remaining.
      */
-    protected function processPackagePayment($order, \App\Models\CustomerPackage $package)
+    /**
+     * Trừ buổi trong gói cho đúng các order_item được gói chi trả — TRONG transaction + lockForUpdate() để 2 request cùng lúc không
+     * thể cùng trừ vượt sessions_remaining. Đơn chưa thanh toán mà hết hạn / thất bại sẽ được trả buổi lại (xem OrderObserver).
+     *
+     * @param  list<int>  $itemIds
+     */
+    protected function redeemPackageForOrder($order, \App\Models\CustomerPackage $package, array $itemIds): bool
     {
         try {
-            \Illuminate\Support\Facades\DB::transaction(function () use ($order, $package) {
+            \Illuminate\Support\Facades\DB::transaction(function () use ($order, $package, $itemIds) {
                 $locked = \App\Models\CustomerPackage::whereKey($package->id)->lockForUpdate()->firstOrFail();
+                $items = $order->items()->whereIn('id', $itemIds)->get();
 
-                $items = $order->items()->where('product_id', $this->product->id)->get();
-
-                if ($locked->sessions_remaining < $items->count()) {
+                if ($items->count() !== count($itemIds) || $locked->sessions_remaining < $items->count()) {
                     throw new \RuntimeException('PACKAGE_INSUFFICIENT');
                 }
 
                 foreach ($items as $item) {
                     $locked->redeem($item, $order);
                 }
-
-                $order->update(['status' => 'paid', 'paid_at' => now()]);
             });
         } catch (\Throwable $e) {
-            // Hết buổi ngay trong lúc xử lý (race condition hiếm) — huỷ đơn vừa tạo, KHÔNG để đơn
-            // treo ở trạng thái 'pending' không ai xử lý (khác PayOS timeout tự hết hạn sau 15p).
-            $order->delete();
-            Log::warning('processPackagePayment failed', ['order_id' => $order->id, 'error' => $e->getMessage()]);
-            $this->dispatch('close-booking-modal');
-            $this->dispatch('notify', [
-                'message' => 'Gói của bạn không còn đủ buổi. Vui lòng thử lại hoặc thanh toán trực tiếp.',
-                'type'    => 'error',
-            ]);
-            return;
+            Log::warning('redeemPackageForOrder failed', ['order_id' => $order->id, 'error' => $e->getMessage()]);
+
+            return false;
         }
 
+        return true;
+    }
+
+    // Đơn trả HOÀN TOÀN bằng gói (không còn khoản tiền mặt nào): đánh dấu đã thanh toán ngay, không qua PayOS / QR.
+    protected function finishPackageOnlyOrder($order, int $sessions)
+    {
+        $order->update(['status' => 'paid', 'paid_at' => now()]);
+
         $this->dispatch('notify', [
-            'message' => 'Đặt sân thành công — đã trừ ' . $order->items()->where('product_id', $this->product->id)->count() . ' buổi trong gói.',
+            'message' => 'Đặt sân thành công — đã trừ ' . $sessions . ' buổi trong gói.',
             'type'    => 'success',
         ]);
 
@@ -2465,12 +2622,51 @@ public function confirmBooking()
 
             return redirect()->to($paymentLink['checkoutUrl'] ?? $paymentLink['data']['checkoutUrl']);
         } catch (\Throwable $th) {
+            Log::error('processPayOSPayment error', ['order_code' => $order->order_code, 'partner_id' => $order->partner_id, 'error' => $th->getMessage()]);
+
+            $partner = $this->product->partner;
+
+            // Cổng PayOS không dùng được (chưa cấu hình / khoá sai / kênh tạm dừng): nếu đối tác có sẵn tài khoản ngân hàng thì chuyển luôn
+            // đơn sang chuyển khoản (trang tra cứu đơn hiện mã QR + chỗ gửi biên lai) thay vì để khách bị kẹt ở thông báo lỗi.
+            if ($partner?->hasBankTransferInfo()) {
+                $order->update(['payment_method' => 'bank_transfer', 'expired_at' => now()->addMinutes(60)]);
+                $this->notifyPaymentGatewayProblem($order, $th->getMessage(), true);
+                $this->dispatch('notify', ['message' => 'Cổng thanh toán trực tuyến đang tạm gián đoạn — đơn được chuyển sang thanh toán bằng chuyển khoản.', 'type' => 'warning']);
+
+                return redirect()->to(route('booking.detail', ['code' => $order->order_code]));
+            }
+
             $order->update(['status' => 'failed']);
-            Log::error('processPayOSPayment error', ['error' => $th->getMessage()]);
-            $this->dispatch('notify', [
-                'message' => 'Lỗi thanh toán, vui lòng thử lại.',
-                'type' => 'error'
-            ]);
+            $this->notifyPaymentGatewayProblem($order, $th->getMessage(), false);
+
+            $message = 'Sân này tạm thời chưa nhận được thanh toán trực tuyến. Vui lòng thử lại sau hoặc liên hệ chủ sân để được hỗ trợ đặt sân.';
+            $this->bookingConfirmError = $message;
+            $this->dispatch('notify', ['message' => $message, 'type' => 'error']);
+        }
+    }
+
+    // Báo cho chủ đối tác / nhân viên của sân và quản trị nền tảng biết thanh toán trực tuyến đang lỗi để kịp cấu hình lại (chỉ báo 1 lần / 10 phút / đối tác).
+    protected function notifyPaymentGatewayProblem($order, string $reason, bool $fellBackToBankTransfer): void
+    {
+        try {
+            if (! \Illuminate\Support\Facades\Cache::add('payos-problem-notified:' . $order->partner_id, 1, now()->addMinutes(10))) {
+                return;
+            }
+
+            $users = \App\Models\User::query()
+                ->where(fn ($q) => $q->where('partner_id', $order->partner_id)->whereHas('roles', fn ($r) => $r->where('name', 'partner')))
+                ->orWhereHas('roles', fn ($r) => $r->where('name', config('filament-shield.super_admin.name')))
+                ->get();
+
+            \Filament\Notifications\Notification::make()
+                ->title('Thanh toán trực tuyến (PayOS) đang lỗi')
+                ->body("Đơn #{$order->order_code} không tạo được link thanh toán: {$reason}. "
+                    . ($fellBackToBankTransfer ? 'Đơn đã được chuyển sang chuyển khoản. ' : 'Khách không đặt được sân. ')
+                    . 'Vui lòng kiểm tra khoá PayOS hoặc chọn hình thức chuyển khoản trong hồ sơ đối tác.')
+                ->danger()
+                ->sendToDatabase($users);
+        } catch (\Throwable $e) {
+            Log::warning('notifyPaymentGatewayProblem failed: ' . $e->getMessage());
         }
     }
 

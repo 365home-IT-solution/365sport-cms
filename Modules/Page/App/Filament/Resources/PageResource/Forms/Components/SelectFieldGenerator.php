@@ -212,6 +212,10 @@ class SelectFieldGenerator
         $field = Select::make("config_values.{$config->id}")
             ->label($config->label)
             ->options(function () use ($isGroup) {
+                if (! class_exists(PricingGroup::class) || ! class_exists(PricingType::class)) {
+                    return []; // module Pricing không có trong dự án này
+                }
+
                 return $isGroup
                     ? PricingGroup::query()->pluck('name', 'id')
                     : PricingType::query()->pluck('name', 'id');

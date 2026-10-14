@@ -750,6 +750,12 @@
                 </div>
 
                 {{-- Footer --}}
+                @if(($order['cancel_request_status'] ?? null) === 'rejected' && ! $order['is_cancelled'])
+                <div class="mt-3 text-xs text-red-700 bg-red-50 border border-red-100 rounded-lg px-3 py-2">
+                    Yêu cầu huỷ đơn không được chấp nhận.
+                    @if(! empty($order['cancel_request_note'])) Lý do: {{ $order['cancel_request_note'] }} @endif
+                </div>
+                @endif
                 <div class="flex items-center justify-between mt-3 pt-3 border-t border-gray-50">
                     <span class="text-sm font-bold" style="color: {{ $primaryHex }};">
                         {{ number_format($order['amount'], 0, ',', '.') }}đ
@@ -759,17 +765,21 @@
                              Order::canBeCancelledByCustomer(). wire:confirm dùng dialog xác
                              nhận gốc của trình duyệt (Livewire 3), đủ dùng cho thao tác 1 lần,
                              không cần dựng modal riêng như trang tra cứu đơn (Blade thuần). --}}
-                        @if($order['can_cancel'])
+                        @if(($order['cancel_request_status'] ?? null) === 'pending' && ! $order['is_cancelled'])
+                        <span class="inline-flex items-center gap-1 text-xs font-medium text-amber-700 bg-amber-50 px-2.5 py-1.5 rounded-lg">
+                            Đang chờ duyệt huỷ
+                        </span>
+                        @elseif(! empty($order['can_request_cancel']))
                         <button
                             type="button"
-                            wire:click="cancelOrder({{ $order['id'] }})"
-                            wire:confirm="Huỷ đơn {{ $order['order_code'] }}? Bạn sẽ nhận lại đúng {{ number_format($order['cancel_refund_amount'], 0, ',', '.') }}đ, tương đương 70% số tiền đã thanh toán. 30% còn lại là phí huỷ và xử lý. Không thể hoàn tác."
+                            wire:click="requestCancelOrder({{ $order['id'] }})"
+                            wire:confirm="{{ !empty($order['paid_by_package']) ? 'Gửi yêu cầu huỷ đơn ' . $order['order_code'] . '? Đơn trả bằng gói nên không hoàn tiền; nếu được duyệt, ' . $order['package_sessions'] . ' buổi sẽ được trả lại vào gói của bạn. Đơn vẫn được giữ cho tới khi quản trị viên duyệt.' : 'Gửi yêu cầu huỷ đơn ' . $order['order_code'] . '? Nếu được duyệt, bạn sẽ nhận lại ' . number_format($order['cancel_refund_amount'], 0, ',', '.') . 'đ, tương đương ' . $order['cancel_refund_percent'] . '% số tiền đã thanh toán; phần còn lại là phí huỷ theo chính sách của chi nhánh. Đơn vẫn được giữ cho tới khi quản trị viên duyệt.' }}"
                             class="inline-flex items-center gap-1 text-xs font-medium text-red-600 hover:text-red-700 transition-colors px-2.5 py-1.5 rounded-lg hover:bg-red-50"
                         >
                             <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
                             </svg>
-                            Huỷ đơn
+                            {{ ($order['cancel_request_status'] ?? null) === 'rejected' ? 'Gửi lại yêu cầu huỷ' : 'Xin huỷ đơn' }}
                         </button>
                         @endif
                         <a

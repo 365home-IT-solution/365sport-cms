@@ -29,7 +29,8 @@ class AuditLogger
     ): void {
         $user = auth()->user();
 
-        if (! $user) {
+        // Chỉ ghi nhật ký cho tài khoản quản trị (User). Khách hàng (Customer) thao tác qua API không có vai trò/nhật ký quản trị.
+        if (! $user instanceof \App\Models\User) {
             return;
         }
 

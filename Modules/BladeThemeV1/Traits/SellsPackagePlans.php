@@ -55,6 +55,12 @@ trait SellsPackagePlans
             return null;
         }
 
+        if (! ($representativeProduct->partner?->hasUsablePaymentMethod() ?? true)) {
+            $this->dispatch('notify', ['message' => \App\Models\Partner::PAYMENT_NOT_READY_MESSAGE, 'type' => 'error']);
+
+            return null;
+        }
+
         $paymentMethod = $this->resolveEffectivePaymentMethodFor($representativeProduct);
 
         $order = Order::create([

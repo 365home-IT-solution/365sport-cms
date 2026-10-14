@@ -181,7 +181,10 @@ class Dashboard extends FilamentDashboard
         $commissionUser = auth()->user();
         $commissionIsSuperAdmin = $commissionUser?->isSuperAdmin() ?? false;
 
-        if ($commissionIsSuperAdmin) {
+        if (! config('features.settlement', false)) {
+            // Đối soát hoa hồng đang tắt (config/features.php): không hiện khối hoa hồng trên Dashboard.
+            $commission = null;
+        } elseif ($commissionIsSuperAdmin) {
             // super_admin: thấy hoa hồng của TẤT CẢ đối tác.
             $commission = $this->getCommissionData($this->commissionMonth, $this->commissionYear);
         } elseif ($commissionUser?->isPartnerOwner() && $commissionUser->partner_id) {

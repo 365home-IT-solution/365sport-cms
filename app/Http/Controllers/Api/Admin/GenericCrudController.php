@@ -90,7 +90,7 @@ class GenericCrudController extends Controller
 
         try {
             /** @var Model $model */
-            $model = ($def['model'])::create($data);
+            $model = isset($def['fields']) ? $this->forceCreate($def['model'], $data) : ($def['model'])::create($data);
         } catch (QueryException $e) {
             return $this->integrity($e);
         }
@@ -116,7 +116,7 @@ class GenericCrudController extends Controller
         }
 
         try {
-            $model->update($data);
+            isset($def['fields']) ? $model->forceFill($data)->save() : $model->update($data);
         } catch (QueryException $e) {
             return $this->integrity($e);
         }
@@ -182,6 +182,15 @@ class GenericCrudController extends Controller
         }
 
         return $query->findOrFail($id);
+    }
+
+    /** Với model không khai báo $fillable (def['fields']): ghi thẳng các cột đã được validate. */
+    private function forceCreate(string $class, array $data): Model
+    {
+        $model = new $class;
+        $model->forceFill($data)->save();
+
+        return $model;
     }
 
     private function isPartnerScoped(array $def): bool
@@ -292,7 +301,7 @@ class GenericCrudController extends Controller
         $forceOptional = $def['optional'] ?? [];
         $rules = [];
 
-        foreach ($model->getFillable() as $field) {
+        foreach ($def['fields'] ?? $model->getFillable() as $field) {
             if (in_array($field, $skip, true) || ! isset($columns[$field])) {
                 continue;
             }
@@ -343,7 +352,10 @@ class GenericCrudController extends Controller
             $rules[$field] = is_callable($override) ? $override($partial) : $override;
         }
         foreach ($def['files'] ?? [] as $field => $dir) {
-            $rules[$field] = ['sometimes', 'nullable', 'file', 'image', 'max:8192'];
+            // Tài nguyên có thể tự khai báo luật riêng cho file (vd ảnh bắt buộc khi tạo) — không ghi đè luật đó.
+            if (! isset($def['rules'][$field])) {
+                $rules[$field] = ['sometimes', 'nullable', 'file', 'image', 'max:8192'];
+            }
         }
 
         return $rules;

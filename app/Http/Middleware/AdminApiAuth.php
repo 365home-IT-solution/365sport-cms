@@ -38,9 +38,23 @@ class AdminApiAuth
         'chat' => 'page_CustomerChat',
         'dashboard' => 'page_Dashboard', 'reports' => 'page_Dashboard',
         'coaches' => 'product',
+        'refunds' => 'page_PendingRefunds',
+        'attendance' => 'employee::attendance', 'payroll' => 'payroll::period', 'partner-settlements' => 'partner::settlement', 'transactions' => 'order', 'users' => 'user', 'roles' => 'shield::role', 'fcm-notifications' => 'notification::fcm', 'ratings' => 'room::rating', 'loyalty' => 'loyalty::transaction', 'invoice-requests' => 'invoice::request', 'tournaments' => 'tournament', 'player-skills' => 'player::skill::level', 'payment-setup' => 'page_PaymentSetup',
         'cameras' => 'product', 'camera-alerts' => 'product', 'camera-settings' => 'product',
         'time-slots' => 'product',
     ];
+
+    /** Mỗi nhóm cấu hình tương ứng một trang Filament với quyền 'page_X' riêng. */
+    private function settingsPermission(string $group): ?string
+    {
+        return match ($group) {
+            'general' => 'page_ManageGeneral',
+            'mail' => 'page_ManageMail',
+            'google-login' => 'page_GoogleLoginSettings',
+            'directions' => 'page_DirectionsSettings',
+            default => null,
+        };
+    }
 
     public function handle(Request $request, Closure $next): Response
     {
@@ -71,6 +85,11 @@ class AdminApiAuth
             return $next($request);
         }
 
+        // Nhân viên tự chấm công/xem công của mình: chỉ cần đăng nhập, controller tự tìm hồ sơ nhân sự gắn với tài khoản.
+        if ($group === 'attendance' && in_array($segments[3] ?? '', ['me', 'check-in', 'check-out'], true)) {
+            return $next($request);
+        }
+
         // Filament chặn tính năng ngoài gói dịch vụ của đối tác (canViewAny → partnerHasFeature) —
         // API phải chặn tương đương, nếu không đối tác vẫn gọi được tính năng mình chưa mua.
         $feature = match (true) {
@@ -92,11 +111,20 @@ class AdminApiAuth
                 'stock-checks' => 'warehouse::stock::check',
                 default => null,
             }
-            : (self::RESOURCES[$group] ?? \App\Support\AdminCrud\CrudRegistry::permission($group));
+            : (self::RESOURCES[$group] ?? ($group === 'settings' ? $this->settingsPermission($segments[3] ?? '') : \App\Support\AdminCrud\CrudRegistry::permission($group)));
         if ($resource === null) {
             return response()->json([
                 'message' => 'Forbidden: this admin API has no configured permission.',
             ], 403);
+        }
+
+        // Màn hình dạng "trang" của Filament (Dashboard, Chat khách hàng, Hoàn tiền chờ xử lý...) chỉ có MỘT quyền duy nhất
+        // tên 'page_X' (không có view_any_/create_/update_/delete_). Trước đây vẫn ghép 'view_any_page_X' — quyền không tồn
+        // tại nên mọi tài khoản không phải super_admin đều bị 403 ở các API này.
+        if (str_starts_with($resource, 'page_')) {
+            return $user->can($resource)
+                ? $next($request)
+                : response()->json(['message' => 'Forbidden.'], 403);
         }
 
         $ability = match ($request->method()) {

@@ -18,9 +18,9 @@ use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 
 /**
- * ĐĂNG KÝ ĐỐI TÁC = MUA GÓI (không hồ sơ giấy tờ/hợp đồng). Khách chọn gói + số tháng (+ trang landing nếu muốn), nhập thông tin
- * liên hệ → hệ thống tạo hồ sơ chờ duyệt (lần đầu được tặng dùng thử) hoặc đơn thanh toán PayOS (QR/link). Thanh toán xong (webhook
- * PayOS hoặc Super Admin xác nhận) hoặc Super Admin duyệt → kích hoạt gói, tạo tài khoản chủ đối tác và gửi email đăng nhập.
+ * ĐĂNG KÝ ĐỐI TÁC (không hồ sơ giấy tờ/hợp đồng, không chọn gói): khách chỉ nhập thông tin liên hệ → hồ sơ chờ Super Admin duyệt →
+ * duyệt xong: tặng tháng đầu dùng thử (nếu đủ điều kiện), tạo tài khoản chủ đối tác và gửi email đăng nhập. Hết thời gian dùng thử,
+ * đối tác tự chọn gói và thanh toán trong trang quản trị (Gói dịch vụ).
  *
  * GET  /api/public/partner-plans            → gói đang bán + các kỳ mua và số tiền
  * POST /api/public/partner-purchase         → đăng ký / tạo đơn mua gói → {purchase_token, stage, payment...}
@@ -59,9 +59,6 @@ class PartnerPurchaseController extends Controller
     public function purchase(Request $request): JsonResponse
     {
         $data = $request->validate([
-            'plan_id'               => ['nullable', 'integer', 'exists:partner_plans,id'],
-            'periods'               => ['nullable', 'integer', Rule::in(config('subscription.period_options', [1, 3, 6, 9, 12]))],
-            'landing_addon'         => ['nullable', 'boolean'],
             'full_name'             => ['required', 'string', 'max:255'],
             'phone'                 => ['required', 'string', 'regex:/^(0|\+84)[0-9]{9}$/'],
             'email'                 => ['required', 'email', 'max:255'],
@@ -80,31 +77,17 @@ class PartnerPurchaseController extends Controller
             'address.required_without'        => 'Vui lòng nhập địa chỉ.',
         ], PartnerOnboardingService::LABELS);
 
-        // Đăng ký lần đầu (được tặng dùng thử) không cần chọn gói: dùng gói mặc định/đầu tiên đang bán.
-        $plan = filled($data['plan_id'] ?? null) ? PartnerPlan::query()->findOrFail($data['plan_id']) : $this->onboarding->defaultPlan();
-        abort_if(! $plan, 422, 'Chưa có gói đang bán. Vui lòng liên hệ ' . config('app.name') . '.');
-        abort_unless($plan->is_active, 422, 'Gói này hiện không được bán.');
-        $data['periods'] = (int) ($data['periods'] ?? 1);
-        $landing = (bool) ($data['landing_addon'] ?? false);
-        abort_if($landing && ! $plan->sellsLandingAddon(), 422, 'Gói này không bán thêm trang landing (đã gồm sẵn hoặc chưa mở bán).');
-
+        // Đăng ký CHỈ nhập thông tin (không chọn gói, không thanh toán): hồ sơ chờ Super Admin duyệt; duyệt xong mới tặng tháng đầu (nếu đủ điều kiện)
+        // và gửi tài khoản đăng nhập. Hết thời gian dùng thử, đối tác tự chọn gói và thanh toán trong trang quản trị (Gói dịch vụ).
         $data['address'] = $this->onboarding->composeAddress($data);
         $result = $this->onboarding->createPurchasePartner($data);
-
-        // Lần đầu (đủ điều kiện tặng dùng thử): chỉ XÁC NHẬN ĐĂNG KÝ — ghi nhận gói khách chọn, KHÔNG tạo đơn thanh toán/QR; Super Admin duyệt xong mới tặng dùng thử.
-        // Không đủ điều kiện (đã từng đăng ký / tính năng tắt): tạo đơn thanh toán + QR, phải thanh toán mới được dùng.
         $pendingApproval = $this->onboarding->awaitingSignupApproval($result['partner']);
-        if ($pendingApproval) {
-            $result['partner']->update(['signup_plan_id' => $plan->id, 'signup_periods' => $data['periods'], 'signup_landing_addon' => $landing]);
-            $payment = null;
-        } else {
-            $payment = $this->subscriptions->createCheckout($result['partner'], $plan, $data['periods'], false, 'payos', $landing);
-        }
+        $payment = null;
 
         return response()->json([
             'message' => $pendingApproval
-                ? 'Đã xác nhận đăng ký. Sau khi ' . config('app.name') . ' duyệt, tài khoản dùng thử và mật khẩu sẽ được gửi về email của bạn.'
-                : 'Đã tạo đơn mua gói. Quét QR hoặc mở link để thanh toán; sau khi thanh toán, tài khoản đăng nhập sẽ được gửi về email của bạn.',
+                ? 'Đã xác nhận đăng ký. Sau khi ' . config('app.name') . ' duyệt, tài khoản và mật khẩu sẽ được gửi về email của bạn.'
+                : 'Đã ghi nhận đăng ký. Hồ sơ đã được duyệt trước đó — vui lòng kiểm tra email hoặc liên hệ ' . config('app.name') . '.',
             'data'    => ['purchase_token' => $result['token'], ...$this->status($result['partner']->fresh(), $payment)],
         ], 201);
     }

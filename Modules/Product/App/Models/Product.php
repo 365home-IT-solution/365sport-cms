@@ -116,11 +116,41 @@ class Product extends Model implements HasMedia, Resourceable
             $product->comments()->delete();
         });
 
+        // Đối tác CHƯA thiết lập thanh toán (ngân hàng / PayOS riêng) không được mở bán sân: sân mới tạo mặc định ẩn, và bật lại bị từ chối
+        // cho tới khi thiết lập xong (trang "Thiết lập thanh toán"). Chỉ áp cho tài khoản đối tác / nhân viên; super admin và các tiến trình
+        // nội bộ (seed, lệnh) không bị chặn.
+        static::creating(function ($product) {
+            if (static::paymentSetupRequiredFor($product)) {
+                $product->is_activated = false;
+            }
+        });
+
+        static::updating(function ($product) {
+            if ($product->isDirty('is_activated') && $product->is_activated && static::paymentSetupRequiredFor($product)) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'is_activated' => 'Bạn cần thiết lập thanh toán (Cấu hình → Thiết lập thanh toán) trước khi mở bán sân.',
+                ]);
+            }
+        });
+
         // KHÔNG dùng global scope để ẩn coach khỏi danh sách sân — global scope sẽ chặn LUÔN cả
         // Product::find($id) ở khắp luồng đặt chỗ hiện có (BuildsRoomBooking, RoomController,
         // OrderItem...), phá vỡ đúng mục tiêu "tái dùng nguyên engine đặt chỗ cho coach". Thay vào
         // đó, CHỈ các endpoint LIỆT KÊ/TÌM KIẾM sân cho khách (Home/Search/Branch) tự thêm
         // ->where('type', '!=', 'coach') — xem từng controller đó.
+    }
+
+    // Tài khoản đang thao tác là đối tác / nhân viên của đối tác CHƯA thiết lập thanh toán (xem Partner::hasUsablePaymentMethod()).
+    public static function paymentSetupRequiredFor($product): bool
+    {
+        $user = auth()->user() ?? auth('sanctum')->user();
+        if (! $user instanceof \App\Models\User || $user->isSuperAdmin() || empty($product->partner_id)) {
+            return false;
+        }
+
+        $partner = \App\Models\Partner::query()->find($product->partner_id);
+
+        return $partner !== null && ! $partner->hasUsablePaymentMethod();
     }
 
     public function roomType()

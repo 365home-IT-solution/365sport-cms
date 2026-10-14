@@ -21,12 +21,13 @@ class RatingController extends Controller
             return response()->json(['message' => 'Sân không tồn tại.'], 404);
         }
 
-        $ratings = RoomRating::where('room_id', $roomId)
+        // Đánh giá bị chủ sân ẩn (vi phạm) không hiển thị công khai và không tính vào thống kê.
+        $ratings = RoomRating::where('room_id', $roomId)->visible()
             ->with('customer:id,fullname')
             ->latest()
             ->paginate(10);
 
-        $distribution = RoomRating::where('room_id', $roomId)
+        $distribution = RoomRating::where('room_id', $roomId)->visible()
             ->selectRaw('star, COUNT(*) as count')
             ->groupBy('star')
             ->pluck('count', 'star');
@@ -60,6 +61,8 @@ class RatingController extends Controller
                 'user_name'  => $r->customer?->fullname ?? 'Ẩn danh',
                 'star'       => $r->star,
                 'comment'    => $r->comment,
+                'reply'      => $r->reply,
+                'replied_at' => $r->replied_at?->toISOString(),
                 'created_at' => $r->created_at?->toISOString(),
             ]),
             'meta' => [
@@ -152,10 +155,6 @@ class RatingController extends Controller
 
     private function recalcRatingScore(string $roomId): void
     {
-        $avg = RoomRating::where('room_id', $roomId)->avg('star');
-
-        Product::where('id', $roomId)->update([
-            'rating_score' => $avg !== null ? round((float) $avg, 1) : null,
-        ]);
+        RoomRating::recalcRoomScore($roomId);
     }
 }

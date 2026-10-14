@@ -200,11 +200,33 @@ class EditOrder extends EditRecord
             $staleGuestCccds->delete();
         }
 
+        // Lượt trừ buổi trong gói gắn với order_item — items bị xoá-tạo-lại nên phải nối lại theo đúng thời điểm bắt đầu khung giờ.
+        $redeemedStarts = \App\Models\PackageRedemption::query()
+            ->where('package_redemptions.order_id', $record->id)
+            ->whereNull('package_redemptions.refunded_at')
+            ->join('order_items', 'order_items.id', '=', 'package_redemptions.order_item_id')
+            ->get(['package_redemptions.id as redemption_id', 'order_items.checkin_date'])
+            ->mapWithKeys(fn ($r) => [$r->redemption_id => \Carbon\Carbon::parse($r->checkin_date)->format('Y-m-d H:i:s')])
+            ->all();
+
         $record->items()->delete();
 
         foreach ($expandedItems as $item) {
-            unset($item['id']);
-            $record->items()->create($item);
+            unset($item['id'], $item['package_covered']);
+            $created = $record->items()->create($item);
+
+            if ($redeemedStarts && ! empty($item['checkin_date'])) {
+                $redemptionId = array_search(\Carbon\Carbon::parse($item['checkin_date'])->format('Y-m-d H:i:s'), $redeemedStarts, true);
+                if ($redemptionId !== false) {
+                    \App\Models\PackageRedemption::whereKey($redemptionId)->update(['order_item_id' => $created->id]);
+                    unset($redeemedStarts[$redemptionId]);
+                }
+            }
+        }
+
+        // Đơn dùng gói kết hợp tiền mặt: tiền mặt phải trả luôn bằng tổng đơn sau khi sửa.
+        if ($record->package_cash_amount !== null) {
+            $record->forceFill(['package_cash_amount' => (int) $record->amount])->save();
         }
 
         if (is_array($orderServices)) {

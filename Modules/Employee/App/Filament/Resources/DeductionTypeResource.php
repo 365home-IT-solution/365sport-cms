@@ -16,6 +16,10 @@ use Modules\Employee\Entities\DeductionType;
 // form Nhân viên, không sửa/xoá lại được sau khi tạo.
 class DeductionTypeResource extends Resource
 {
+    use \App\Filament\Support\GatedByFeature;
+
+    protected static string $featureFlag = 'payroll';
+
     protected static ?string $model = DeductionType::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-minus-circle';

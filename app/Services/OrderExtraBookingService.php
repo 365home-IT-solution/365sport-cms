@@ -338,7 +338,14 @@ class OrderExtraBookingService
             return ['error' => 'Không có khoản phát sinh nào đang chờ thanh toán.'];
         }
 
-        $payOSResult = $this->extraCharge->createExtraChargePayOS($order, (int) $order->extra_charge_amount);
+        try {
+            $payOSResult = $this->extraCharge->createExtraChargePayOS($order, (int) $order->extra_charge_amount);
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('Tạo QR khoản phát sinh thất bại', ['order' => $order->order_code, 'error' => $e->getMessage()]);
+
+            // Cổng thanh toán của chủ sân đang lỗi / chưa cấu hình: báo lỗi rõ ràng (502) thay vì 500.
+            return ['error' => 'The payment gateway is unavailable right now. Please try again later or contact the venue.', 'gateway_error' => true];
+        }
 
         return [
             'order_code' => $order->order_code,

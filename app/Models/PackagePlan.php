@@ -89,6 +89,45 @@ class PackagePlan extends Model
         return 'branch';
     }
 
+    /**
+     * Id các chi nhánh (category) đang có bán ít nhất 1 gói nhiều buổi còn hoạt động — dùng để hiện
+     * icon hộp quà trên thẻ sân (components/venues/card.blade.php). Một chi nhánh "có gói" khi có
+     * gói is_active thoả 1 trong: gắn thẳng category_id của chi nhánh (cả "toàn chi nhánh" lẫn
+     * "một số sân trong chi nhánh"), hoặc gắn 1 sân (product_id / product_ids) thuộc chi nhánh đó.
+     * 1 query duy nhất cho cả danh sách, không N+1.
+     *
+     * @param  iterable<\Modules\Category\Entities\Category>  $categories  đã load quan hệ `products`
+     * @return array<int, int>
+     */
+    public static function categoryIdsWithActivePlans(iterable $categories): array
+    {
+        $plans = static::withoutGlobalScopes()
+            ->where('is_active', true)
+            ->get(['category_id', 'product_id', 'product_ids']);
+
+        if ($plans->isEmpty()) {
+            return [];
+        }
+
+        $planCategoryIds = $plans->pluck('category_id')->filter()->map(fn ($id) => (int) $id)->all();
+        $planProductIds  = $plans->flatMap(fn ($p) => array_merge(
+            $p->product_id ? [(string) $p->product_id] : [],
+            array_map('strval', $p->product_ids ?? []),
+        ))->unique()->all();
+
+        $result = [];
+
+        foreach ($categories as $category) {
+            $productIds = $category->products->pluck('id')->map(fn ($id) => (string) $id)->all();
+
+            if (in_array((int) $category->id, $planCategoryIds, true) || array_intersect($productIds, $planProductIds)) {
+                $result[] = (int) $category->id;
+            }
+        }
+
+        return $result;
+    }
+
     // Kiểm tra 1 sân CỤ THỂ có nằm trong phạm vi áp dụng của gói này không — dùng ở mọi nơi khớp
     // gói ↔ sân đang xem (Book::getAvailablePackagePlans(), ProductDetail::buyPackage()...), thay
     // vì mỗi nơi tự viết lại 3 nhánh if/else dễ lệch nhau.

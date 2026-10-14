@@ -437,10 +437,13 @@ class SettingBook extends Page implements HasForms
     {
         $rooms = Product::whereIn('id', $this->currentRoomIds())->orderBy('name')->get();
 
-        // Chỉ super_admin được xem/sửa Khung giờ, giá và Thiết lập khuyến mãi — các role khác chỉ
-        // được thao tác trên Thông tin Sân, nên 2 section thiết lập giá/khuyến mãi theo khung giờ
-        // (buildSlotRoomTab) và theo ngày (buildDayRoomTab) bị ẩn hẳn khỏi form với các role khác.
-        $isSuperAdmin = (bool) auth()->user()?->isSuperAdmin();
+        // Khung giờ, giá và Thiết lập khuyến mãi: super_admin và tài khoản có quyền `update_book`
+        // (role đối tác có sẵn) được xem/sửa — đối tác tự quản giá sân của mình. Phạm vi sân đã bị
+        // giới hạn theo đối tác ở baseProductQuery()/allowedProductIds() và ở save(). Các công cụ
+        // ảnh hưởng nhiều sân (đổi giá hàng loạt, lịch sử giá toàn cục) vẫn chỉ super_admin — xem
+        // getHeaderActions().
+        $user         = auth()->user();
+        $isSuperAdmin = (bool) ($user?->isSuperAdmin() || $user?->can('update_book'));
 
         $buildSlotRoomTab = function ($product) use ($isSuperAdmin) {
             $schema = [
@@ -886,6 +889,11 @@ class SettingBook extends Page implements HasForms
                         }
 
                         foreach ($roomData['roomTimeSlots'] as $slot) {
+                            // Bỏ qua dòng trống (chưa chọn khung giờ) — timeslot_id là NOT NULL.
+                            if (empty($slot['timeslot_id'])) {
+                                continue;
+                            }
+
                             $slotData = [
                                 'room_id' => $productId,
                                 'timeslot_id' => $slot['timeslot_id'],

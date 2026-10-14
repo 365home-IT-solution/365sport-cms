@@ -56,9 +56,13 @@ trait PropertiesProductDetail
     public bool $usePackage = false;
 
     // Auth-prefill: set server-side via prefillFromAuth(), never trust client-set values
+    #[\Livewire\Attributes\Locked]
     public bool    $isAuthUser    = false;
+    #[\Livewire\Attributes\Locked]
     public ?string $authUserId    = null; // UUID of authenticated customer
+    #[\Livewire\Attributes\Locked]
     public string  $authCccdFront = '';   // stored path from customer profile
+    #[\Livewire\Attributes\Locked]
     public string  $authCccdBack  = '';   // stored path from customer profile
 
     // Lỗi phát sinh trong confirmBooking() (CCCD không hợp lệ, chưa đủ tuổi, v.v.) — hiển thị

@@ -95,6 +95,7 @@
              "Đã đặt" để khách không nhầm là sân đông khách, chỉ là giờ đã trôi qua không đặt được
              nữa (xem giải thích đầy đủ ở book/_styles.blade.php). --}}
         <span class="book-tl-legend-item"><span class="book-tl-swatch book-tl-swatch-expired"></span>Hết giờ</span>
+        <span class="book-tl-legend-item"><span class="book-tl-swatch book-tl-swatch-expired-booked"></span>Hết giờ (đã có đơn)</span>
         <span class="book-tl-legend-item"><span class="book-tl-swatch book-tl-swatch-selected"></span>Đang chọn</span>
         {{-- Trước đây ô có khuyến mãi (class "promo" của book/_slot-cell.blade.php, viền lóe màu
              chạy quanh ô) không có chú thích nào giải thích — người dùng không biết dựa vào đâu để
@@ -212,9 +213,12 @@
         .book-tl-legend-item { display: inline-flex; align-items: center; gap: .4rem; }
         .book-tl-swatch { width: 14px; height: 14px; border-radius: 4px; display: inline-block; border: 1px solid #d1d5db; }
         .book-tl-swatch-free { background: #fff; }
-        .book-tl-swatch-booked { background: #ef4444; border-color: #ef4444; }
+        /* Đúng màu ô .selectable.booked thật (var(--color-primary), xem book/_styles.blade.php) —
+           trước đây chú thích vẽ đỏ trong khi ô thật màu xanh, lại gần giống "Hết giờ" (đỏ nhạt). */
+        .book-tl-swatch-booked { background: var(--color-primary, #15803d); border-color: var(--color-primary, #15803d); }
         .book-tl-swatch-locked { background: #9ca3af; border-color: #9ca3af; }
-        .book-tl-swatch-expired { background: #fecaca; border-color: #ef4444; }
+        .book-tl-swatch-expired { background: #f3f4f6; border-color: #e5e7eb; }
+        .book-tl-swatch-expired-booked { background: #fecaca; border-color: #ef4444; }
         .book-tl-swatch-selected { background: #86efac; border-color: #16a34a; }
         .book-tl-swatch-promo {
             background: linear-gradient(270deg, #ff0000, #ff9900, #33ff00, #00ffff, #3300ff, #ff00cc, #ff0000);

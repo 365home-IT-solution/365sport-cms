@@ -8,16 +8,16 @@
     @livewire('bladethemev1::drawer-menu')
 
     {{--
-        Đăng ký đối tác = MUA GÓI (port luồng MiniHouse): chọn gói + số tháng (+ trang landing nếu gói bán thêm) → nhập thông tin
-        → (lần đầu) chờ duyệt để được tặng dùng thử, hoặc thanh toán QR PayOS → tài khoản đăng nhập gửi về email.
-        API: GET /api/public/partner-plans, /partner-address; POST /api/public/partner-purchase; GET /api/public/partner-purchase/{mã}.
+        Đăng ký đối tác (luồng MiniHouse): CHỈ nhập thông tin liên hệ — không chọn gói, không thanh toán → chờ duyệt → tài khoản đăng nhập
+        gửi về email, được tặng tháng đầu dùng thử (nếu đủ điều kiện). Hết thời gian dùng thử, đối tác tự chọn gói và thanh toán trong trang quản trị.
+        API: GET /api/public/partner-plans (chỉ lấy số tháng tặng), /partner-address; POST /api/public/partner-purchase; GET /api/public/partner-purchase/{mã}.
         Mã đơn lưu localStorage + ?ma= để quay lại theo dõi; trang tự hỏi lại trạng thái mỗi 5 giây khi đang chờ.
     --}}
     <main class="min-h-screen bg-gray-50 px-4 py-8 sm:px-6" x-data="partnerOnboarding(@js(['goi' => $planSlug, 'ma' => $code]))" x-init="init()" x-cloak>
         <div class="mx-auto max-w-4xl">
             <p class="text-sm font-bold uppercase tracking-widest text-[#0B6B3A]">Dành cho chủ sân</p>
             <h1 class="mt-1 text-3xl font-extrabold text-gray-900">Đăng ký làm đối tác</h1>
-            <p class="mt-2 text-gray-500">Chọn gói, điền thông tin cơ sở — chúng tôi gửi tài khoản quản trị về email của bạn.</p>
+            <p class="mt-2 text-gray-500">Điền thông tin cơ sở — sau khi được duyệt, chúng tôi gửi tài khoản quản trị về email của bạn.<span x-show="trialMonths > 0"> Đăng ký lần đầu được <strong class="text-[#0B6B3A]">tặng <span x-text="trialMonths"></span> tháng dùng thử</strong>, hết thời gian dùng thử mới cần chọn gói và thanh toán.</span></p>
 
             {{-- ===== Đang theo dõi một đơn ===== --}}
             <template x-if="result">
@@ -25,7 +25,7 @@
                     <template x-if="result.stage === 'pending_approval'">
                         <div>
                             <h2 class="text-xl font-bold text-gray-900">Đã nhận đăng ký của bạn</h2>
-                            <p class="mt-2 text-gray-600">Chúng tôi sẽ duyệt hồ sơ và tặng bạn thời gian dùng thử. Tài khoản đăng nhập kèm mật khẩu được gửi về <strong x-text="result.partner.email"></strong> ngay sau khi duyệt.</p>
+                            <p class="mt-2 text-gray-600">Chúng tôi sẽ duyệt hồ sơ và gửi tài khoản đăng nhập cho bạn (đăng ký lần đầu được tặng thời gian dùng thử). Tài khoản đăng nhập kèm mật khẩu được gửi về <strong x-text="result.partner.email"></strong> ngay sau khi duyệt.</p>
                             <p class="mt-3 text-sm text-gray-400">Trang này tự cập nhật; bạn có thể đóng và quay lại bằng liên kết này (đã lưu trên trình duyệt).</p>
                         </div>
                     </template>
@@ -82,40 +82,8 @@
             {{-- ===== Form đăng ký ===== --}}
             <template x-if="!result">
                 <form class="mt-8 space-y-8" @submit.prevent="submit()">
-                    <section>
-                        <h2 class="text-lg font-bold text-gray-900">1. Chọn gói</h2>
-                        <div class="mt-3 grid gap-4" :class="plans.length > 1 ? 'sm:grid-cols-3' : 'max-w-md'">
-                            <template x-for="p in plans" :key="p.id">
-                                <label class="cursor-pointer rounded-2xl border-2 bg-white p-4 transition" :class="form.plan_id === p.id ? 'border-[#0B6B3A] shadow-md' : 'border-gray-200 hover:border-gray-300'">
-                                    <input type="radio" class="sr-only" :value="p.id" x-model.number="form.plan_id" @change="form.landing_addon = false">
-                                    <p class="font-extrabold text-gray-900" x-text="p.name"></p>
-                                    <p class="mt-1 text-xs text-gray-500" x-text="p.description"></p>
-                                    <p class="mt-3"><span class="text-xl font-extrabold text-[#0B6B3A]" x-text="money(p.price_vnd)"></span><span class="text-xs text-gray-400"> / tháng</span></p>
-                                    <p class="mt-1 text-xs text-gray-500" x-text="p.max_branches ? 'Tối đa ' + p.max_branches + ' chi nhánh' : 'Không giới hạn chi nhánh'"></p>
-                                </label>
-                            </template>
-                        </div>
-                        <p class="mt-3 text-sm text-red-600" x-show="errors.plan_id" x-text="first('plan_id')"></p>
-
-                        <div class="mt-4 flex flex-wrap gap-2">
-                            <template x-for="n in periodOptions" :key="n">
-                                <button type="button" @click="form.periods = n" class="rounded-full border px-4 py-1.5 text-sm font-semibold" :class="form.periods === n ? 'border-[#0B6B3A] bg-[#0B6B3A] text-white' : 'border-gray-300 bg-white text-gray-700'" x-text="n + ' tháng'"></button>
-                            </template>
-                        </div>
-
-                        <label class="mt-4 flex items-start gap-2 text-sm text-gray-700" x-show="current() && current().landing_addon.available">
-                            <input type="checkbox" x-model="form.landing_addon" class="mt-0.5 rounded border-gray-300 text-[#0B6B3A]">
-                            <span>Mua kèm <strong>trang landing riêng theo tên miền phụ</strong> của cơ sở (+<span x-text="current() ? money(current().landing_addon.price_vnd) : ''"></span> / kỳ)</span>
-                        </label>
-
-                        <p class="mt-4 rounded-xl bg-[#0B6B3A]/5 px-4 py-3 text-sm text-gray-700" x-show="current()">
-                            Tạm tính: <strong class="text-[#0B6B3A]" x-text="money(total())"></strong>
-                            <span x-show="trialMonths > 0"> — lần đầu đăng ký, sau khi được duyệt bạn được <strong>dùng thử <span x-text="trialMonths"></span> tháng</strong>; chỉ thanh toán khi hết thời gian dùng thử.</span>
-                        </p>
-                    </section>
-
                     <section class="rounded-2xl bg-white p-6 shadow-sm">
-                        <h2 class="text-lg font-bold text-gray-900">2. Thông tin liên hệ</h2>
+                        <h2 class="text-lg font-bold text-gray-900">Thông tin liên hệ</h2>
                         <div class="mt-4 grid gap-4 sm:grid-cols-2">
                             <div><label class="text-sm font-semibold text-gray-700">Họ tên người đăng ký *</label><input type="text" x-model="form.full_name" class="mt-1 w-full rounded-xl border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-900 focus:border-[#0B6B3A] focus:outline-none focus:ring-1 focus:ring-[#0B6B3A]" maxlength="255"><p class="mt-1 text-xs text-red-600" x-show="errors.full_name" x-text="first('full_name')"></p></div>
                             <div><label class="text-sm font-semibold text-gray-700">Số điện thoại *</label><input type="tel" x-model="form.phone" inputmode="tel" class="mt-1 w-full rounded-xl border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-900 focus:border-[#0B6B3A] focus:outline-none focus:ring-1 focus:ring-[#0B6B3A]" placeholder="0901234567"><p class="mt-1 text-xs text-red-600" x-show="errors.phone" x-text="first('phone')"></p></div>
@@ -130,7 +98,7 @@
                             <div class="sm:col-span-2"><label class="text-sm font-semibold text-gray-700">Số nhà, tên đường *</label><input type="text" x-model="form.address_street" class="mt-1 w-full rounded-xl border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-900 focus:border-[#0B6B3A] focus:outline-none focus:ring-1 focus:ring-[#0B6B3A]" maxlength="255"><p class="mt-1 text-xs text-red-600" x-show="errors.address_street || errors.address" x-text="first('address_street') || first('address')"></p></div>
                         </div>
                         <p class="mt-4 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700" x-show="message" x-text="message"></p>
-                        <button type="submit" :disabled="loading || !form.plan_id" class="mt-6 w-full rounded-full bg-[#0B6B3A] py-3 text-sm font-bold text-white hover:bg-[#095c31] disabled:opacity-50 sm:w-auto sm:px-10">
+                        <button type="submit" :disabled="loading" class="mt-6 w-full rounded-full bg-[#0B6B3A] py-3 text-sm font-bold text-white hover:bg-[#095c31] disabled:opacity-50 sm:w-auto sm:px-10">
                             <span x-show="!loading">Đăng ký</span><span x-show="loading">Đang gửi...</span>
                         </button>
                     </section>
@@ -144,26 +112,18 @@
     <script>
         function partnerOnboarding(init) {
             return {
-                plans: [], provinces: [], wards: [], periodOptions: @js(config('subscription.period_options')), trialMonths: 0,
-                form: { plan_id: null, periods: 1, landing_addon: false, full_name: '', phone: '', email: '', business_name: '', address_street: '', address_province_code: '', address_ward_code: '' },
+                provinces: [], wards: [], trialMonths: 0,
+                form: { full_name: '', phone: '', email: '', business_name: '', address_street: '', address_province_code: '', address_ward_code: '' },
                 errors: {}, message: '', loading: false, result: null, timer: null, token: null,
                 async init() {
                     const get = async (u) => (await fetch(u, { headers: { Accept: 'application/json' } })).json();
                     try {
                         const [plans, provinces] = await Promise.all([get('/api/public/partner-plans'), get('/api/public/partner-address')]);
-                        this.plans = plans.data || []; this.trialMonths = (plans.meta && plans.meta.signup_trial_months) || 0; this.provinces = provinces.data || [];
-                    } catch (e) { this.message = 'Không tải được danh sách gói. Vui lòng thử lại.'; }
-                    const wanted = this.plans.find(p => p.slug === init.goi);
-                    this.form.plan_id = wanted ? wanted.id : (this.plans.find(p => p.is_highlighted) || this.plans[0] || {}).id || null;
+                        this.trialMonths = (plans.meta && plans.meta.signup_trial_months) || 0; this.provinces = provinces.data || [];
+                    } catch (e) { this.message = 'Không tải được dữ liệu form. Vui lòng thử lại.'; }
                     let saved = null; try { saved = localStorage.getItem('partner_purchase_token'); } catch (e) {}
                     const token = init.ma || saved;
                     if (token) { this.token = token; await this.refresh(true); }
-                },
-                current() { return this.plans.find(p => p.id === this.form.plan_id); },
-                total() {
-                    const p = this.current(); if (!p) return 0;
-                    const o = p.periods.find(x => x.periods === this.form.periods) || p.periods[0];
-                    return this.form.landing_addon && o.amount_with_landing_vnd ? o.amount_with_landing_vnd : o.amount_vnd;
                 },
                 money(v) { return new Intl.NumberFormat('vi-VN').format(v || 0) + 'đ'; },
                 dateOf(iso) { return iso ? new Date(iso).toLocaleDateString('vi-VN') : ''; },
@@ -177,7 +137,7 @@
                 async submit() {
                     this.loading = true; this.errors = {}; this.message = '';
                     try {
-                        const res = await fetch('/api/public/partner-purchase', { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify({ ...this.form, landing_addon: !!this.form.landing_addon }) });
+                        const res = await fetch('/api/public/partner-purchase', { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify(this.form) });
                         const json = await res.json();
                         if (res.status === 422) { this.errors = json.errors || {}; this.message = json.message || 'Vui lòng kiểm tra lại thông tin.'; return; }
                         if (res.status === 429) { this.message = 'Bạn thao tác quá nhanh, vui lòng thử lại sau ít phút.'; return; }

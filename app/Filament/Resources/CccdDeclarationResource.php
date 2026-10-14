@@ -72,7 +72,7 @@ class CccdDeclarationResource extends Resource
 
     public static function canViewAny(): bool
     {
-        return auth()->user()?->can('view_any_cccd::declaration') ?? false;
+        return config('features.lodging') && (auth()->user()?->can('view_any_cccd::declaration') ?? false);
     }
 
     public static function form(Form $form): Form

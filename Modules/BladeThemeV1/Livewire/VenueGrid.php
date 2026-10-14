@@ -89,7 +89,7 @@ class VenueGrid extends Component
     {
         $typeSlug = $this->activeType;
 
-        $this->venues = ProvinceBranch::query()
+        $categories = ProvinceBranch::query()
             ->where('status', true)
             ->whereHas('category', fn ($q) => $q->where('status', true))
             ->when($this->activeProvinceId, fn ($q, $provinceId) => $q->where('province_id', $provinceId))
@@ -111,7 +111,13 @@ class VenueGrid extends Component
             ->unique('id')
             ->sortBy('sort_order')
             ->take(24)
-            ->map(function ($category) {
+            ->values();
+
+        // Chi nhánh có bán gói nhiều buổi → thẻ sân hiện icon hộp quà (xem venues/card.blade.php).
+        $withPackages = array_flip(\App\Models\PackagePlan::categoryIdsWithActivePlans($categories));
+
+        $this->venues = $categories
+            ->map(function ($category) use ($withPackages) {
                 $product = $category->products->first();
 
                 return [
@@ -129,6 +135,7 @@ class VenueGrid extends Component
                     // /api/wishlist/{id}/toggle vốn hoạt động ở cấp SÂN, không có khái niệm "yêu
                     // thích 1 chi nhánh" riêng — xem components/venues/card.blade.php).
                     'product_id' => $product->id ?? null,
+                    'has_package' => isset($withPackages[$category->id]),
                 ];
             })
             ->values()

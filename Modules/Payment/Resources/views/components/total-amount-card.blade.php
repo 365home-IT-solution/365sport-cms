@@ -54,6 +54,7 @@
                 'price'          => $finalPrice,
                 'original_price' => $originalPrice,
                 'promo_pct'      => $originalPrice > $finalPrice ? round((1 - $finalPrice / $originalPrice) * 100) : 0,
+                'package'        => ! empty($item['package_covered']),
             ];
         }
 
@@ -436,9 +437,13 @@
                                 -{{ $detail['promo_pct'] }}%
                             </span>
                             @endif
+                            @if(! empty($detail['package']))
+                            <span style="font-size:0.72rem; font-weight:700; color:#15803d; background:#dcfce7; border-radius:0.25rem; padding:0.1rem 0.4rem;">Dùng 1 buổi trong gói</span>
+                            @else
                             <span style="font-size:0.75rem; font-weight:700; color:var(--boulder-20, #272B35);">
                                 {{ number_format($detail['price'], 0, ',', '.') }} đ
                             </span>
+                            @endif
                         </span>
                     </div>
                     @endforeach

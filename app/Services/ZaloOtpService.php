@@ -74,6 +74,14 @@ class ZaloOtpService
         return $phone;
     }
 
+    private function isZaloConfigured(): bool
+    {
+        return filled(config('zalo.app_id'))
+            && filled(config('zalo.app_secret'))
+            && filled(config('zalo.otp_template_id'))
+            && (filled(config('zalo.access_token')) || filled(config('zalo.refresh_token')));
+    }
+
     private function generateOtp(): string
     {
         return str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
@@ -81,9 +89,12 @@ class ZaloOtpService
 
     private function sendViaZns(string $phone, string $otp): bool
     {
-        // Dev mode: log mà không gửi thật, KHÔNG log OTP plaintext
-        if (config('app.env') === 'local') {
-            Log::info('Zalo OTP [DEV MODE - NOT SENT]', ['phone' => $phone]);
+        // Dev mode: CHỈ khi APP_ENV=local VÀ chưa cấu hình Zalo (App ID/Secret/Template OTP) — log
+        // mà không gửi thật. Trước đây local luôn "không gửi" kể cả khi đã nhập cấu hình Zalo ở
+        // admin, nên không bao giờ nhận được tin nhắn. Có cấu hình đầy đủ thì gửi thật như production.
+        // Chỉ ở local mới ghi OTP vào log để tự test được khi chưa có cấu hình Zalo.
+        if (config('app.env') === 'local' && ! $this->isZaloConfigured()) {
+            Log::info('Zalo OTP [DEV MODE - NOT SENT - Zalo chưa cấu hình]', ['phone' => $phone, 'otp' => $otp]);
             return true;
         }
 

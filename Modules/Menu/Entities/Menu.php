@@ -9,7 +9,6 @@ use Illuminate\Contracts\Database\Query\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Modules\Footer\Entities\FooterColumn;
 use Modules\Menu\App\Filament\FilamentMenuBuilderPlugin;
 
 class Menu extends Model
@@ -48,9 +47,5 @@ class Menu extends Model
             ->getMenuLocationModel()::with(['menu' => fn (Builder $query) => $query->where('is_visible', true)])
             ->where('location', $location)
             ->first()?->menu;
-    }
-
-    public function footerColumn(): BelongsTo {
-        return $this->belongsTo(FooterColumn::class);
     }
 }

@@ -6,7 +6,10 @@ use App\Filament\Support\PartnerTableHelpers;
 use Filament\Notifications\Notification;
 use Filament\Support\Enums\FontWeight;
 use Filament\Tables\Actions\Action;
+use Modules\Payment\App\Filament\Resources\OrderResource\Tables\Actions\CheckInAction;
+use Modules\Payment\App\Filament\Resources\OrderResource\Tables\Actions\CheckOutAction;
 use Modules\Payment\App\Filament\Resources\OrderResource\Tables\Actions\MarkNoShowAction;
+use Modules\Payment\App\Filament\Resources\OrderResource\Tables\Actions\RescheduleAction;
 use Modules\Payment\App\Filament\Resources\OrderResource\Tables\Actions\WeatherPolicyAction;
 use PayOS\PayOS;
 use Filament\Tables\Columns\BadgeColumn;
@@ -766,6 +769,69 @@ class OrderTable
         return new HtmlString($html);
     }),
 
+                    // Khách GỬI YÊU CẦU huỷ → admin duyệt (huỷ thật, hoàn tiền theo chính sách) hoặc từ
+                    // chối (đơn giữ nguyên). Xem App\Services\OrderCancelRequestService — khách được
+                    // thông báo kết quả qua thông báo đẩy.
+                    Action::make('approve_cancel_request')
+                        ->label('Duyệt yêu cầu huỷ')
+                        ->color('success')
+                        ->icon('heroicon-o-check-circle')
+                        ->visible(fn ($record) => $record->hasPendingCancelRequest())
+                        ->form([
+                            \Filament\Forms\Components\Textarea::make('note')
+                                ->label('Ghi chú gửi khách (không bắt buộc)'),
+                        ])
+                        ->requiresConfirmation()
+                        ->modalHeading(fn ($record) => 'Duyệt yêu cầu huỷ đơn #' . $record->order_code)
+                        ->modalDescription(function ($record) {
+                            $record->loadMissing('items');
+                            $refund = $record->isPaidByPackage() ? $record->packageCashAmount() : $record->computeCustomerCancelRefundAmount();
+
+                            return 'Lý do khách nêu: ' . ($record->cancel_request_reason ?: '(không có)')
+                                . '. Đơn sẽ được huỷ, giải phóng khung giờ'
+                                . ($refund > 0 ? ' và ghi nhận hoàn ' . number_format($refund, 0, ',', '.') . 'đ chờ xử lý.' : '.');
+                        })
+                        ->modalSubmitActionLabel('Duyệt & huỷ đơn')
+                        ->action(function (array $data, $record) {
+                            $result = app(\App\Services\OrderCancelRequestService::class)
+                                ->approve($record, auth()->user(), $data['note'] ?? null);
+
+                            if (! $result['ok']) {
+                                Notification::make()->danger()->title($result['error'])->send();
+                                return;
+                            }
+
+                            Notification::make()
+                                ->success()
+                                ->title('Đã duyệt huỷ đơn' . ($result['refund_amount'] > 0 ? ', đã ghi nhận hoàn tiền chờ xử lý' : '') . '. Khách đã được thông báo.')
+                                ->send();
+                        }),
+
+                    Action::make('reject_cancel_request')
+                        ->label('Từ chối yêu cầu huỷ')
+                        ->color('gray')
+                        ->icon('heroicon-o-x-circle')
+                        ->visible(fn ($record) => $record->hasPendingCancelRequest())
+                        ->form([
+                            \Filament\Forms\Components\Textarea::make('note')
+                                ->label('Lý do từ chối (gửi cho khách)')
+                                ->required(),
+                        ])
+                        ->modalHeading(fn ($record) => 'Từ chối yêu cầu huỷ đơn #' . $record->order_code)
+                        ->modalDescription('Đơn được giữ nguyên. Khách sẽ nhận thông báo kèm lý do từ chối.')
+                        ->modalSubmitActionLabel('Từ chối')
+                        ->action(function (array $data, $record) {
+                            $result = app(\App\Services\OrderCancelRequestService::class)
+                                ->reject($record, auth()->user(), $data['note']);
+
+                            if (! $result['ok']) {
+                                Notification::make()->danger()->title($result['error'])->send();
+                                return;
+                            }
+
+                            Notification::make()->success()->title('Đã từ chối yêu cầu huỷ. Khách đã được thông báo.')->send();
+                        }),
+
                     // Huỷ đơn phía admin — KHÁC với huỷ tự huỷ của khách (OrderCancellationService::
                     // cancelByCustomer(), hoàn 70% cố định). Ở đây admin tự nhập số tiền hoàn (mặc
                     // định = toàn bộ số đã thu), không đổi 'status' (giữ nguyên paid/deposit để báo
@@ -781,7 +847,8 @@ class OrderTable
                                 ->label('Số tiền hoàn lại cho khách (đ)')
                                 ->numeric()
                                 ->minValue(0)
-                                ->default(fn ($record) => (int) ($record->full_amount ?? $record->amount ?? 0))
+                                ->default(fn ($record) => $record->isPaidByPackage() ? $record->packageCashAmount() : (int) ($record->full_amount ?? $record->amount ?? 0))
+                                ->helperText(fn ($record) => $record->isPaidByPackage() ? 'Đơn dùng gói nhiều buổi: các buổi đã trừ luôn được trả lại vào gói; chỉ phần tiền mặt khách đã trả (nếu có) mới hoàn được.' : null)
                                 ->required(),
                             \Filament\Forms\Components\Textarea::make('reason')
                                 ->label('Lý do huỷ')
@@ -818,12 +885,13 @@ class OrderTable
                                         'cancel_reason' => $data['reason'],
                                     ]);
 
+                                    $amount = (int) $data['refund_amount'];
                                     if ($paidByPackage) {
                                         \App\Models\CustomerPackage::refundRedemptionsForOrder($locked);
-                                        return 0;
+                                        // Chỉ phần tiền mặt khách thật sự đã trả mới hoàn được.
+                                        $amount = min($amount, $locked->packageCashAmount());
                                     }
 
-                                    $amount = (int) $data['refund_amount'];
                                     if ($amount > 0) {
                                         app(\App\Services\ExtraChargeService::class)->recordPendingRefund($locked, $amount);
                                     }
@@ -869,6 +937,9 @@ class OrderTable
 
                     // Khách đã thanh toán nhưng không đến nhận sân — KHÁC "Huỷ đơn" ở trên (huỷ là
                     // chủ động TRƯỚC giờ nhận). Xem docblock MarkNoShowAction/Order::markNoShow().
+                    CheckInAction::make(),
+                    CheckOutAction::make(),
+                    RescheduleAction::make(),
                     MarkNoShowAction::make(),
 
                     // Hoãn/hoàn tiền do THỜI TIẾT cho sân ngoài trời (products.is_outdoor) — xem

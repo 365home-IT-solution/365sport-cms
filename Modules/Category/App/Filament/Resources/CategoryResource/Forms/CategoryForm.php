@@ -34,8 +34,35 @@ class CategoryForm
                         self::categoryDetailsSection()->columnSpan(1),
                         self::Image()->columnSpan(3),
                         self::locationSection()->columnSpan(1),
+                        self::cancellationPolicySection()->columnSpan(4),
                     ]),
             ]);
+    }
+
+    // Chính sách huỷ & hoàn tiền khi KHÁCH tự huỷ: mỗi mốc là "huỷ sớm hơn hoặc bằng X giờ trước giờ chơi thì hoàn Y%". Để trống thì
+    // dùng mức mặc định 70% như trước đây (Order::CUSTOMER_CANCEL_REFUND_RATE). Áp dụng cho cả web lẫn app (Order::customerCancelRefundPercent()).
+    private static function cancellationPolicySection(): Section
+    {
+        return Section::make('Chính sách huỷ & hoàn tiền')
+            ->description('Khách tự huỷ càng sớm càng được hoàn nhiều. Để trống để dùng mức mặc định: hoàn 70% bất kể huỷ lúc nào trước giờ chơi.')
+            ->schema([
+                \Filament\Forms\Components\Repeater::make('cancellation_tiers')
+                    ->label('Các mốc hoàn tiền')
+                    ->schema([
+                        TextInput::make('hours_before')->label('Huỷ trước giờ chơi tối thiểu (giờ)')->numeric()->minValue(0)->maxValue(720)->required(),
+                        TextInput::make('refund_percent')->label('Hoàn lại (%)')->numeric()->minValue(0)->maxValue(100)->required(),
+                    ])
+                    ->columns(2)
+                    ->addActionLabel('Thêm mốc')
+                    ->defaultItems(0)
+                    ->reorderable(false)
+                    ->collapsible()
+                    ->itemLabel(fn (array $state): ?string => isset($state['hours_before'], $state['refund_percent'])
+                        ? "Huỷ trước {$state['hours_before']} giờ → hoàn {$state['refund_percent']}%" : null),
+            ])
+            ->collapsible()
+            ->collapsed()
+            ->visible(fn (Get $get) => $get('category_type') === 'product');
     }
 
     private static function basicInfoSection(): Section

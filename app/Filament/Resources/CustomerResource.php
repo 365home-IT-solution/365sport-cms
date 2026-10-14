@@ -136,11 +136,14 @@ class CustomerResource extends Resource
                         TextInput::make('weight_kg')->label('Cân nặng (kg)')->numeric()->minValue(20)->maxValue(300),
                         Textarea::make('special_note')->label('Ghi chú đặc biệt')->maxLength(500)->rows(2),
                         TextInput::make('favorite_position')->label('Vị trí yêu thích')->maxLength(100),
+                        // Chỉ xem tại đây — đánh giá / xác nhận trình độ ở màn "Trình độ người chơi" (có lịch sử, đồng bộ về hồ sơ).
                         Select::make('skill_level')->label('Trình độ chung')
-                            ->options(['beginner' => 'Mới chơi', 'intermediate' => 'Trung bình', 'advanced' => 'Khá', 'pro' => 'Chuyên nghiệp'])
-                            ->placeholder('Chưa khai'),
+                            ->options(collect(\App\Support\SkillLevels::MAP)->map(fn ($m) => $m['label'])->all())
+                            ->placeholder('Chưa khai')->disabled()->dehydrated(false)
+                            ->helperText('Chỉnh ở menu Khách hàng → Trình độ người chơi.'),
                         KeyValue::make('sport_levels')->label('Môn thể thao & trình độ')
-                            ->keyLabel('Môn (mã, vd pickleball)')->valueLabel('Trình độ (beginner/intermediate/advanced/pro)'),
+                            ->keyLabel('Môn (mã)')->valueLabel('Trình độ')->disabled()->dehydrated(false)
+                            ->addable(false)->deletable(false)->editableKeys(false)->editableValues(false),
                         CheckboxList::make('play_goals')->label('Mục tiêu')->options(Customer::PLAY_GOALS)->columns(2),
                         Select::make('play_frequency')->label('Tần suất chơi')->options(Customer::PLAY_FREQUENCIES)->placeholder('Chưa khai'),
                     ])

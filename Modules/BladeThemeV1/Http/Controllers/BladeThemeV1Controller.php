@@ -227,13 +227,16 @@ class BladeThemeV1Controller extends Controller
         ]);
     }
 
-    // Khách tự huỷ đơn/xin hoàn tiền online — xem App\Services\OrderCancellationService (điều
-    // kiện huỷ + tính % hoàn tự động nằm trong đó, view chỉ hiện kết quả).
+    // Khách GỬI YÊU CẦU huỷ đơn/xin hoàn tiền — admin duyệt hoặc từ chối, xem
+    // App\Services\OrderCancelRequestService (điều kiện + thông báo nằm trong đó, view chỉ hiện kết quả).
     public function cancelBooking(Request $request, string $code)
     {
         $order = Order::with('items')->where('order_code', $code)->firstOrFail();
 
-        $result = app(\App\Services\OrderCancellationService::class)->cancelByCustomer($order);
+        $result = app(\App\Services\OrderCancelRequestService::class)->request(
+            $order,
+            $request->filled('reason') ? mb_substr((string) $request->input('reason'), 0, 500) : null,
+        );
 
         if (! $result['ok']) {
             return back()->with('cancel_error', $result['error']);
@@ -241,7 +244,7 @@ class BladeThemeV1Controller extends Controller
 
         return redirect()
             ->route('booking.detail', ['code' => $order->order_code])
-            ->with('cancel_success', $result['refund_amount']);
+            ->with('cancel_requested', true);
     }
 
     // Khách upload ảnh biên lai chuyển khoản thủ công (payment_method='bank_transfer') — xem
@@ -493,13 +496,18 @@ class BladeThemeV1Controller extends Controller
         // câu query gộp (WHERE category_id IN (...) LIMIT 1), không phải riêng từng chi nhánh, nên
         // chỉ 1 chi nhánh DUY NHẤT nhận được product (xem giải thích đầy đủ ở MapPage.php và
         // VenueGrid.php — bug đã gặp nhiều lần trong dự án này). Lấy full rồi ->first() trong PHP.
-        $venues = Category::where('partner_id', $partner->id)
+        $partnerCategories = Category::where('partner_id', $partner->id)
             ->where('category_type', 'product')
             ->where('status', true)
             ->with('products')
             ->orderBy('sort_order')
-            ->get()
-            ->map(function ($category) use ($mainSiteBaseUrl) {
+            ->get();
+
+        // Chi nhánh có bán gói nhiều buổi → thẻ sân hiện icon hộp quà (xem venues/card.blade.php).
+        $withPackages = array_flip(\App\Models\PackagePlan::categoryIdsWithActivePlans($partnerCategories));
+
+        $venues = $partnerCategories
+            ->map(function ($category) use ($mainSiteBaseUrl, $withPackages) {
                 $product = $category->products->first();
 
                 return [
@@ -514,6 +522,7 @@ class BladeThemeV1Controller extends Controller
                     'rating'     => $product && $product->rating_score > 0 ? number_format((float) $product->rating_score, 1) : null,
                     'hours'      => $this->formatBranchHours($category->checkin_time, $category->checkout_time),
                     'product_id' => $product->id ?? null,
+                    'has_package' => isset($withPackages[$category->id]),
                 ];
             })
             ->values();

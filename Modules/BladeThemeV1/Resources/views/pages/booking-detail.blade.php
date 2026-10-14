@@ -25,6 +25,26 @@
                 @endif
 
                 {{-- Kết quả huỷ đơn (xem BladeThemeV1Controller::cancelBooking()) --}}
+                @if(session('cancel_requested'))
+                <div class="mb-4 p-4 rounded-xl bg-amber-50 border border-amber-200 flex items-start gap-3">
+                    <span class="text-2xl">📨</span>
+                    <div>
+                        <p class="font-semibold text-amber-800">Đã gửi yêu cầu huỷ đơn.</p>
+                        <p class="text-sm text-amber-700 mt-0.5">Quản trị viên sẽ xem xét và phản hồi cho bạn. Trong lúc chờ duyệt, đơn vẫn được giữ nguyên.</p>
+                    </div>
+                </div>
+                @endif
+                @if($order->cancel_request_status === 'rejected' && ! $order->isCancelled())
+                <div class="mb-4 p-4 rounded-xl bg-red-50 border border-red-200 flex items-start gap-3">
+                    <span class="text-2xl">🚫</span>
+                    <div>
+                        <p class="font-semibold text-red-800">Yêu cầu huỷ đơn không được chấp nhận.</p>
+                        @if($order->cancel_request_note)
+                        <p class="text-sm text-red-700 mt-0.5">Lý do: {{ $order->cancel_request_note }}</p>
+                        @endif
+                    </div>
+                </div>
+                @endif
                 @if(session('cancel_success') !== null)
                 <div class="mb-4 p-4 rounded-xl bg-green-50 border border-green-200 flex items-start gap-3">
                     <span class="text-2xl">✅</span>
@@ -232,29 +252,39 @@
                             {{-- Khách tự huỷ đơn/xin hoàn tiền — chỉ hiện khi còn huỷ được (xem
                                  Order::canBeCancelledByCustomer(): đã thanh toán, chưa huỷ, chưa
                                  tới giờ nhận sân). --}}
-                            @if($order->canBeCancelledByCustomer())
+                            @if($order->hasPendingCancelRequest())
+                            <span class="mt-2 inline-flex items-center gap-1 text-xs font-medium text-amber-700 bg-amber-50 px-2.5 py-1.5 rounded-lg">
+                                Yêu cầu huỷ đang chờ duyệt
+                            </span>
+                            @elseif($order->canRequestCancellation())
                             <div x-data="{ confirming: false }" class="mt-2">
                                 <button type="button" @click="confirming = true"
                                     class="text-xs font-medium text-red-600 hover:text-red-700 underline underline-offset-2">
-                                    Huỷ đơn / xin hoàn tiền
+                                    {{ $order->cancel_request_status === 'rejected' ? 'Gửi lại yêu cầu huỷ' : 'Xin huỷ đơn / hoàn tiền' }}
                                 </button>
                                 <div x-show="confirming" x-cloak
                                     class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
                                     <div @click.outside="confirming = false" class="bg-white rounded-2xl p-5 max-w-sm w-full shadow-xl">
-                                        <p class="font-semibold text-gray-900 mb-1">Xác nhận huỷ đơn?</p>
+                                        <p class="font-semibold text-gray-900 mb-1">Gửi yêu cầu huỷ đơn?</p>
                                         <p class="text-sm text-gray-600 mb-4">
-                                            Bạn sẽ được hoàn <strong>{{ number_format($order->computeCustomerCancelRefundAmount(), 0, ',', '.') }}đ</strong>
-                                            (nhận lại đúng 70% số tiền đã thanh toán; 30% còn lại là phí huỷ và xử lý). Thao tác này không thể hoàn tác.
+                                            @if ($order->isFullyPaidByPackage())
+                                                Đơn này trả bằng <strong>gói nhiều buổi</strong> nên <strong>không hoàn tiền</strong>. Nếu được duyệt, bạn sẽ được trả lại <strong>{{ $order->packageSessionsToRestore() }} buổi</strong> vào gói để dùng cho lần đặt sau.
+                                            @else
+                                                Nếu được duyệt, bạn sẽ được hoàn <strong>{{ number_format($order->computeCustomerCancelRefundAmount(), 0, ',', '.') }}đ</strong>
+                                                (nhận lại đúng {{ $order->customerCancelRefundPercent() }}% số tiền đã thanh toán; phần còn lại là phí huỷ và xử lý theo chính sách của chi nhánh).
+                                            @endif
+                                            Đơn vẫn được giữ nguyên cho tới khi quản trị viên duyệt.
                                         </p>
                                         <form method="POST" action="{{ route('booking.cancel', ['code' => $order->order_code]) }}" class="flex gap-2">
                                             @csrf
+                                            <input type="hidden" name="reason" value="">
                                             <button type="button" @click="confirming = false"
                                                 class="flex-1 px-3 py-2 rounded-lg border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50">
                                                 Đóng
                                             </button>
                                             <button type="submit"
                                                 class="flex-1 px-3 py-2 rounded-lg bg-red-600 text-white text-sm font-semibold hover:bg-red-700">
-                                                Xác nhận huỷ
+                                                Gửi yêu cầu
                                             </button>
                                         </form>
                                     </div>

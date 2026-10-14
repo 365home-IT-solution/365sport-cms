@@ -17,6 +17,11 @@ use Illuminate\Support\Facades\Route;
 | Quyền do middleware admin.api quyết định theo CrudRegistry::permission(); permission = null nghĩa là chỉ super_admin.
 */
 foreach (array_keys(CrudRegistry::all()) as $slug) {
+    // Khai báo lưu trú (CCCD) là nghiệp vụ homestay — không mở API khi cờ features.lodging tắt.
+    if ($slug === 'cccd-declarations' && ! config('features.lodging')) {
+        continue;
+    }
+
     $ops = CrudRegistry::ops($slug);
 
     Route::middleware(['auth:sanctum', 'admin.api'])->prefix("admin/{$slug}")->group(function () use ($slug, $ops) {

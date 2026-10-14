@@ -389,6 +389,8 @@ Route::middleware(['auth:sanctum', 'admin.api'])->prefix('admin/orders')->name('
     // /preview đứng TRƯỚC /{order_code} — route param sẽ nuốt luôn chuỗi 'preview' làm order_code
     // nếu định nghĩa sau, do Laravel khớp theo thứ tự khai báo (xem docblock preview() ở BookingController).
     Route::post('/preview',               [AdminBookingController::class, 'preview'])->name('preview');
+    // Quét mã QR nhận sân của khách (SPORT365:{order_code}:{code}) — khai báo TRƯỚC /{order_code} để không bị route param nuốt.
+    Route::post('/check-in-scan',         [\App\Http\Controllers\Api\Admin\OrderLifecycleController::class, 'checkInScan'])->name('check-in-scan');
     Route::get('/{order_code}',            [OrderController::class, 'show'])->name('show');
     Route::get('/{order_code}/cccds',      [OrderController::class, 'cccds'])->name('cccds');
     Route::post('/{order_code}/preview',   [OrderController::class, 'preview'])->name('order-preview');
@@ -415,6 +417,22 @@ Route::middleware(['auth:sanctum', 'admin.api'])->prefix('admin/orders')->name('
     // App\Services\WeatherPolicyService cho toàn bộ điều kiện áp dụng/logic nghiệp vụ.
     Route::post('/{order_code}/weather-refund',     [WeatherPolicyController::class, 'refund'])->name('weather-refund');
     Route::post('/{order_code}/weather-reschedule', [WeatherPolicyController::class, 'reschedule'])->name('weather-reschedule');
+    // Vòng đời đơn: nhận sân / trả sân / đổi giờ — xem App\Services\OrderLifecycleService.
+    Route::post('/{order_code}/check-in',   [\App\Http\Controllers\Api\Admin\OrderLifecycleController::class, 'checkIn'])->name('check-in');
+    Route::post('/{order_code}/check-out',  [\App\Http\Controllers\Api\Admin\OrderLifecycleController::class, 'checkOut'])->name('check-out');
+    Route::post('/{order_code}/reschedule', [\App\Http\Controllers\Api\Admin\OrderLifecycleController::class, 'reschedule'])->name('reschedule');
+});
+
+/*
+|--------------------------------------------------------------------------
+| Refunds — Hoàn tiền chờ xử lý (cùng dữ liệu với màn Filament "Hoàn tiền chờ xử lý")
+| GET  /api/admin/refunds?status=pending|done|all   → danh sách
+| POST /api/admin/refunds/{order_code}/complete     → đánh dấu đã hoàn (method: cash|transfer)
+|--------------------------------------------------------------------------
+*/
+Route::middleware(['auth:sanctum', 'admin.api'])->prefix('admin/refunds')->name('api.admin.refunds.')->group(function () {
+    Route::get('/', [\App\Http\Controllers\Api\Admin\OrderLifecycleController::class, 'refunds'])->name('index');
+    Route::post('/{order_code}/complete', [\App\Http\Controllers\Api\Admin\OrderLifecycleController::class, 'completeRefund'])->name('complete');
 });
 
 /*
@@ -925,4 +943,206 @@ Route::middleware(['auth:sanctum', 'admin.api'])->prefix('admin/camera-settings'
 Route::middleware(['auth:sanctum', 'admin.api'])->prefix('admin/camera-alerts')->name('api.admin.camera-alerts.')->group(function () {
     Route::get('/',                  [CameraAlertController::class, 'index'])->name('index');
     Route::post('/{id}/acknowledge', [CameraAlertController::class, 'acknowledge'])->name('acknowledge')->whereNumber('id');
+});
+
+/*
+|--------------------------------------------------------------------------
+| Nhân sự: Chấm công + Bảng lương theo tháng (Modules\Employee)
+| GET    /api/admin/attendance               → danh sách chấm công (?employee_id=&month=YYYY-MM&status=)
+| POST   /api/admin/attendance               → quản lý nhập/ghi đè chấm công 1 nhân viên 1 ngày
+| GET    /api/admin/attendance/me            → công của chính mình   (nhân viên, không cần quyền quản lý)
+| POST   /api/admin/attendance/check-in      → tự chấm công vào      (nhân viên)
+| POST   /api/admin/attendance/check-out     → tự chấm công ra       (nhân viên)
+| GET    /api/admin/reports/payroll?month=   → bảng lương tháng (đã chốt: ảnh chụp; chưa chốt: tính mới)
+| GET    /api/admin/payroll                  → các kỳ lương;  GET /payroll/{id} chi tiết kèm phiếu
+| POST   /api/admin/payroll/close            → chốt lương tháng {month, partner_id? (super_admin)}
+| POST   /api/admin/payroll/{id}/reopen      → mở lại kỳ (chưa trả phiếu nào)
+| POST   /api/admin/payroll/slips/{id}/pay   → đánh dấu đã trả phiếu lương {method}
+|--------------------------------------------------------------------------
+*/
+Route::middleware(['auth:sanctum', 'admin.api'])->prefix('admin/attendance')->name('api.admin.attendance.')->group(function () {
+    Route::get('/me',         [\App\Http\Controllers\Api\Admin\AttendanceController::class, 'mine'])->name('me');
+    Route::post('/check-in',  [\App\Http\Controllers\Api\Admin\AttendanceController::class, 'checkIn'])->name('check-in');
+    Route::post('/check-out', [\App\Http\Controllers\Api\Admin\AttendanceController::class, 'checkOut'])->name('check-out');
+    Route::get('/',           [\App\Http\Controllers\Api\Admin\AttendanceController::class, 'index'])->name('index');
+    Route::post('/',          [\App\Http\Controllers\Api\Admin\AttendanceController::class, 'store'])->name('store');
+    Route::get('/{id}',       [\App\Http\Controllers\Api\Admin\AttendanceController::class, 'show'])->name('show')->whereNumber('id');
+    Route::match(['put', 'patch', 'post'], '/{id}', [\App\Http\Controllers\Api\Admin\AttendanceController::class, 'update'])->name('update')->whereNumber('id');
+    Route::delete('/{id}',    [\App\Http\Controllers\Api\Admin\AttendanceController::class, 'destroy'])->name('destroy')->whereNumber('id');
+});
+
+Route::middleware(['auth:sanctum', 'admin.api'])->get('admin/reports/payroll', [\App\Http\Controllers\Api\Admin\PayrollController::class, 'report'])->name('api.admin.reports.payroll');
+
+Route::middleware(['auth:sanctum', 'admin.api'])->prefix('admin/payroll')->name('api.admin.payroll.')->group(function () {
+    Route::get('/',                   [\App\Http\Controllers\Api\Admin\PayrollController::class, 'index'])->name('index');
+    Route::post('/close',             [\App\Http\Controllers\Api\Admin\PayrollController::class, 'close'])->name('close');
+    Route::post('/slips/{id}/pay',    [\App\Http\Controllers\Api\Admin\PayrollController::class, 'pay'])->name('slips.pay')->whereNumber('id');
+    Route::get('/{id}',               [\App\Http\Controllers\Api\Admin\PayrollController::class, 'show'])->name('show')->whereNumber('id');
+    Route::post('/{id}/reopen',       [\App\Http\Controllers\Api\Admin\PayrollController::class, 'reopen'])->name('reopen')->whereNumber('id');
+});
+
+/*
+|--------------------------------------------------------------------------
+| Đối soát hoa hồng theo tháng (App\Models\PartnerSettlement) — đối tác CHỈ xem của mình; super_admin lập/điều chỉnh/xác nhận đã thu.
+| GET  /api/admin/partner-settlements          → danh sách (?month=YYYY-MM&status=pending|paid&partner_id=)
+| GET  /api/admin/partner-settlements/{id}     → chi tiết
+| POST /api/admin/partner-settlements/generate → (super_admin) lập/tính lại tháng {month, partner_id?}
+| PUT  /api/admin/partner-settlements/{id}     → (super_admin) điều chỉnh {adjustment_amount, adjustment_note}
+| POST /api/admin/partner-settlements/{id}/pay → (super_admin) xác nhận đã thu {method, reference?}
+| GET  /api/admin/reports/commission           → hoa hồng tạm tính của tháng (?month=&year=)
+|--------------------------------------------------------------------------
+*/
+Route::middleware(['auth:sanctum', 'admin.api'])->prefix('admin/partner-settlements')->name('api.admin.partner-settlements.')->group(function () {
+    Route::get('/',                [\App\Http\Controllers\Api\Admin\PartnerSettlementController::class, 'index'])->name('index');
+    Route::post('/generate',       [\App\Http\Controllers\Api\Admin\PartnerSettlementController::class, 'generate'])->name('generate');
+    Route::get('/{id}',            [\App\Http\Controllers\Api\Admin\PartnerSettlementController::class, 'show'])->name('show')->whereNumber('id');
+    Route::match(['put', 'patch'], '/{id}', [\App\Http\Controllers\Api\Admin\PartnerSettlementController::class, 'update'])->name('update')->whereNumber('id');
+    Route::post('/{id}/pay',       [\App\Http\Controllers\Api\Admin\PartnerSettlementController::class, 'pay'])->name('pay')->whereNumber('id');
+});
+Route::middleware(['auth:sanctum', 'admin.api'])->get('admin/reports/commission', [\App\Http\Controllers\Api\Admin\PartnerSettlementController::class, 'commission'])->name('api.admin.reports.commission');
+
+/*
+|--------------------------------------------------------------------------
+| Sổ giao dịch tiền vào/ra theo đơn (đối soát): GET /api/admin/transactions?type=&date_from=&date_to=&search=
+|--------------------------------------------------------------------------
+*/
+Route::middleware(['auth:sanctum', 'admin.api'])->get('admin/transactions', [\App\Http\Controllers\Api\Admin\TransactionController::class, 'index'])->name('api.admin.transactions');
+
+/*
+|--------------------------------------------------------------------------
+| Tài khoản nhân viên (users) + Vai trò & quyền (roles) — xem UserAccountController / RoleAdminController.
+| GET|POST /api/admin/users, GET|PUT|PATCH|POST|DELETE /api/admin/users/{id}
+| GET|POST /api/admin/roles, GET /api/admin/roles/permissions, GET|PUT|PATCH|POST|DELETE /api/admin/roles/{id}
+|--------------------------------------------------------------------------
+*/
+Route::middleware(['auth:sanctum', 'admin.api'])->prefix('admin/users')->name('api.admin.users.')->group(function () {
+    Route::get('/',      [\App\Http\Controllers\Api\Admin\UserAccountController::class, 'index'])->name('index');
+    Route::post('/',     [\App\Http\Controllers\Api\Admin\UserAccountController::class, 'store'])->name('store');
+    Route::get('/{id}',  [\App\Http\Controllers\Api\Admin\UserAccountController::class, 'show'])->name('show');
+    Route::match(['put', 'patch', 'post'], '/{id}', [\App\Http\Controllers\Api\Admin\UserAccountController::class, 'update'])->name('update');
+    Route::delete('/{id}', [\App\Http\Controllers\Api\Admin\UserAccountController::class, 'destroy'])->name('destroy');
+});
+Route::middleware(['auth:sanctum', 'admin.api'])->prefix('admin/roles')->name('api.admin.roles.')->group(function () {
+    Route::get('/',            [\App\Http\Controllers\Api\Admin\RoleAdminController::class, 'index'])->name('index');
+    Route::post('/',           [\App\Http\Controllers\Api\Admin\RoleAdminController::class, 'store'])->name('store');
+    Route::get('/permissions', [\App\Http\Controllers\Api\Admin\RoleAdminController::class, 'permissions'])->name('permissions');
+    Route::get('/{id}',        [\App\Http\Controllers\Api\Admin\RoleAdminController::class, 'show'])->name('show')->whereNumber('id');
+    Route::match(['put', 'patch', 'post'], '/{id}', [\App\Http\Controllers\Api\Admin\RoleAdminController::class, 'update'])->name('update')->whereNumber('id');
+    Route::delete('/{id}',     [\App\Http\Controllers\Api\Admin\RoleAdminController::class, 'destroy'])->name('destroy')->whereNumber('id');
+});
+
+/*
+|--------------------------------------------------------------------------
+| Cấu hình hệ thống + thông báo đẩy
+| GET|PUT|PATCH|POST /api/admin/settings/{general|mail|google-login|directions} — khoá bí mật luôn trả dạng che
+| GET|POST /api/admin/fcm-notifications, GET /api/admin/fcm-notifications/{id} — thông báo đẩy (gửi ngay / hẹn giờ)
+|--------------------------------------------------------------------------
+*/
+Route::middleware(['auth:sanctum', 'admin.api'])->prefix('admin/settings')->name('api.admin.settings.')->group(function () {
+    Route::get('/{group}', [\App\Http\Controllers\Api\Admin\SettingsController::class, 'show'])->name('show');
+    Route::match(['put', 'patch', 'post'], '/{group}', [\App\Http\Controllers\Api\Admin\SettingsController::class, 'update'])->name('update');
+});
+Route::middleware(['auth:sanctum', 'admin.api'])->prefix('admin/fcm-notifications')->name('api.admin.fcm-notifications.')->group(function () {
+    Route::get('/',     [\App\Http\Controllers\Api\Admin\FcmNotificationController::class, 'index'])->name('index');
+    Route::post('/',    [\App\Http\Controllers\Api\Admin\FcmNotificationController::class, 'store'])->name('store');
+    Route::get('/{id}', [\App\Http\Controllers\Api\Admin\FcmNotificationController::class, 'show'])->name('show')->whereNumber('id');
+});
+
+/*
+|--------------------------------------------------------------------------
+| Kiểm duyệt đánh giá sân
+| GET /api/admin/ratings(/{id}), POST /api/admin/ratings/{id}/reply|moderate, DELETE /api/admin/ratings/{id}
+|--------------------------------------------------------------------------
+*/
+Route::middleware(['auth:sanctum', 'admin.api'])->prefix('admin/ratings')->name('api.admin.ratings.')->group(function () {
+    Route::get('/',                  [\App\Http\Controllers\Api\Admin\RatingAdminController::class, 'index'])->name('index');
+    Route::get('/{id}',              [\App\Http\Controllers\Api\Admin\RatingAdminController::class, 'show'])->name('show')->whereNumber('id');
+    Route::post('/{id}/reply',       [\App\Http\Controllers\Api\Admin\RatingAdminController::class, 'reply'])->name('reply')->whereNumber('id');
+    Route::post('/{id}/moderate',    [\App\Http\Controllers\Api\Admin\RatingAdminController::class, 'moderate'])->name('moderate')->whereNumber('id');
+    Route::delete('/{id}',           [\App\Http\Controllers\Api\Admin\RatingAdminController::class, 'destroy'])->name('destroy')->whereNumber('id');
+});
+
+/*
+|--------------------------------------------------------------------------
+| Điểm thưởng khách hàng (chỉ quản trị cấp cao)
+| GET /api/admin/loyalty — sổ cái    POST /api/admin/loyalty/adjust — cộng/trừ điểm thủ công
+|--------------------------------------------------------------------------
+*/
+Route::middleware(['auth:sanctum', 'admin.api'])->prefix('admin/loyalty')->name('api.admin.loyalty.')->group(function () {
+    Route::get('/',        [\App\Http\Controllers\Api\Admin\LoyaltyAdminController::class, 'index'])->name('index');
+    Route::post('/adjust', [\App\Http\Controllers\Api\Admin\LoyaltyAdminController::class, 'adjust'])->name('adjust');
+});
+
+/*
+|--------------------------------------------------------------------------
+| Yêu cầu hoá đơn VAT
+| GET /api/admin/invoice-requests(/{id}), POST /api/admin/invoice-requests/{id}/issue|reject
+|--------------------------------------------------------------------------
+*/
+Route::middleware(['auth:sanctum', 'admin.api'])->prefix('admin/invoice-requests')->name('api.admin.invoice-requests.')->group(function () {
+    Route::get('/',             [\App\Http\Controllers\Api\Admin\InvoiceRequestAdminController::class, 'index'])->name('index');
+    Route::get('/{id}',         [\App\Http\Controllers\Api\Admin\InvoiceRequestAdminController::class, 'show'])->name('show')->whereNumber('id');
+    Route::post('/{id}/issue',  [\App\Http\Controllers\Api\Admin\InvoiceRequestAdminController::class, 'issue'])->name('issue')->whereNumber('id');
+    Route::post('/{id}/reject', [\App\Http\Controllers\Api\Admin\InvoiceRequestAdminController::class, 'reject'])->name('reject')->whereNumber('id');
+});
+
+/*
+|--------------------------------------------------------------------------
+| Giải đấu
+| CRUD /api/admin/tournaments; GET /{id}/registrations, POST /{id}/registrations/{regId}/decide
+| GET|POST /{id}/matches, PUT|PATCH|DELETE /{id}/matches/{matchId}
+|--------------------------------------------------------------------------
+*/
+Route::middleware(['auth:sanctum', 'admin.api'])->prefix('admin/tournaments')->name('api.admin.tournaments.')->group(function () {
+    $c = \App\Http\Controllers\Api\Admin\TournamentAdminController::class;
+    Route::get('/',        [$c, 'index'])->name('index');
+    Route::post('/',       [$c, 'store'])->name('store');
+    Route::get('/{id}',    [$c, 'show'])->name('show')->whereNumber('id');
+    Route::match(['put', 'patch'], '/{id}', [$c, 'update'])->name('update')->whereNumber('id');
+    Route::delete('/{id}', [$c, 'destroy'])->name('destroy')->whereNumber('id');
+    Route::get('/{id}/registrations',                    [$c, 'registrations'])->name('registrations')->whereNumber('id');
+    Route::post('/{id}/registrations/{regId}/decide',    [$c, 'decide'])->name('decide')->whereNumber(['id', 'regId']);
+    Route::get('/{id}/matches',                          [$c, 'matches'])->name('matches')->whereNumber('id');
+    Route::post('/{id}/matches',                         [$c, 'storeMatch'])->name('matches.store')->whereNumber('id');
+    Route::match(['put', 'patch'], '/{id}/matches/{matchId}', [$c, 'updateMatch'])->name('matches.update')->whereNumber(['id', 'matchId']);
+    Route::delete('/{id}/matches/{matchId}',             [$c, 'destroyMatch'])->name('matches.destroy')->whereNumber(['id', 'matchId']);
+});
+
+/*
+|--------------------------------------------------------------------------
+| Thiết lập thanh toán của đối tác (chủ đối tác): GET /api/admin/payment-setup, PUT|PATCH|POST cùng đường dẫn để lưu
+|--------------------------------------------------------------------------
+*/
+Route::middleware(['auth:sanctum', 'admin.api'])->prefix('admin/payment-setup')->name('api.admin.payment-setup.')->group(function () {
+    Route::get('/', [\App\Http\Controllers\Api\Admin\PaymentSetupController::class, 'show'])->name('show');
+    Route::match(['put', 'patch', 'post'], '/', [\App\Http\Controllers\Api\Admin\PaymentSetupController::class, 'update'])->name('update');
+});
+
+/*
+|--------------------------------------------------------------------------
+| Ma trận tính năng theo gói đối tác (chỉ super admin)
+| GET /api/admin/partner-plans/feature-matrix; PUT|PATCH cùng đường dẫn để lưu hàng loạt. Khai báo TRƯỚC route CRUD partner-plans/{id}.
+|--------------------------------------------------------------------------
+*/
+Route::middleware(['auth:sanctum', 'admin.api'])->prefix('admin/partner-plans/feature-matrix')->name('api.admin.partner-plans.feature-matrix.')->group(function () {
+    Route::get('/', [\App\Http\Controllers\Api\Admin\PartnerFeatureMatrixController::class, 'show'])->name('show');
+    Route::match(['put', 'patch'], '/', [\App\Http\Controllers\Api\Admin\PartnerFeatureMatrixController::class, 'update'])->name('update');
+});
+
+/*
+|--------------------------------------------------------------------------
+| Trình độ người chơi — nhân viên sân xem / đánh giá / xác nhận trình độ khách
+| GET /api/admin/player-skills/options, GET|POST /api/admin/player-skills, GET|PUT|DELETE /api/admin/player-skills/{id}
+| GET /api/admin/player-skills/{id}/history
+|--------------------------------------------------------------------------
+*/
+Route::middleware(['auth:sanctum', 'admin.api'])->prefix('admin/player-skills')->name('api.admin.player-skills.')->group(function () {
+    $c = \App\Http\Controllers\Api\Admin\PlayerSkillAdminController::class;
+    Route::get('/options',       [$c, 'options'])->name('options');
+    Route::get('/',              [$c, 'index'])->name('index');
+    Route::post('/',             [$c, 'store'])->name('store');
+    Route::get('/{id}',          [$c, 'show'])->name('show')->whereNumber('id');
+    Route::match(['put', 'patch'], '/{id}', [$c, 'update'])->name('update')->whereNumber('id');
+    Route::delete('/{id}',       [$c, 'destroy'])->name('destroy')->whereNumber('id');
+    Route::get('/{id}/history',  [$c, 'history'])->name('history')->whereNumber('id');
 });

@@ -47,7 +47,7 @@ class PartnerSignupAdminController extends Controller
         $this->superAdmin($request);
         $result = $this->onboarding->approveSignup(Partner::query()->findOrFail($partner), $request->user());
 
-        return response()->json(['message' => 'Đã duyệt đăng ký và tặng dùng thử.', 'data' => $result]);
+        return response()->json(['message' => ($result['trial_months'] ?? 0) > 0 ? 'Đã duyệt đăng ký và tặng dùng thử.' : 'Đã duyệt đăng ký (không tặng dùng thử — đối tác cần thanh toán gói để sử dụng).', 'data' => $result]);
     }
 
     public function reject(Request $request, string $partner): JsonResponse

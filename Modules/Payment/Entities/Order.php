@@ -25,6 +25,7 @@ class Order extends Model implements Eventable
         'amount',
         'surcharge',
         'full_amount',
+        'package_cash_amount',
         'deposit_percent',
         'deposit_paid_amount',
         'coupon_code',
@@ -112,10 +113,21 @@ class Order extends Model implements Eventable
         'cancelled_at',
         'cancelled_by',
         'cancel_reason',
+        // Khách GỬI YÊU CẦU huỷ, admin duyệt/từ chối — xem App\Services\OrderCancelRequestService.
+        'cancel_request_status',
+        'cancel_requested_at',
+        'cancel_request_reason',
+        'cancel_request_reviewed_at',
+        'cancel_request_reviewed_by',
+        'cancel_request_note',
         // Khách đã thanh toán (paid/deposit) nhưng KHÔNG đến nhận sân — xem migration
         // 2026_09_03_000004_add_no_show_to_orders_table + Order::markNoShow().
         'no_show_at',
         'no_show_marked_by',
+        'rescheduled_count',
+        'rescheduled_at',
+        'checked_in_by',
+        'checked_out_by',
         // Hoãn/hoàn tiền do thời tiết (sân ngoài trời) — xem migration
         // add_weather_policy_to_orders_table và App\Services\WeatherPolicyService.
         'weather_affected_at',
@@ -146,7 +158,10 @@ class Order extends Model implements Eventable
         'checked_in_at'          => 'datetime',
         'checked_out_at'         => 'datetime',
         'cancelled_at'           => 'datetime',
+        'cancel_requested_at'    => 'datetime',
+        'cancel_request_reviewed_at' => 'datetime',
         'no_show_at'             => 'datetime',
+        'rescheduled_at'         => 'datetime',
         'weather_affected_at'    => 'datetime',
         'bank_transfer_confirmed_at' => 'datetime',
     ];
@@ -169,6 +184,18 @@ class Order extends Model implements Eventable
     public function isCancelled(): bool
     {
         return ! is_null($this->cancelled_at);
+    }
+
+    // Khách đã gửi yêu cầu huỷ và đang chờ admin duyệt.
+    public function hasPendingCancelRequest(): bool
+    {
+        return $this->cancel_request_status === 'pending' && ! $this->isCancelled();
+    }
+
+    // Khách còn được GỬI yêu cầu huỷ: đủ điều kiện huỷ và chưa có yêu cầu nào đang chờ duyệt.
+    public function canRequestCancellation(): bool
+    {
+        return ! $this->hasPendingCancelRequest() && $this->canBeCancelledByCustomer();
     }
 
     // Đơn đã được xử lý hoãn/hoàn tiền do thời tiết (xem App\Services\WeatherPolicyService) —
@@ -263,13 +290,86 @@ class Order extends Model implements Eventable
      * migration create_orders_table: "amount = tiền cọc cần thanh toán", full_amount = tổng giá
      * trị đơn; số ĐÃ THU thật với đơn deposit là amount, với đơn paid là full_amount).
      */
+    // Đơn được trả bằng GÓI NHIỀU BUỔI (còn lượt trừ buổi chưa hoàn): không có tiền để hoàn — huỷ đơn thì buổi được trả lại vào gói.
+    public function isPaidByPackage(): bool
+    {
+        return $this->packageRedemptions()->whereNull('refunded_at')->exists();
+    }
+
+    // Số buổi sẽ được trả lại vào gói khi huỷ đơn này (0 nếu đơn không trả bằng gói).
+    public function packageSessionsToRestore(): int
+    {
+        return (int) $this->packageRedemptions()->whereNull('refunded_at')->count();
+    }
+
+    // Phần TIỀN MẶT thật của đơn dùng gói kết hợp (khung giờ vượt số buổi còn lại, dịch vụ, HLV...). 0 với đơn trả hoàn toàn bằng gói.
+    public function packageCashAmount(): int
+    {
+        return (int) ($this->package_cash_amount ?? 0);
+    }
+
+    // Đơn trả HOÀN TOÀN bằng gói: không có tiền mặt nào để hoàn — chỉ trả lại buổi vào gói khi huỷ.
+    public function isFullyPaidByPackage(): bool
+    {
+        return $this->isPaidByPackage() && $this->packageCashAmount() <= 0;
+    }
+
     public function computeCustomerCancelRefundAmount(): int
     {
+        if ($this->isPaidByPackage()) {
+            // Đơn kết hợp: chỉ phần tiền mặt đã trả mới được hoàn theo bậc huỷ; các buổi trong gói luôn được trả lại.
+            $cash = $this->packageCashAmount();
+
+            return $cash > 0 ? (int) round($cash * $this->customerCancelRefundPercent() / 100) : 0;
+        }
+
         $paidSoFar = $this->status === 'deposit'
             ? (int) ($this->amount ?? 0)
             : (int) ($this->full_amount ?? $this->amount ?? 0);
 
-        return (int) round($paidSoFar * self::CUSTOMER_CANCEL_REFUND_RATE);
+        return (int) round($paidSoFar * $this->customerCancelRefundPercent() / 100);
+    }
+
+    /**
+     * Phần trăm hoàn tiền nếu khách huỷ NGAY BÂY GIỜ. Chi nhánh cấu hình mốc (categories.cancellation_tiers) thì chọn mốc
+     * có hours_before LỚN NHẤT mà thời gian còn lại tới giờ chơi đầu tiên vẫn >= hours_before; huỷ quá muộn so với mọi mốc
+     * thì hoàn 0%. Chi nhánh chưa cấu hình dùng mức mặc định cũ (CUSTOMER_CANCEL_REFUND_RATE).
+     */
+    public function customerCancelRefundPercent(?\Carbon\Carbon $at = null): int
+    {
+        $tiers = $this->category?->cancellation_tiers;
+
+        if (! is_array($tiers) || $tiers === []) {
+            return (int) round(self::CUSTOMER_CANCEL_REFUND_RATE * 100);
+        }
+
+        $earliest = $this->items->pluck('checkin_date')->filter()->min();
+        if (! $earliest) {
+            return 0;
+        }
+
+        $hoursLeft = ($earliest->getTimestamp() - ($at ?? now())->getTimestamp()) / 3600;
+        $best = null;
+
+        foreach ($tiers as $tier) {
+            $threshold = (float) ($tier['hours_before'] ?? 0);
+            if ($hoursLeft >= $threshold && ($best === null || $threshold > $best['hours'])) {
+                $best = ['hours' => $threshold, 'percent' => (int) ($tier['refund_percent'] ?? 0)];
+            }
+        }
+
+        return $best ? max(0, min(100, $best['percent'])) : 0;
+    }
+
+    // Mã nhận sân (QR) của đơn: 8 ký tự HMAC theo mã đơn, chỉ khách sở hữu đơn lấy được qua API — nhân viên quét/nhập để nhận sân.
+    public function checkInCode(): string
+    {
+        return strtoupper(substr(hash_hmac('sha256', (string) $this->order_code, (string) config('app.key')), 0, 8));
+    }
+
+    public function checkInPayload(): string
+    {
+        return 'SPORT365:' . $this->order_code . ':' . $this->checkInCode();
     }
     protected $with = ['items'];
     protected $appends = ['payment_status'];

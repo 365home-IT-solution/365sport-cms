@@ -120,8 +120,9 @@ class PartnerOnboardingService
             'onboarding_token'    => self::hashToken($token),
         ];
 
-        // Đủ điều kiện tặng dùng thử → hồ sơ CHỜ SUPER ADMIN DUYỆT (duyệt xong mới tạo tài khoản + gửi mật khẩu); ngược lại phải thanh toán mới được dùng.
-        $needsApproval = $this->signupTrialEligible($phone, $data['email'], $existing?->id);
+        // Đăng ký CHỈ nhập thông tin (không chọn gói, không thanh toán): hồ sơ luôn CHỜ SUPER ADMIN DUYỆT. Duyệt xong mới tạo tài khoản + gửi mật khẩu;
+        // tặng tháng đầu hay không do lúc duyệt quyết định (xem approveSignup). Hết thời gian dùng thử, đối tác tự chọn gói và thanh toán trong trang quản trị.
+        $needsApproval = true;
 
         $partner = $existing
             ? tap($existing)->update($attributes + ($existing->verification_status === 'rejected' ? [] : ['verification_status' => $needsApproval ? 'pending' : 'approved']))
@@ -134,7 +135,7 @@ class PartnerOnboardingService
 
         if (! $existing) {
             PartnerStatusLog::create(['partner_id' => $partner->id, 'to_status' => $needsApproval ? 'pending' : 'approved', 'note' => $needsApproval
-                ? 'Đăng ký đối tác trên website — chờ Super Admin duyệt để tặng dùng thử (hoặc thanh toán gói để kích hoạt ngay).'
+                ? 'Đăng ký đối tác trên website — chờ Super Admin duyệt (được tặng tháng đầu nếu đủ điều kiện).'
                 : 'Đối tác mua gói trên website (chờ thanh toán).']);
             if ($needsApproval) {
                 $this->notifySuperAdmins('Có đăng ký đối tác chờ duyệt', $this->partnerLabel($partner) . ' vừa đăng ký — duyệt để tặng dùng thử và gửi tài khoản đăng nhập.', 'info', 'heroicon-o-user-plus');
@@ -176,9 +177,6 @@ class PartnerOnboardingService
             throw ValidationException::withMessages(['partner' => 'Đăng ký này không ở trạng thái chờ duyệt.']);
         }
         $months = (int) config('partner_flow.signup_trial_months', 0);
-        if ($months < 1) {
-            throw ValidationException::withMessages(['partner' => 'Tính năng tặng dùng thử đang tắt — đối tác cần thanh toán gói để được kích hoạt.']);
-        }
 
         $plan = ($partner->signup_plan_id ? PartnerPlan::query()->find($partner->signup_plan_id) : null)
             ?? SubscriptionPayment::query()->where('partner_id', $partner->id)->latest('id')->first()?->plan
@@ -188,13 +186,24 @@ class PartnerOnboardingService
         }
 
         $trialMonths = $plan->trial_months > 0 ? $plan->trial_months : $months;
-        $expires = now()->addMonthsNoOverflow($trialMonths);
-        app(SubscriptionService::class)->assignPlan($partner, $plan, $expires, true, (bool) $partner->signup_landing_addon);
+        $by = 'Super Admin' . ($admin ? " {$admin->fullname}" : '');
+
+        if ($trialMonths >= 1 && $this->signupTrialEligible($partner->phone, $partner->email, $partner->id)) {
+            $expires = now()->addMonthsNoOverflow($trialMonths);
+            app(SubscriptionService::class)->assignPlan($partner, $plan, $expires, true, (bool) $partner->signup_landing_addon);
+            $this->log($partner, "{$by} duyệt đăng ký — tặng dùng thử {$trialMonths} tháng đến " . $expires->format('d/m/Y') . '.');
+        } else {
+            // Không được tặng (đã từng dùng thử / tính năng tắt): vẫn tạo tài khoản nhưng gói hết hạn ngay — đăng nhập sẽ vào trang "Gói dịch vụ" để chọn gói và thanh toán.
+            $expires = now();
+            app(SubscriptionService::class)->assignPlan($partner, $plan, $expires, false, false);
+            $this->log($partner, "{$by} duyệt đăng ký — không tặng dùng thử (đã từng dùng thử hoặc tính năng tắt); đối tác cần chọn gói và thanh toán để sử dụng.");
+            $trialMonths = 0;
+        }
+
         $partner->update(['status' => true, 'verification_status' => 'approved']);
-        $this->log($partner, 'Super Admin' . ($admin ? " {$admin->fullname}" : '') . " duyệt đăng ký — tặng dùng thử {$trialMonths} tháng đến " . $expires->format('d/m/Y') . '.');
         $result = $this->provisionAccount($partner->fresh());
 
-        return $result + ['trial_expires_at' => $expires->toIso8601String()];
+        return $result + ['trial_expires_at' => $trialMonths > 0 ? $expires->toIso8601String() : null, 'trial_months' => $trialMonths];
     }
 
     /** Super Admin TỪ CHỐI đăng ký: khoá hồ sơ, gửi email lý do (đối tác vẫn có thể thanh toán gói bằng đăng ký mới). */
@@ -327,7 +336,7 @@ class PartnerOnboardingService
                     ? '<p>' . e(config('app.name')) . ' đã <strong>duyệt đăng ký đối tác</strong> của bạn và tặng dùng thử đến ngày <strong>' . $sub->expires_at->format('d/m/Y') . '</strong>. Vui lòng thanh toán gói trước ngày này để tiếp tục sử dụng (thời hạn đã mua được cộng nối tiếp sau thời gian dùng thử).</p>'
                     : '<p>' . e(config('app.name')) . ' đã nhận thanh toán và kích hoạt gói dịch vụ cho bạn.</p>')
                 . "<p>Thông tin đăng nhập trang quản trị:<br>Địa chỉ: <a href=\"{$loginUrl}\">{$loginUrl}</a><br>Email đăng nhập: <strong>" . e($email) . '</strong><br>Mật khẩu: <strong>' . e($password) . '</strong></p>'
-                . '<p>Sau khi đăng nhập, bạn tạo chi nhánh, sân và bảng giá để bắt đầu nhận khách.</p><p>Vui lòng đổi mật khẩu sau khi đăng nhập lần đầu.</p>'
+                . '<p>Sau khi đăng nhập, việc đầu tiên là vào <strong>Quản lý → Thiết lập thanh toán</strong> để nhập tài khoản ngân hàng (hoặc khoá PayOS) — chưa thiết lập thì khách chưa đặt được sân online và bạn chưa bật bán sân được. Sau đó tạo chi nhánh, sân và bảng giá để bắt đầu nhận khách.</p><p>Vui lòng đổi mật khẩu sau khi đăng nhập lần đầu.</p>'
             ));
 
             return true;

@@ -27,12 +27,15 @@ class PartnerRolePermissionsSeeder extends Seeder
         // quyền ở đây cũng không có tác dụng.
         'room::service',        // Dịch vụ Sân
         'room::special',        // Điểm Đặc Biệt
+        'room::rating',         // Kiểm duyệt & trả lời đánh giá sân
         // 'room::housekeeping' (Kiểm tra dọn sân) KHÔNG đưa vào đây — RoomHousekeepingResource
         // hard-code canViewAny() chỉ cho super_admin (không dựa vào permission), nên cấp quyền ở
         // đây cũng không có tác dụng.
         'coupon',
         'promotion',
         'order',
+        'invoice::request',      // Yêu cầu xuất hoá đơn VAT của khách
+        'tournament',            // Giải đấu do đối tác tổ chức
         'book',
         'addition::service',
         'tag',
@@ -50,6 +53,8 @@ class PartnerRolePermissionsSeeder extends Seeder
         'deduction::type',
         'department',
         'position',
+        'employee::attendance',  // Chấm công nhân viên của đối tác
+        'payroll::period',       // Kỳ lương theo tháng
         'shield::role',          // Đối tác tự tạo role phụ cho nhân viên (đã lọc theo created_by)
         'warehouse::category',   // Danh mục vật tư
         'warehouse::unit',       // Đơn vị tính
@@ -71,10 +76,12 @@ class PartnerRolePermissionsSeeder extends Seeder
         'room::amenity::assign',
         'room::service',
         'room::special',
+        'room::rating',
         // 'room::housekeeping' KHÔNG đưa vào đây — xem ghi chú ở PARTNER_RESOURCES phía trên.
         'coupon',
         'promotion',
         'order',
+        'invoice::request',
         'book',
         'addition::service',
         'tag',
@@ -87,19 +94,41 @@ class PartnerRolePermissionsSeeder extends Seeder
         'warehouse::stock::check',
     ];
 
+    // Trang (không phải resource) chỉ có đúng 1 quyền 'page_X'. Hoàn tiền chờ xử lý và Chat khách hàng thuộc nghiệp vụ hằng ngày của chủ sân
+    // lẫn lễ tân (khách tự huỷ đơn tạo ra hoàn tiền do CHÍNH đối tác xử lý), nên cấp cho cả hai vai trò; Báo cáo lương chỉ cho chủ sân.
     private const EXTRA_PAGES = [
         'page_Dashboard',
         'page_ManageGeneral',
         'page_MyProfilePage',
+        'page_PendingRefunds',
+        'page_CustomerChat',
+    ];
+
+    // Đối tác chỉ XEM đối soát hoa hồng của chính mình (không tạo/sửa/xoá).
+    private const PARTNER_EXTRA_PERMISSIONS = [
+        'view_any_partner::settlement',
+        'view_partner::settlement',
+    ];
+
+    // Nhân viên chỉ xem và cập nhật giải đấu (duyệt đội, nhập tỉ số); tạo/xoá giải là việc của chủ đối tác.
+    private const EMPLOYEE_EXTRA_PERMISSIONS = [
+        'view_any_tournament',
+        'view_tournament',
+        'update_tournament',
+    ];
+
+    private const PARTNER_ONLY_PAGES = [
+        'page_PaymentSetup',
+        'page_SalaryReport',
     ];
 
     public function run(): void
     {
-        $this->syncRolePermissions('partner', self::PARTNER_RESOURCES);
-        $this->syncRolePermissions('employee', self::EMPLOYEE_RESOURCES);
+        $this->syncRolePermissions('partner', self::PARTNER_RESOURCES, array_merge(self::EXTRA_PAGES, self::PARTNER_ONLY_PAGES, self::PARTNER_EXTRA_PERMISSIONS));
+        $this->syncRolePermissions('employee', self::EMPLOYEE_RESOURCES, array_merge(self::EXTRA_PAGES, self::EMPLOYEE_EXTRA_PERMISSIONS));
     }
 
-    private function syncRolePermissions(string $roleName, array $resources): void
+    private function syncRolePermissions(string $roleName, array $resources, array $pages): void
     {
         $role = Role::where('name', $roleName)->where('guard_name', 'web')->first();
 
@@ -120,7 +149,7 @@ class PartnerRolePermissionsSeeder extends Seeder
             }
 
             return false;
-        })->merge(array_intersect(self::EXTRA_PAGES, $allNames->toArray()));
+        })->merge(array_intersect($pages, $allNames->toArray()));
 
         $role->syncPermissions($matched->values()->all());
     }

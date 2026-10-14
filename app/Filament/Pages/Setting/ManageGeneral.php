@@ -1040,6 +1040,59 @@ class ManageGeneral extends SettingsPage
                                     ->columns(2),
                             ]),
 
+                        // TAB ZALO — OTP đăng nhập qua Zalo ZNS + thông báo đặt sân. Ghi đè .env
+                        // (AppServiceProvider::applyZaloSettings()).
+                        Forms\Components\Tabs\Tab::make('Zalo')
+                            ->icon('heroicon-o-chat-bubble-left-right')
+                            ->schema([
+                                Forms\Components\Section::make('Kết nối Zalo OA / ZNS')
+                                    ->description('Dùng để gửi mã OTP đăng nhập qua Zalo và thông báo đặt sân. Lấy thông tin tại developers.zalo.me và Zalo Business Manager. Để trống thì hệ thống dùng giá trị trong file .env.')
+                                    ->schema([
+                                        Forms\Components\TextInput::make('zalo_app_id')
+                                            ->label('App ID')
+                                            ->maxLength(255),
+
+                                        Forms\Components\TextInput::make('zalo_app_secret')
+                                            ->label('App Secret')
+                                            ->password()
+                                            ->revealable()
+                                            ->maxLength(255),
+
+                                        Forms\Components\Textarea::make('zalo_access_token')
+                                            ->label('Access Token (Zalo OA)')
+                                            ->rows(3)
+                                            ->columnSpanFull(),
+
+                                        Forms\Components\Textarea::make('zalo_refresh_token')
+                                            ->label('Refresh Token')
+                                            ->helperText('Hệ thống dùng refresh token để tự làm mới access token.')
+                                            ->rows(3)
+                                            ->columnSpanFull(),
+                                    ])
+                                    ->columns(2),
+
+                                Forms\Components\Section::make('Template ZNS')
+                                    ->description('ID template đã được Zalo duyệt trong Zalo Business Manager.')
+                                    ->schema([
+                                        Forms\Components\TextInput::make('zalo_otp_template_id')
+                                            ->label('Template OTP')
+                                            ->maxLength(255),
+
+                                        Forms\Components\TextInput::make('zalo_template_booking_success')
+                                            ->label('Template đặt sân thành công')
+                                            ->maxLength(255),
+
+                                        Forms\Components\TextInput::make('zalo_template_booking_reminder')
+                                            ->label('Template nhắc lịch đặt sân')
+                                            ->maxLength(255),
+
+                                        Forms\Components\TextInput::make('zalo_template_booking_cancelled')
+                                            ->label('Template huỷ đặt sân')
+                                            ->maxLength(255),
+                                    ])
+                                    ->columns(2),
+                            ]),
+
                         // TAB ĐĂNG NHẬP / ĐĂNG KÝ
                         Forms\Components\Tabs\Tab::make('Đăng nhập')
                             ->icon('heroicon-o-user-circle')
@@ -1075,8 +1128,21 @@ class ManageGeneral extends SettingsPage
             $wasAuthEnabled  = (bool) ($settings->auth_header['enabled'] ?? false);
             $willAuthEnabled = (bool) ($data['auth_header']['enabled'] ?? false);
 
+            // Đổi token Zalo ở admin → xoá token đã cache. ZaloOtpService/ZaloZnsService ưu tiên
+            // token trong cache (refresh token xoay vòng sau mỗi lần làm mới) nên nếu không xoá, token
+            // cũ/đã hết hạn trong cache sẽ đè lên token mới vừa nhập.
+            $zaloTokensChanged = ($data['zalo_access_token'] ?? null) !== $settings->zalo_access_token
+                || ($data['zalo_refresh_token'] ?? null) !== $settings->zalo_refresh_token
+                || ($data['zalo_app_secret'] ?? null) !== $settings->zalo_app_secret;
+
             $settings->fill($data);
             $settings->save();
+
+            if ($zaloTokensChanged) {
+                foreach (['zalo_access_token', 'zalo_refresh_token', 'zalo_access_token_expires_at'] as $cacheKey) {
+                    \Illuminate\Support\Facades\Cache::forget($cacheKey);
+                }
+            }
 
             $fileService = new FileService;
             $fileService->writeFile($this->themePath, $data['theme-editor']);

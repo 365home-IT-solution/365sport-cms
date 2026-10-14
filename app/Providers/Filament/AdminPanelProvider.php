@@ -309,6 +309,12 @@ class AdminPanelProvider extends PanelProvider
 BLADE
         );
 
+        // Nhắc chủ đối tác chưa thiết lập thanh toán ở đầu mọi trang quản trị (xem Partner::hasUsablePaymentMethod()).
+        FilamentView::registerRenderHook(
+            PanelsRenderHook::CONTENT_START,
+            fn (): string => view('filament.partials.payment-setup-banner')->render(),
+        );
+
         // Hover-to-open for top nav group dropdowns
         FilamentView::registerRenderHook(
             PanelsRenderHook::BODY_END,

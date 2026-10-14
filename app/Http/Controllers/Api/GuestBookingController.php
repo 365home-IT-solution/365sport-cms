@@ -17,15 +17,21 @@ use Modules\Category\Entities\Category;
 use Illuminate\Validation\ValidationException;
 use Modules\Payment\Entities\Order;
 use Modules\Payment\Entities\OrderItem;
+use Modules\Payment\App\Services\CccdScannerService;
 use Modules\Product\App\Models\Product;
 use Modules\Product\App\Models\RoomTimeSlot;
 use App\Services\PromotionCalculator;
+use App\Services\CccdDeclarationService;
 use Modules\Promotion\App\Models\Coupon;
 use PayOS\PayOS;
 use Modules\Coach\App\Services\CoachBookingService;
 
 class GuestBookingController extends Controller
 {
+    // buildEquipment() (thuê dụng cụ kèm đơn) nằm trong trait này; trước đây controller gọi $this->buildEquipment() mà không có hàm → MỌI đơn đặt sân qua API đều lỗi 500.
+    // Các hàm trùng tên đã có sẵn trong controller (buildServices, createPayOSLink...) vẫn được ưu tiên.
+    use \App\Http\Controllers\Api\Concerns\BuildsRoomBooking;
+
     // ══════════════════════════════════════════════════════════════════════
     // POST /api/guest/orders
     // Đặt sân cho khách không đăng nhập (slot hoặc daily)
@@ -243,6 +249,11 @@ class GuestBookingController extends Controller
         // đã cấu hình "Chuyển khoản — SePay tự động"/"Xác nhận qua ảnh" cho đối tác đó (bug thật đã
         // gặp). 'cod' vẫn do client tự chọn được (tiền mặt tại chỗ, không phải cổng online do admin
         // quyết định) nếu client gửi rõ.
+        // Sân của đối tác chưa thiết lập thanh toán thì không nhận đặt online (khách không bị đẩy tới bước thanh toán rồi mới lỗi).
+        if ($room->partner && ! $room->partner->hasUsablePaymentMethod()) {
+            return response()->json(['message' => 'This court is not accepting online bookings yet: the owner has not set up a payment method.', 'code' => 'payment_not_configured'], 422);
+        }
+
         $paymentMethod = $request->input('payment_method') === 'cod'
             ? 'cod'
             : (($room->partner?->effectivePaymentMethod() ?? 'payos') === 'bank_transfer' ? 'bank_transfer' : 'PayOS');
@@ -571,7 +582,7 @@ class GuestBookingController extends Controller
 
         if ($request->has('guest_count')) {
             $newGuestCount = (int) $request->input('guest_count');
-            $hasOvernight  = $order->items->contains('over_night', true);
+            $hasOvernight  = config('features.lodging') && $order->items->contains('over_night', true); // khai báo lưu trú chỉ khi bật cờ
 
             // Tăng số khách cho đơn qua đêm — khách mới (guest_index vượt số đã khai báo) phải
             // có CCCD kèm theo trong chính request này (guests[{index}][front/back]), nếu không
@@ -1148,7 +1159,7 @@ class GuestBookingController extends Controller
         $result = $service->regenerateExtraChargeQr($order);
 
         if (isset($result['error'])) {
-            return response()->json(['message' => $result['error']], 422);
+            return response()->json(['message' => $result['error']], ! empty($result['gateway_error']) ? 502 : 422);
         }
 
         return response()->json($result);

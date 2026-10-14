@@ -51,7 +51,7 @@ class SalaryReport extends Page implements HasTable
     // thực sự có tác dụng. super_admin vẫn luôn qua được nhờ Gate::before của Filament Shield.
     public static function canAccess(): bool
     {
-        return auth()->user()?->can('page_SalaryReport') ?? false;
+        return config('features.payroll', false) && (auth()->user()?->can('page_SalaryReport') ?? false);
     }
 
     // 4 nút tạo nhanh danh mục lương ngay trên trang thống kê — không cần qua form nhân viên mới

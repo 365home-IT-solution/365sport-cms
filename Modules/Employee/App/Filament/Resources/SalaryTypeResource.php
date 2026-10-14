@@ -16,6 +16,10 @@ use Modules\Employee\Entities\SalaryType;
 // Nhân viên (UserForm::createSalaryTab()), không sửa/xoá lại được sau khi tạo.
 class SalaryTypeResource extends Resource
 {
+    use \App\Filament\Support\GatedByFeature;
+
+    protected static string $featureFlag = 'payroll';
+
     protected static ?string $model = SalaryType::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-banknotes';
