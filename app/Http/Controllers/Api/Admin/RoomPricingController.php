@@ -6,6 +6,7 @@ namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Services\PriceBoardSyncService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -70,7 +71,7 @@ class RoomPricingController extends Controller
      *    ProductController::updateBookingSettings() — 'room_config' merge NÔNG với giá trị hiện có
      *    (không ghi đè toàn bộ), giữ nguyên 'blocked_ranges' nếu có.
      */
-    public function update(Request $request, string $id): JsonResponse
+    public function update(Request $request, string $id, PriceBoardSyncService $priceBoards): JsonResponse
     {
         $room = $this->visibleRoom($request->user(), $id);
 
@@ -110,6 +111,12 @@ class RoomPricingController extends Controller
             return response()->json(['message' => 'Cần nhập ít nhất time_slots, price hoặc 1 field điều kiện giảm giá.'], 422);
         }
 
+        if ($hasTimeSlots && $error = RoomTimeSlotController::foreignTimeSlotError($room, array_column($data['time_slots'], 'timeslot_id'))) {
+            return response()->json(['message' => $error], 422);
+        }
+
+        $before = $priceBoards->snapshotPricing($room);
+
         DB::transaction(function () use ($room, $data, $hasTimeSlots, $hasPrice, $hasDiscount) {
             if ($hasTimeSlots) {
                 foreach ($data['time_slots'] as $row) {
@@ -141,6 +148,8 @@ class RoomPricingController extends Controller
                 $room->update($update);
             }
         });
+
+        $priceBoards->afterManualPriceEdit($room, $before);
 
         $room->load(['roomTimeSlots' => fn ($q) => $q->whereNull('date')]);
 

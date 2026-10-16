@@ -7,6 +7,8 @@ namespace App\Http\Controllers\Api\Admin;
 use App\Http\Controllers\Api\Admin\Concerns\GeneratesUniqueSlug;
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Services\PriceBoards\RoomPriceBoardPicker;
+use App\Services\PriceTemplateService;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
@@ -243,6 +245,46 @@ class ProductController extends Controller
             }
         }
 
+        $template = null;
+
+        if (! empty($data['price_template_id'])) {
+            if ((int) $data['styles'] !== 1) {
+                return response()->json(['message' => 'A price template can only be used for hourly courts (styles=1).'], 422);
+            }
+
+            $templates = app(PriceTemplateService::class);
+            $template  = $templates->usableTemplate($partnerId, (int) $data['price_template_id']);
+
+            if (! $template) {
+                return response()->json(['message' => 'Price template not found.'], 422);
+            }
+
+            if ($error = $templates->applyError($template, $partnerId, null, $data['price_template_timeslot_ids'] ?? null)) {
+                return response()->json(['message' => $error], 422);
+            }
+        }
+
+        $board = $boardSheet = null;
+
+        if (! empty($data['price_board_id'])) {
+            if ($template) {
+                return response()->json(['message' => 'Choose only one: price template (price_template_id) or price board (price_board_id).'], 422);
+            }
+
+            $picker = app(RoomPriceBoardPicker::class);
+            $board  = $picker->usableBoard($partnerId, (int) $data['price_board_id']);
+
+            if (! $board) {
+                return response()->json(['message' => 'Price board not found.'], 422);
+            }
+
+            $boardSheet = $picker->resolveSheet($board, (int) $data['styles'], $data['price_board_sheet_id'] ?? null);
+
+            if ($error = $picker->error($board, $boardSheet, (int) $data['styles'], array_map('intval', $data['categories'] ?? []))) {
+                return response()->json(['message' => $error], 422);
+            }
+        }
+
         $product = DB::transaction(function () use ($data, $partnerId) {
             $product = Product::create([
                 'partner_id'         => $partnerId,
@@ -267,6 +309,16 @@ class ProductController extends Controller
         });
 
         $this->handleImages($request, $product);
+
+        // Chọn bảng giá mẫu khi tạo sân → thêm thẳng khung giờ + giá của mẫu vào sân.
+        if ($template) {
+            app(PriceTemplateService::class)->applyToRoom($template, $product, true, $data['price_template_timeslot_ids'] ?? null);
+        }
+
+        // Chọn bảng giá khi tạo sân → sân nhận khung giờ + giá của bộ giá và được gắn vào bảng.
+        if ($board && $boardSheet) {
+            app(RoomPriceBoardPicker::class)->apply($board, $boardSheet, $product->fresh());
+        }
 
         // Lấy lại object hoàn toàn mới trước khi build response — sân trường hợp Spatie MediaLibrary
         // cache stale relation 'media' trên $product (đã từng xảy ra khi handleImages() lỡ gọi
@@ -307,6 +359,44 @@ class ProductController extends Controller
             }
         }
 
+        $template = null;
+
+        if (! empty($data['price_template_id'])) {
+            $templates = app(PriceTemplateService::class);
+            $template  = $templates->usableTemplate($product->partner_id, (int) $data['price_template_id']);
+
+            if (! $template) {
+                return response()->json(['message' => 'Price template not found.'], 422);
+            }
+
+            if ($error = $templates->applyError($template, $product->partner_id, $product, $data['price_template_timeslot_ids'] ?? null)) {
+                return response()->json(['message' => $error], 422);
+            }
+        }
+
+        $board = $boardSheet = null;
+
+        if (! empty($data['price_board_id'])) {
+            if ($template) {
+                return response()->json(['message' => 'Choose only one: price template (price_template_id) or price board (price_board_id).'], 422);
+            }
+
+            $picker = app(RoomPriceBoardPicker::class);
+            $board  = $picker->usableBoard($product->partner_id, (int) $data['price_board_id']);
+
+            if (! $board) {
+                return response()->json(['message' => 'Price board not found.'], 422);
+            }
+
+            $style      = (int) ($data['styles'] ?? $product->styles ?? 1);
+            $boardSheet = $picker->resolveSheet($board, $style, $data['price_board_sheet_id'] ?? null);
+            $cats       = $data['categories'] ?? $product->categories()->pluck('categories.id')->all();
+
+            if ($error = $picker->error($board, $boardSheet, $style, array_map('intval', $cats), $product)) {
+                return response()->json(['message' => $error], 422);
+            }
+        }
+
         // Khác với store() (luôn bắt đầu từ 0 ảnh nên rule 'gallery' => 'max:8' đã đủ chặn), update()
         // phải cộng dồn ảnh gallery ĐÃ CÓ SẴN của sân — kiểm tra TRƯỚC khi ghi bất kỳ thay đổi nào
         // xuống DB (fail fast), không để handleImages() âm thầm bỏ qua ảnh mới nếu vượt hạn mức.
@@ -343,6 +433,14 @@ class ProductController extends Controller
         });
 
         $this->handleImages($request, $product);
+
+        if ($template) {
+            app(PriceTemplateService::class)->applyToRoom($template, $product, true, $data['price_template_timeslot_ids'] ?? null);
+        }
+
+        if ($board && $boardSheet) {
+            app(RoomPriceBoardPicker::class)->apply($board, $boardSheet, $product->fresh());
+        }
 
         $product->load(['categories:id,name,slug,parent_id', 'tags', 'additionalServices:id,name,price,image']);
 
@@ -558,6 +656,18 @@ class ProductController extends Controller
             'gallery.*'           => self::IMAGE_RULE,
 
             'partner_id'          => 'nullable|uuid|exists:partners,id',
+
+            // Chọn 1 bảng giá mẫu (GET /api/admin/price-templates) → khung giờ + giá của mẫu được thêm
+            // thẳng vào sân (chỉ sân theo khung giờ, styles=1).
+            'price_template_id'   => 'nullable|integer',
+            // Chọn 1 bảng giá (GET /api/admin/price-boards/options) + bộ giá (tuỳ chọn, mặc định = bộ mặc
+            // định cùng loại sân) → khung giờ + giá của bộ giá thành giá gốc của sân và sân được gắn
+            // vào bảng. Không dùng chung với price_template_id.
+            'price_board_id'       => 'nullable|integer',
+            'price_board_sheet_id' => 'nullable|integer',
+            // Chỉ thêm các khung giờ NÀY trong mẫu (timeslot_id); bỏ trống = thêm cả mẫu.
+            'price_template_timeslot_ids'   => 'nullable|array|min:1',
+            'price_template_timeslot_ids.*' => 'integer',
         ];
     }
 

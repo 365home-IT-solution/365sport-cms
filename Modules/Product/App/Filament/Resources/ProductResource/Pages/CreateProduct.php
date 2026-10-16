@@ -21,10 +21,28 @@ use Illuminate\Validation\Rule;
 use Modules\BladeThemeV1\App\Models\AdditionService;
 use Modules\Category\Entities\Category;
 use Modules\Product\App\Filament\Resources\ProductResource;
+use Modules\Product\App\Filament\Resources\ProductResource\Pages\Concerns\AppliesRoomPriceSource;
 
 class CreateProduct extends CreateRecord
 {
+    use AppliesRoomPriceSource;
+
     protected static string $resource = ProductResource::class;
+
+    // Chặn trước khi tạo nếu bảng giá / bảng giá mẫu đã chọn không dùng được cho sân này.
+    protected function beforeCreate(): void
+    {
+        if ($error = $this->priceSourceError()) {
+            \Filament\Notifications\Notification::make()->title($error)->danger()->send();
+            $this->halt();
+        }
+    }
+
+    // Ô categories được Filament sync SAU khi tạo bản ghi nên áp giá gốc từ bảng giá / bảng giá mẫu ở đây.
+    protected function afterCreate(): void
+    {
+        $this->applyPriceSource($this->record);
+    }
 
     protected function getHeaderActions(): array
     {

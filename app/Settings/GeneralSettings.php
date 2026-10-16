@@ -156,6 +156,13 @@ class GeneralSettings extends Settings
     public ?string $zalo_template_booking_cancelled = null;
 
     /**
+     * Key nền bản đồ CARTO (trang /ban-do và "Tìm chi nhánh gần bạn"). Nhập ở admin > Cài đặt chung >
+     * tab "Bản đồ"; GHI ĐÈ CARTO_BASEMAPS_API_KEY trong .env lúc chạy (xem
+     * AppServiceProvider::applyMapSettings()); để trống thì dùng giá trị trong .env.
+     */
+    public ?string $carto_basemaps_key = null;
+
+    /**
      * Các thuộc tính được mã hoá khi lưu vào DB.
      *
      * @return array<int, string>

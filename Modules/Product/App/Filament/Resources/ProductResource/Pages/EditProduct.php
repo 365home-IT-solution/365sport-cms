@@ -12,10 +12,26 @@ use Filament\Forms\Components\Toggle;
 use Filament\Resources\Pages\EditRecord;
 use Modules\BladeThemeV1\App\Models\AdditionService;
 use Modules\Product\App\Filament\Resources\ProductResource;
+use Modules\Product\App\Filament\Resources\ProductResource\Pages\Concerns\AppliesRoomPriceSource;
 
 class EditProduct extends EditRecord
 {
+    use AppliesRoomPriceSource;
+
     protected static string $resource = ProductResource::class;
+
+    protected function beforeSave(): void
+    {
+        if ($error = $this->priceSourceError($this->record)) {
+            \Filament\Notifications\Notification::make()->title($error)->danger()->send();
+            $this->halt();
+        }
+    }
+
+    protected function afterSave(): void
+    {
+        $this->applyPriceSource($this->record);
+    }
 
     protected function getHeaderActions(): array
     {

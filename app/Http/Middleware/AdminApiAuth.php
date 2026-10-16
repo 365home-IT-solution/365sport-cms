@@ -41,7 +41,7 @@ class AdminApiAuth
         'refunds' => 'page_PendingRefunds',
         'attendance' => 'employee::attendance', 'payroll' => 'payroll::period', 'partner-settlements' => 'partner::settlement', 'transactions' => 'order', 'users' => 'user', 'roles' => 'shield::role', 'fcm-notifications' => 'notification::fcm', 'ratings' => 'room::rating', 'loyalty' => 'loyalty::transaction', 'invoice-requests' => 'invoice::request', 'tournaments' => 'tournament', 'player-skills' => 'player::skill::level', 'payment-setup' => 'page_PaymentSetup',
         'cameras' => 'product', 'camera-alerts' => 'product', 'camera-settings' => 'product',
-        'time-slots' => 'product',
+        'time-slots' => 'product', 'price-templates' => 'product',
     ];
 
     /** Mỗi nhóm cấu hình tương ứng một trang Filament với quyền 'page_X' riêng. */
@@ -64,6 +64,12 @@ class AdminApiAuth
         }
 
         if ($user->hasRole('super_admin')) {
+            // super_admin gửi header X-Partner-Id = chỉ làm việc trong 1 đối tác (xem App\Support\ActivePartner).
+            $partnerId = $request->header(\App\Support\ActivePartner::HEADER);
+            if (filled($partnerId) && ! \App\Support\ActivePartner::apply($user, (string) $partnerId)) {
+                return response()->json(['message' => 'Partner not found.'], 422);
+            }
+
             return $next($request);
         }
 

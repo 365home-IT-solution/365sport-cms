@@ -20,7 +20,8 @@ use App\Http\Controllers\Api\Admin\CustomerPackageController;
 use App\Http\Controllers\Api\Admin\PackageOrderController;
 use App\Http\Controllers\Api\Admin\PackagePlanController;
 use App\Http\Controllers\Api\Admin\PositionController;
-use App\Http\Controllers\Api\Admin\PriceBoardController;
+use App\Http\Controllers\Api\Admin\PriceBoardController as AdminPriceBoardController;
+use App\Http\Controllers\Api\Admin\PriceTemplateController as AdminPriceTemplateController;
 use App\Http\Controllers\Api\Admin\RecurringBookingController;
 use App\Http\Controllers\Api\Admin\ProductController as AdminProductController;
 use App\Http\Controllers\Api\Admin\PromotionController as AdminPromotionController;
@@ -682,16 +683,86 @@ Route::middleware(['auth:sanctum', 'admin.api'])->prefix('admin/tags')->name('ap
 | Time Slots — Danh sách khung giờ dùng chung (bảng `time_slots`), đã chia sẵn 4 nhóm
 | Ngày/Chiều/Đêm/Qua đêm — xem TimeSlotController. Dùng làm dữ liệu nền để gán khung giờ cho
 | từng sân (POST /api/admin/products/{id}/time-slots).
-| GET /api/admin/time-slots → ?type=&include_date_type=
-| POST /api/admin/time-slots → tạo khung giờ mới (start_time/end_time/over_night/label/type)
-| PUT|PATCH /api/admin/time-slots/{id} → sửa — LƯU Ý dùng chung cho mọi sân đang gán khung giờ này
+| partner_id NULL = khung giờ mẫu hệ thống (đối tác chỉ chọn, không sửa/xoá); đối tác tự tạo khung
+| giờ riêng. Mỗi item có is_system/editable.
+| GET /api/admin/time-slots → ?type=&include_date_type=&key=&label=&scope=system|mine
+| POST /api/admin/time-slots → tạo khung giờ riêng (start_time/end_time/over_night/label/type) — trùng
+|                              giờ với khung giờ đã có → 422 kèm 'existing'
+| PUT|PATCH /api/admin/time-slots/{id} → sửa (chỉ khung giờ riêng) — ảnh hưởng mọi sân đang gán
+| DELETE /api/admin/time-slots/{id} → xoá (chỉ khung giờ riêng) — chặn nếu còn sân/bảng giá dùng
 |--------------------------------------------------------------------------
 */
 Route::middleware(['auth:sanctum', 'admin.api'])->prefix('admin/time-slots')->name('api.admin.time-slots.')->group(function () {
     Route::get('/', [AdminTimeSlotController::class, 'index'])->name('index');
     Route::post('/', [AdminTimeSlotController::class, 'store'])->name('store');
-    Route::put('/{id}', [AdminTimeSlotController::class, 'update'])->name('update')->whereNumber('id');
-    Route::patch('/{id}', [AdminTimeSlotController::class, 'update'])->name('update.patch')->whereNumber('id');
+    // TẠO khung giờ ngẫu nhiên (bước đầu của luồng tạo bảng giá). POST nên không đụng '/{id}' (PUT/PATCH/DELETE).
+    Route::post('/random', [AdminTimeSlotController::class, 'random'])->name('random');
+    Route::put('/{id}', [AdminTimeSlotController::class, 'update'])->name('update');
+    Route::patch('/{id}', [AdminTimeSlotController::class, 'update'])->name('update.patch');
+    Route::delete('/{id}', [AdminTimeSlotController::class, 'destroy'])->name('destroy');
+});
+
+/*
+|--------------------------------------------------------------------------
+| Price Templates — BẢNG GIÁ MẪU (price_templates): bộ khung giờ + giá có sẵn để chọn khi tạo bảng
+| giá. partner_id NULL = mẫu hệ thống; đối tác sửa mẫu hệ thống → tự tách bản riêng (response có
+| forked_from_id). Mẫu KHÔNG ghi thẳng xuống sân — dùng mẫu = TẠO BẢNG GIÁ (create-board), giá
+| sân đổi qua price_boards. Xem PriceTemplateController.
+| GET    /api/admin/price-templates                  → ?scope=system|mine&search=&is_active=
+| GET    /api/admin/price-templates/{id}             → chi tiết (kèm slots[])
+| POST   /api/admin/price-templates                  → tạo (name, note, is_active, sort_order, slots[])
+| PUT|PATCH /api/admin/price-templates/{id}          → sửa (slots gửi lên = thay toàn bộ)
+| DELETE /api/admin/price-templates/{id}             → xoá (chỉ mẫu riêng)
+| POST   /api/admin/price-templates/{id}/apply        → thêm thẳng khung giờ + giá vào sân đã có (room_ids[], mode)
+| POST   /api/admin/price-templates/{id}/create-board → tạo bảng giá từ mẫu (branch_id, product_ids[], ...)
+| Tạo sân: POST /api/admin/products kèm price_template_id → khung giờ + giá của mẫu được thêm thẳng vào sân.
+|--------------------------------------------------------------------------
+*/
+Route::middleware(['auth:sanctum', 'admin.api'])->prefix('admin/price-templates')->name('api.admin.price-templates.')->group(function () {
+    Route::get('/', [AdminPriceTemplateController::class, 'index'])->name('index');
+    Route::post('/', [AdminPriceTemplateController::class, 'store'])->name('store');
+    Route::get('/{id}', [AdminPriceTemplateController::class, 'show'])->name('show')->whereNumber('id');
+    Route::put('/{id}', [AdminPriceTemplateController::class, 'update'])->name('update')->whereNumber('id');
+    Route::patch('/{id}', [AdminPriceTemplateController::class, 'update'])->name('update.patch')->whereNumber('id');
+    Route::delete('/{id}', [AdminPriceTemplateController::class, 'destroy'])->name('destroy')->whereNumber('id');
+    Route::post('/{id}/apply', [AdminPriceTemplateController::class, 'apply'])->name('apply')->whereNumber('id');
+    Route::post('/{id}/create-board', [AdminPriceTemplateController::class, 'createBoard'])->name('create-board')->whereNumber('id');
+});
+
+/*
+|--------------------------------------------------------------------------
+| Price Boards — BẢNG GIÁ của đối tác (price_boards): mỗi bảng thuộc 1 đối tác + 1 chi nhánh, có thể
+| có khoảng ngày hiệu lực, ghi đè giá các sân đã chọn rồi tự khôi phục khi hết hạn. Cùng logic với
+| trang Filament "Bảng giá" (PriceBoardSyncService). Super_admin gửi X-Partner-Id. Xem PriceBoardController.
+| GET    /api/admin/price-boards            → ?branch_id=&search=&is_active=&status=active|pending|expired|inactive
+| GET    /api/admin/price-boards/{id}       → chi tiết (kèm sân + giá từng khung giờ)
+| POST   /api/admin/price-boards            → tạo (name, branch_id, start_date, end_date, pricing_mode, items[]|product_ids[])
+| PUT|PATCH /api/admin/price-boards/{id}    → sửa (items/product_ids gửi lên = thay toàn bộ sân của bảng)
+| DELETE /api/admin/price-boards/{id}       → xoá, sân được tính lại giá
+| POST   /api/admin/price-boards/{id}/apply → áp ngay xuống sân, bất kể ngày hiệu lực
+| GET    /api/admin/price-boards/options?branch_id=&room_style= → bảng giá + bộ giá chọn khi tạo / sửa sân
+|        (POST|PUT /api/admin/products kèm price_board_id [+ price_board_sheet_id])
+| v2: GET /{id}/rooms · POST /preview · POST /{id}/duplicate · GET /presets · GET /presets/{code} ·
+|     POST /presets/{code}/use — body v2 = scope (rooms|branches|partner) + sheets[]; priority / days_of_week
+|     chỉ khi config('price_boards.phase2'). Tài liệu: docs/api/API_BangGia_v2.docx
+|--------------------------------------------------------------------------
+*/
+Route::middleware(['auth:sanctum', 'admin.api'])->prefix('admin/price-boards')->name('api.admin.price-boards.')->group(function () {
+    Route::get('/', [AdminPriceBoardController::class, 'index'])->name('index');
+    Route::post('/', [AdminPriceBoardController::class, 'store'])->name('store');
+    // Đăng ký TRƯỚC '/{id}' (đã whereNumber nên không nuốt các đường dẫn chữ này).
+    Route::post('/preview', [AdminPriceBoardController::class, 'preview'])->name('preview');
+    Route::get('/options', [AdminPriceBoardController::class, 'roomOptions'])->name('options');
+    Route::get('/presets', [AdminPriceBoardController::class, 'presets'])->name('presets');
+    Route::get('/presets/{code}', [AdminPriceBoardController::class, 'presetShow'])->name('presets.show');
+    Route::post('/presets/{code}/use', [AdminPriceBoardController::class, 'presetUse'])->name('presets.use');
+    Route::get('/{id}', [AdminPriceBoardController::class, 'show'])->name('show')->whereNumber('id');
+    Route::put('/{id}', [AdminPriceBoardController::class, 'update'])->name('update')->whereNumber('id');
+    Route::patch('/{id}', [AdminPriceBoardController::class, 'update'])->name('update.patch')->whereNumber('id');
+    Route::delete('/{id}', [AdminPriceBoardController::class, 'destroy'])->name('destroy')->whereNumber('id');
+    Route::post('/{id}/apply', [AdminPriceBoardController::class, 'apply'])->name('apply')->whereNumber('id');
+    Route::get('/{id}/rooms', [AdminPriceBoardController::class, 'rooms'])->name('rooms')->whereNumber('id');
+    Route::post('/{id}/duplicate', [AdminPriceBoardController::class, 'duplicate'])->name('duplicate')->whereNumber('id');
 });
 
 /*
@@ -877,32 +948,6 @@ Route::middleware(['auth:sanctum', 'admin.api'])->prefix('admin/warehouse')->nam
 Route::middleware(['auth:sanctum', 'admin.api'])->prefix('admin/room-housekeeping')->name('api.admin.room-housekeeping.')->group(function () {
     Route::get('/',        [RoomHousekeepingController::class, 'index'])->name('index');
     Route::patch('/{id}',  [RoomHousekeepingController::class, 'update'])->name('update');
-});
-
-/*
-|--------------------------------------------------------------------------
-| Price Boards — "Bảng giá" đặt tên, có thời hạn (Tết, khuyến mãi, đối tác...), lớp quản trị NGỒI
-| TRÊN products/room_time_slots — xem App\Services\PriceBoardSyncService + docblock
-| App\Http\Controllers\Api\Admin\PriceBoardController. CHỈ super_admin (403 với tài khoản khác) —
-| cùng mức hạn chế PriceBoardResource ở Filament. "Bảng giá mặc định" (is_default=true) KHÔNG hiển
-| thị/sửa được ở đây (quản lý qua GET/PATCH /api/admin/rooms/{id}/pricing).
-| GET    /api/admin/price-boards          → ?search=&branch_id=&is_active=&per_page=
-| GET    /api/admin/price-boards/{id}     → kèm items/khung giờ từng sân + recent_price_logs
-| POST   /api/admin/price-boards          → tạo (name, pricing_mode, start_date/end_date, is_active,
-|                                            note, product_ids[] khi adjustment / items[] khi override)
-| PUT|POST /api/admin/price-boards/{id}   → sửa — THAY TOÀN BỘ items/product_ids hiện có
-| DELETE /api/admin/price-boards/{id}     → xoá, tự tính lại giá đúng cho các sân từng gắn với bảng
-| POST   /api/admin/price-boards/{id}/apply-now
-|                                          → áp ngay giá của bảng, bất kể ngày hiệu lực/is_active
-|--------------------------------------------------------------------------
-*/
-Route::middleware(['auth:sanctum', 'admin.api'])->prefix('admin/price-boards')->name('api.admin.price-boards.')->group(function () {
-    Route::get('/',              [PriceBoardController::class, 'index'])->name('index');
-    Route::post('/',             [PriceBoardController::class, 'store'])->name('store');
-    Route::get('/{id}',          [PriceBoardController::class, 'show'])->name('show')->whereNumber('id');
-    Route::match(['put', 'post'], '/{id}', [PriceBoardController::class, 'update'])->name('update')->whereNumber('id');
-    Route::delete('/{id}',       [PriceBoardController::class, 'destroy'])->name('destroy')->whereNumber('id');
-    Route::post('/{id}/apply-now', [PriceBoardController::class, 'applyNow'])->name('apply-now')->whereNumber('id');
 });
 
 /*

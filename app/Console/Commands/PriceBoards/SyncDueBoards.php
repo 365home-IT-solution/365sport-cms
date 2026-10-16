@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands\PriceBoards;
 
+use App\Services\PriceBoards\PriceBoardV2Service;
 use App\Services\PriceBoardSyncService;
 use Illuminate\Console\Command;
 use Modules\Product\App\Models\Product;
@@ -14,10 +15,18 @@ class SyncDueBoards extends Command
 
     protected $description = 'Áp/khôi phục giá sân theo bảng giá đang hiệu lực hôm nay (chạy hàng ngày)';
 
-    public function handle(PriceBoardSyncService $service): int
+    public function handle(PriceBoardSyncService $service, PriceBoardV2Service $boards): int
     {
         $count  = 0;
         $failed = 0;
+
+        // Bảng phạm vi chi nhánh / toàn đối tác: bắt kịp sân mới / sân đổi chi nhánh trước khi áp giá.
+        try {
+            $this->info('Đã làm mới ' . $boards->rematerializeScoped() . ' bảng giá theo phạm vi.');
+        } catch (Throwable $e) {
+            $this->error('Lỗi làm mới bảng giá theo phạm vi: ' . $e->getMessage());
+            report($e);
+        }
 
         Product::query()->chunkById(100, function ($products) use ($service, &$count, &$failed) {
             foreach ($products as $product) {

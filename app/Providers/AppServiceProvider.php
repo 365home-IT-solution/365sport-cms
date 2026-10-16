@@ -109,6 +109,7 @@ class AppServiceProvider extends ServiceProvider
         }
 
         $this->applyZaloSettings();
+        $this->applyMapSettings();
 
         // Đăng nhập Google cho khách hàng — client_id/secret nhập ở admin, không dùng .env (xem
         // App\Filament\Pages\GoogleLoginSettings, App\Models\GoogleOauthConfiguration).
@@ -155,6 +156,22 @@ class AppServiceProvider extends ServiceProvider
      * Zalo OA/ZNS nhập ở admin (Cài đặt chung > tab "Zalo") ghi đè .env: ZaloOtpService đọc
      * config('zalo.*'), ZaloZnsService đọc config('services.zalo.*'). Giá trị trống → giữ .env.
      */
+    // Key nền bản đồ CARTO nhập ở admin (Cài đặt chung > tab "Bản đồ") ghi đè .env — server không
+    // phải sửa file .env. Để trống thì dùng CARTO_BASEMAPS_API_KEY.
+    private function applyMapSettings(): void
+    {
+        try {
+            $key = trim((string) app(GeneralSettings::class)->carto_basemaps_key);
+
+            if ($key !== '') {
+                Config::set('services.carto.basemaps_key', $key);
+            }
+        } catch (\Throwable $e) {
+            // Chưa migrate settings / DB chưa sẵn sàng → dùng .env.
+            \Log::warning('Failed to load map settings: ' . $e->getMessage());
+        }
+    }
+
     private function applyZaloSettings(): void
     {
         try {

@@ -1093,6 +1093,22 @@ class ManageGeneral extends SettingsPage
                                     ->columns(2),
                             ]),
 
+                        // TAB BẢN ĐỒ — key nền CARTO, ghi đè .env (AppServiceProvider::applyMapSettings()).
+                        Forms\Components\Tabs\Tab::make('Bản đồ')
+                            ->icon('heroicon-o-map')
+                            ->schema([
+                                Forms\Components\Section::make('Nền bản đồ CARTO')
+                                    ->description('Bản đồ ở trang "Bản đồ" và "Tìm chi nhánh gần bạn" dùng nền CARTO, bắt buộc có API key (miễn phí tại https://carto.com/basemaps/apikey — điền email + domain website). Không có key bản đồ chỉ hiện chữ "API KEY REQUIRED". Để trống thì hệ thống dùng CARTO_BASEMAPS_API_KEY trong file .env.')
+                                    ->schema([
+                                        Forms\Components\TextInput::make('carto_basemaps_key')
+                                            ->label('CARTO Basemaps API key')
+                                            ->placeholder('cb1_xxxxxxxx_x_xxxxxxxxxxxxxxxxxxxxxxxx')
+                                            ->maxLength(255)
+                                            ->helperText('Key phải được đăng ký đúng domain đang chạy website, nếu không CARTO vẫn từ chối tile.')
+                                            ->columnSpanFull(),
+                                    ]),
+                            ]),
+
                         // TAB ĐĂNG NHẬP / ĐĂNG KÝ
                         Forms\Components\Tabs\Tab::make('Đăng nhập')
                             ->icon('heroicon-o-user-circle')

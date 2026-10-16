@@ -121,6 +121,37 @@ public function getFilamentAvatarUrl(): ?string
         return $this->hasRole(config('filament-shield.super_admin.name'));
     }
 
+    // Đối tác super_admin đang chọn làm việc trong request hiện tại (header X-Partner-Id ở API,
+    // xem App\Support\ActivePartner) — chỉ nằm trong bộ nhớ của request, KHÔNG ghi xuống DB.
+    protected ?string $actingPartnerId = null;
+
+    public function actAsPartner(?string $partnerId): void
+    {
+        $this->actingPartnerId = $this->isSuperAdmin() ? $partnerId : null;
+        $this->unsetRelation('partner');
+    }
+
+    public function actingPartnerId(): ?string
+    {
+        return $this->actingPartnerId;
+    }
+
+    // super_admin CHƯA chọn đối tác nào = thấy dữ liệu mọi đối tác. Đã chọn đối tác thì mọi chỗ lọc
+    // theo $user->partner_id sẽ lọc theo đúng đối tác đó (xem getPartnerIdAttribute) — các nơi cần
+    // "bypass đối tác" dùng hàm này thay cho isSuperAdmin().
+    public function seesAllPartners(): bool
+    {
+        return $this->isSuperAdmin() && $this->actingPartnerId === null;
+    }
+
+    // Với super_admin đang chọn đối tác, partner_id trả về đối tác đó để logic lọc/gán theo
+    // $user->partner_id tự chạy đúng phạm vi. Giá trị trong DB không đổi — dùng
+    // getRawOriginal('partner_id') khi cần giá trị thật.
+    public function getPartnerIdAttribute($value)
+    {
+        return $this->actingPartnerId ?? $value;
+    }
+
     // Trước đây check hasRole('partner') — nhưng hệ thống thực tế tạo 1 ROLE RIÊNG cho mỗi đối
     // tác (vd "monaco_super_admin", "Quản lý Monaco", "Quyền 1.1"...), KHÔNG có tài khoản nào thực
     // sự mang đúng role tên "partner", nên hasRole('partner') LUÔN LUÔN false. Hậu quả: chủ đối tác

@@ -7,381 +7,930 @@ namespace App\Http\Controllers\Api\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Services\PriceBoardSyncService;
+use App\Services\PriceBoards\PriceBoardResolver;
+use App\Services\PriceBoards\PriceBoardV2Service;
+use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
+use Modules\Category\Entities\Category;
 use Modules\Product\App\Models\PriceBoard;
-use Modules\Product\App\Models\PriceBoardPriceLog;
+use Modules\Product\App\Models\PriceBoardItem;
+use Modules\Product\App\Models\PriceBoardSheet;
 use Modules\Product\App\Models\Product;
 
 /**
- * "Bảng giá" đặt tên, có thời hạn (Tết, khuyến mãi, đối tác...) — Admin API tương đương
- * Modules\Book\App\Filament\Resources\PriceBoardResource. Đây là lớp quản trị NGỒI TRÊN
- * products/room_time_slots (nguồn duy nhất pipeline đặt sân đọc giá thật) — ghi đè theo lịch
- * (start_date/end_date) rồi tự khôi phục khi hết hạn, xem toàn bộ cơ chế ở
- * App\Services\PriceBoardSyncService (dùng lại NGUYÊN service này, không viết lại logic đồng bộ).
+ * BẢNG GIÁ v2 (giai đoạn 1) của đối tác — một bảng gồm NHIỀU BỘ GIÁ (sheets), áp cho sân / chi nhánh /
+ * toàn bộ đối tác (kể cả sân tạo sau). Cùng logic với trang Filament "Bảng giá"
+ * (App\Services\PriceBoards\PriceBoardV2Service); ghi giá/khôi phục/job đêm vẫn là PriceBoardSyncService
+ * như v1 nên bảng và app đang chạy không đổi.
  *
- * CHỈ super_admin — cùng mức hạn chế với PriceBoardResource::canViewAny()/canCreate()/canEdit()/
- * canDelete() (ghi thẳng giá xuống hệ thống ngay khi lưu, không xem trước, cùng rủi ro với "Sửa giá
- * hàng loạt" ở BookResource). "Bảng giá mặc định" (is_default=true, quản lý qua trang "Hệ thống
- * giá"/GET-PATCH /api/admin/rooms/{id}/pricing) KHÔNG hiển thị/sửa được ở đây — cùng quy ước với
- * PriceBoardResource::getEloquentQuery().
+ *  - GET    /api/admin/price-boards                     danh sách (lọc, phân trang tuỳ chọn)
+ *  - GET    /api/admin/price-boards/{id}                chi tiết + sheets[]
+ *  - POST   /api/admin/price-boards                     tạo (body v2: scope + sheets[]; body v1: branch_id + items[]/product_ids[])
+ *  - PUT|PATCH /api/admin/price-boards/{id}             sửa, bật/tắt
+ *  - DELETE /api/admin/price-boards/{id}                xoá, sân được tính lại giá
+ *  - POST   /api/admin/price-boards/{id}/apply          áp ngay (tuỳ chọn giới hạn chi nhánh/sân)
+ *  - GET    /api/admin/price-boards/{id}/rooms          sân nào nhận bộ giá nào
+ *  - POST   /api/admin/price-boards/preview             xem trước body chưa lưu
+ *  - POST   /api/admin/price-boards/{id}/duplicate      nhân bản
+ *  - GET    /api/admin/price-boards/presets[/{code}]    bảng giá dựng sẵn
+ *  - POST   /api/admin/price-boards/presets/{code}/use  tạo bảng thật từ bảng dựng sẵn
+ *
+ * Super_admin gửi X-Partner-Id để thao tác hộ một đối tác. days_of_week / priority (giai đoạn 2) trả 422.
  */
 class PriceBoardController extends Controller
 {
-    /**
-     * GET /api/admin/price-boards
-     * Danh sách bảng giá đặt tên (is_default=false). Không lọc theo partner_id trực tiếp (PriceBoard
-     * gắn sân qua many-to-many price_board_items, không có category_id/partner_id riêng) — dùng
-     * ?branch_id= (category gốc) để lọc theo bảng giá có ÍT NHẤT 1 sân thuộc chi nhánh đó, cùng cách
-     * PriceBoardResource::getEloquentQuery() lọc qua whereHas('products.categories').
-     * ?search= : tìm theo tên bảng giá.
-     * per_page (mặc định 10).
-     */
+    public function __construct(
+        private PriceBoardSyncService $sync,
+        private PriceBoardV2Service $v2,
+        private PriceBoardResolver $resolver,
+    ) {
+    }
+
+    // ════════════════════════════════════════════════════════════════════
+    // Danh sách / chi tiết
+    // ════════════════════════════════════════════════════════════════════
+
     public function index(Request $request): JsonResponse
-    {
-        if (! $this->ensureSuperAdmin($request)) {
-            return $this->forbiddenResponse();
-        }
-
-        $query = PriceBoard::query()->where('is_default', false)->withCount('items');
-
-        if ($request->filled('search')) {
-            $query->where('name', 'like', '%' . $request->input('search') . '%');
-        }
-
-        if ($request->filled('branch_id')) {
-            $branchId = (int) $request->input('branch_id');
-            $query->whereHas('products.categories', function ($q) use ($branchId) {
-                $q->where('categories.id', $branchId)->orWhere('categories.parent_id', $branchId);
-            });
-        }
-
-        if ($request->filled('is_active')) {
-            $query->where('is_active', $request->boolean('is_active'));
-        }
-
-        $boards = $query->orderByDesc('created_at')->paginate($request->integer('per_page', 10));
-
-        $boards->getCollection()->transform(fn (PriceBoard $board) => $this->toListItem($board));
-
-        return response()->json($boards);
-    }
-
-    /**
-     * GET /api/admin/price-boards/{id}
-     * Chi tiết 1 bảng giá kèm toàn bộ items/khung giờ đã cấu hình cho từng sân — đủ dữ liệu để FE
-     * dựng lại form sửa mà không cần gọi thêm API nào khác. Kèm 'recent_price_logs' (tối đa 50 dòng
-     * gần nhất, PriceBoardPriceLog) — tương đương action "Lịch sử" ở EditPriceBoard.
-     */
-    public function show(Request $request, int $id): JsonResponse
-    {
-        if (! $this->ensureSuperAdmin($request)) {
-            return $this->forbiddenResponse();
-        }
-
-        $board = PriceBoard::where('is_default', false)
-            ->with(['items.product:id,name,styles', 'items.timeSlots.timeslot:id,label,start_time,end_time'])
-            ->find($id);
-
-        if (! $board) {
-            return response()->json(['message' => 'Price board not found.'], 404);
-        }
-
-        return response()->json(['price_board' => $this->toDetailItem($board)]);
-    }
-
-    /**
-     * POST /api/admin/price-boards
-     * Tạo bảng giá mới — dùng LẠI NGUYÊN quy trình Filament CreatePriceBoard::handleRecordCreation():
-     * kiểm tra chồng lấn ngày hiệu lực (PriceBoardSyncService::assertNoOverlap()) TRƯỚC khi tạo, ghi
-     * items/product_ids qua saveItems(), rồi áp giá NGAY LẬP TỨC nếu bảng đang active và trong
-     * khoảng hiệu lực (resyncBoardProducts() — không cần chờ job `price-boards:sync-due` chạy đêm).
-     *
-     *   - name              : bắt buộc, tên bảng giá (vd "Giá Tết 2026")
-     *   - is_active         : bool, mặc định true — bật/tắt có hiệu lực
-     *   - start_date/end_date : ngày hiệu lực (nullable — để trống = không giới hạn 1 đầu tương ứng)
-     *   - pricing_mode      : 'override' (thay giá cụ thể từng sân) | 'adjustment' (điều chỉnh %/số
-     *     tiền trên giá gốc "Bảng giá mặc định")
-     *   - adjustment_type/adjustment_value : bắt buộc khi pricing_mode='adjustment'
-     *     ('percentage'|'fixed', số âm = giảm)
-     *   - note              : ghi chú tuỳ chọn
-     *   - product_ids[]     : CHỈ dùng khi pricing_mode='adjustment' — danh sách sân áp dụng
-     *   - items[]           : CHỈ dùng khi pricing_mode='override' — mỗi phần tử:
-     *       product_id (bắt buộc), full_booking_discount, bulk_discount_rules[{slots,discount}],
-     *       room_config_max_free_guests, room_config_extra_guest_fee,
-     *       roomTimeSlots[{timeslot_id,price,over_night,status}] (sân "Theo Khung Giờ", styles=1),
-     *       price/default_checkin/default_checkout/deposit_min_nights/deposit_multi_night (sân
-     *       "Theo Ngày", styles=2) — field nào không gửi thì KHÔNG đổi giá tương ứng của sân đó khi
-     *       bảng này áp dụng (coi như null/mặc định, xem PriceBoardSyncService::saveOverrideItems()).
-     */
-    public function store(Request $request): JsonResponse
-    {
-        if (! $this->ensureSuperAdmin($request)) {
-            return $this->forbiddenResponse();
-        }
-
-        $data = $this->validatePayload($request);
-
-        $isAdjustment = $data['pricing_mode'] === PriceBoard::MODE_ADJUSTMENT;
-        $items        = $data['items'] ?? [];
-        $productIds   = $isAdjustment ? collect($data['product_ids'] ?? []) : collect($items)->pluck('product_id');
-
-        $service = app(PriceBoardSyncService::class);
-
-        try {
-            $service->assertNoOverlap(new PriceBoard(), $productIds->filter());
-        } catch (\RuntimeException $e) {
-            return response()->json([
-                'message' => 'A conflicting active price board already covers the same effective date range for at least one selected room.',
-            ], 422);
-        }
-
-        $boardData = collect($data)->only([
-            'name', 'note', 'start_date', 'end_date', 'is_active',
-            'pricing_mode', 'adjustment_type', 'adjustment_value',
-        ])->toArray();
-
-        $board = DB::transaction(function () use ($boardData, $isAdjustment, $items, $data, $service) {
-            $board = PriceBoard::create($boardData);
-
-            $service->saveItems($board, $isAdjustment
-                ? ['product_ids' => $data['product_ids'] ?? []]
-                : ['items' => $items]);
-
-            $service->resyncBoardProducts($board);
-
-            return $board;
-        });
-
-        $board->load(['items.product:id,name,styles', 'items.timeSlots.timeslot:id,label,start_time,end_time']);
-
-        return response()->json(['price_board' => $this->toDetailItem($board)], 201);
-    }
-
-    /**
-     * PUT|POST /api/admin/price-boards/{id}
-     * Sửa bảng giá — cùng ruleset với store(), thay TOÀN BỘ items/product_ids hiện có bằng dữ liệu
-     * gửi lên (giống hệt Filament EditPriceBoard: mọi sân KHÔNG có mặt trong payload mới sẽ bị GỠ
-     * khỏi bảng này). Áp lại giá NGAY sau khi lưu (resyncBoardProducts()).
-     */
-    public function update(Request $request, int $id): JsonResponse
-    {
-        if (! $this->ensureSuperAdmin($request)) {
-            return $this->forbiddenResponse();
-        }
-
-        $board = PriceBoard::where('is_default', false)->find($id);
-
-        if (! $board) {
-            return response()->json(['message' => 'Price board not found.'], 404);
-        }
-
-        $data = $this->validatePayload($request);
-
-        $isAdjustment = $data['pricing_mode'] === PriceBoard::MODE_ADJUSTMENT;
-        $items        = $data['items'] ?? [];
-        $productIds   = $isAdjustment ? collect($data['product_ids'] ?? []) : collect($items)->pluck('product_id');
-
-        $service = app(PriceBoardSyncService::class);
-
-        try {
-            $service->assertNoOverlap($board, $productIds->filter());
-        } catch (\RuntimeException $e) {
-            return response()->json([
-                'message' => 'A conflicting active price board already covers the same effective date range for at least one selected room.',
-            ], 422);
-        }
-
-        $boardData = collect($data)->only([
-            'name', 'note', 'start_date', 'end_date', 'is_active',
-            'pricing_mode', 'adjustment_type', 'adjustment_value',
-        ])->toArray();
-
-        DB::transaction(function () use ($board, $boardData, $isAdjustment, $items, $data, $service) {
-            $board->update($boardData);
-
-            $service->saveItems($board, $isAdjustment
-                ? ['product_ids' => $data['product_ids'] ?? []]
-                : ['items' => $items]);
-
-            $service->resyncBoardProducts($board);
-        });
-
-        $board->load(['items.product:id,name,styles', 'items.timeSlots.timeslot:id,label,start_time,end_time']);
-
-        return response()->json(['price_board' => $this->toDetailItem($board->fresh([
-            'items.product:id,name,styles', 'items.timeSlots.timeslot:id,label,start_time,end_time',
-        ]))]);
-    }
-
-    /**
-     * DELETE /api/admin/price-boards/{id}
-     * Xoá bảng giá — cascade xoá luôn PriceBoardItem/PriceBoardTimeSlot của nó. Sau khi xoá, TÍNH LẠI
-     * giá đúng cho từng sân từng gắn với bảng này (bảng khác đang active vẫn thắng nếu có, không thì
-     * khôi phục baseline/"Bảng giá mặc định") — cùng quy trình EditPriceBoard::getHeaderActions()
-     * (DeleteAction before()/after()), chụp danh sách sân TRƯỚC khi xoá vì xoá xong sẽ mất liên kết.
-     */
-    public function destroy(Request $request, int $id): JsonResponse
-    {
-        if (! $this->ensureSuperAdmin($request)) {
-            return $this->forbiddenResponse();
-        }
-
-        $board = PriceBoard::where('is_default', false)->find($id);
-
-        if (! $board) {
-            return response()->json(['message' => 'Price board not found.'], 404);
-        }
-
-        $service           = app(PriceBoardSyncService::class);
-        $affectedProducts  = $service->productsAffectedByBoard($board);
-
-        $board->delete();
-
-        $service->resyncProductsAfterBoardDeleted($affectedProducts);
-
-        return response()->json(['message' => 'Price board deleted successfully.']);
-    }
-
-    /**
-     * POST /api/admin/price-boards/{id}/apply-now
-     * Áp NGAY giá của bảng này xuống các sân đã gắn, BẤT KỂ ngày hiệu lực/is_active — tương đương
-     * EditPriceBoard action "Áp dụng ngay" (PriceBoardSyncService::applyBoard()). Dùng khi đối tác
-     * cần đổi giá tức thời dù chưa tới ngày bắt đầu đã cấu hình.
-     */
-    public function applyNow(Request $request, int $id): JsonResponse
-    {
-        if (! $this->ensureSuperAdmin($request)) {
-            return $this->forbiddenResponse();
-        }
-
-        $board = PriceBoard::where('is_default', false)->find($id);
-
-        if (! $board) {
-            return response()->json(['message' => 'Price board not found.'], 404);
-        }
-
-        app(PriceBoardSyncService::class)->applyBoard($board);
-
-        return response()->json(['message' => 'Price board applied successfully.']);
-    }
-
-    private function ensureSuperAdmin(Request $request): bool
     {
         /** @var User $user */
         $user = $request->user();
 
-        return (bool) ($user?->isSuperAdmin());
-    }
+        $request->validate([
+            'branch_id'  => 'nullable|integer',
+            'product_id' => 'nullable|string',
+            'scope'      => ['nullable', Rule::in([PriceBoard::SCOPE_ROOMS, PriceBoard::SCOPE_BRANCHES, PriceBoard::SCOPE_PARTNER])],
+            'status'     => ['nullable', Rule::in(['active', 'pending', 'expired', 'inactive'])],
+            'page'       => 'nullable|integer|min:1',
+            'per_page'   => 'nullable|integer|min:1|max:100',
+        ]);
 
-    private function forbiddenResponse(): JsonResponse
-    {
-        return response()->json(['message' => 'Only super admins can manage price boards.'], 403);
-    }
+        $query = PriceBoard::visibleTo($user)->with(['branch:id,name', 'scopeBranches:id,name'])->withCount(['items', 'sheets']);
 
-    private function validatePayload(Request $request): array
-    {
-        $rules = [
-            'name'              => 'required|string|max:255',
-            'note'              => 'sometimes|nullable|string|max:1000',
-            'is_active'         => 'sometimes|boolean',
-            'start_date'        => 'sometimes|nullable|date',
-            'end_date'          => 'sometimes|nullable|date|after_or_equal:start_date',
-            'pricing_mode'      => 'required|in:' . PriceBoard::MODE_OVERRIDE . ',' . PriceBoard::MODE_ADJUSTMENT,
-            'adjustment_type'   => 'required_if:pricing_mode,' . PriceBoard::MODE_ADJUSTMENT . '|in:percentage,fixed',
-            'adjustment_value'  => 'required_if:pricing_mode,' . PriceBoard::MODE_ADJUSTMENT . '|numeric',
-        ];
-
-        if ($request->input('pricing_mode') === PriceBoard::MODE_ADJUSTMENT) {
-            $rules['product_ids']   = 'required|array|min:1';
-            $rules['product_ids.*'] = 'string|exists:products,id';
-        } else {
-            $rules['items']                   = 'required|array|min:1';
-            $rules['items.*.product_id']      = 'required|string|exists:products,id';
-            $rules['items.*.full_booking_discount']       = 'sometimes|nullable|string|max:50';
-            $rules['items.*.bulk_discount_rules']         = 'sometimes|nullable|array';
-            $rules['items.*.bulk_discount_rules.*.slots']    = 'required_with:items.*.bulk_discount_rules|integer|min:2';
-            $rules['items.*.bulk_discount_rules.*.discount'] = 'required_with:items.*.bulk_discount_rules|numeric|min:0|max:100';
-            $rules['items.*.room_config_max_free_guests'] = 'sometimes|nullable|integer|min:0';
-            $rules['items.*.room_config_extra_guest_fee']  = 'sometimes|nullable|numeric|min:0';
-            $rules['items.*.roomTimeSlots']                     = 'sometimes|array';
-            $rules['items.*.roomTimeSlots.*.timeslot_id']       = 'required_with:items.*.roomTimeSlots|integer';
-            $rules['items.*.roomTimeSlots.*.price']             = 'required_with:items.*.roomTimeSlots|numeric|min:0';
-            $rules['items.*.roomTimeSlots.*.over_night']        = 'sometimes|boolean';
-            $rules['items.*.roomTimeSlots.*.status']            = 'sometimes|string';
-            $rules['items.*.price']               = 'sometimes|nullable|numeric|min:0';
-            $rules['items.*.default_checkin']     = 'sometimes|nullable|string';
-            $rules['items.*.default_checkout']    = 'sometimes|nullable|string';
-            $rules['items.*.deposit_min_nights']  = 'sometimes|nullable|integer|min:0';
-            $rules['items.*.deposit_multi_night'] = 'sometimes|nullable|integer|min:1|max:100';
+        if ($request->filled('scope')) {
+            $query->where('scope', $request->input('scope'));
         }
 
-        return $request->validate($rules);
+        if ($request->filled('branch_id')) {
+            // Bảng "bao" chi nhánh này: toàn đối tác, hoặc có chi nhánh trong danh sách, hoặc khoá theo chi
+            // nhánh (v1), hoặc có sân thuộc chi nhánh.
+            $branchId   = (int) $request->input('branch_id');
+            $productIds = Product::query()
+                ->whereHas('categories', fn ($q) => $q->whereIn('categories.id', PriceBoard::branchCategoryIds($branchId)))
+                ->pluck('id');
+
+            $query->where(function ($q) use ($branchId, $productIds) {
+                $q->where('scope', PriceBoard::SCOPE_PARTNER)
+                    ->orWhere('category_id', $branchId)
+                    ->orWhereHas('scopeBranches', fn ($b) => $b->where('categories.id', $branchId))
+                    ->orWhereHas('items', fn ($i) => $i->whereIn('product_id', $productIds));
+            });
+        }
+
+        if ($request->filled('product_id')) {
+            $query->whereHas('items', fn ($i) => $i->where('product_id', (string) $request->input('product_id')));
+        }
+
+        if ($request->filled('search')) {
+            $query->where('name', 'like', '%' . $request->string('search') . '%');
+        }
+
+        if ($request->has('is_active')) {
+            $query->where('is_active', $request->boolean('is_active'));
+        }
+
+        $all = $query->orderByDesc('id')->get()
+            ->map(fn (PriceBoard $b) => $this->presentBoard($b))
+            ->when($request->filled('status'), fn ($c) => $c->where('status', $request->input('status')))
+            ->values();
+
+        // Chỉ phân trang khi app yêu cầu (page / per_page) — app v1 không gửi nên vẫn nhận đủ danh sách.
+        $paginate = $request->has('page') || $request->has('per_page');
+        $perPage  = $paginate ? (int) $request->input('per_page', 20) : max(1, $all->count());
+        $page     = $paginate ? (int) $request->input('page', 1) : 1;
+
+        return response()->json([
+            'data' => $paginate ? $all->forPage($page, $perPage)->values() : $all,
+            'meta' => [
+                'current_page' => $page,
+                'last_page'    => max(1, (int) ceil($all->count() / $perPage)),
+                'per_page'     => $perPage,
+                'total'        => $all->count(),
+                'phase'        => PriceBoard::phase2Enabled() ? 2 : 1,
+            ],
+        ]);
     }
 
-    private function toListItem(PriceBoard $board): array
+    public function show(Request $request, int $id): JsonResponse
     {
+        $board = $this->find($request->user(), $id);
+
+        if (! $board) {
+            return response()->json(['message' => 'Price board not found.'], 404);
+        }
+
+        return response()->json(['data' => $this->presentBoard($board, true)]);
+    }
+
+    // ════════════════════════════════════════════════════════════════════
+    // Tạo / sửa / xoá
+    // ════════════════════════════════════════════════════════════════════
+
+    public function store(Request $request): JsonResponse
+    {
+        /** @var User $user */
+        $user = $request->user();
+
+        if ($error = $this->partnerError($user)) {
+            return $error;
+        }
+
+        $data = $request->validate($this->rules(creating: true));
+
+        $isV1 = ! array_key_exists('scope', $data) && ! array_key_exists('sheets', $data);
+
+        if ($isV1 && empty($data['branch_id'])) {
+            return $this->unprocessable('Missing data.', ['branch_id' => ['The branch (branch_id) is required.']]);
+        }
+
+        if (! $isV1 && empty($data['sheets'])) {
+            return $this->unprocessable('Missing data.', ['sheets' => ['A price board needs at least 1 price sheet.']]);
+        }
+
+        return $this->save($user, null, $data, creating: true);
+    }
+
+    public function update(Request $request, int $id): JsonResponse
+    {
+        /** @var User $user */
+        $user  = $request->user();
+        $board = $this->find($user, $id);
+
+        if (! $board) {
+            return response()->json(['message' => 'Price board not found.'], 404);
+        }
+
+        if ($error = $this->partnerError($user)) {
+            return $error;
+        }
+
+        $data = $request->validate($this->rules(creating: false));
+
+        return $this->save($user, $board, $data, creating: false);
+    }
+
+    public function destroy(Request $request, int $id): JsonResponse
+    {
+        $board = $this->find($request->user(), $id);
+
+        if (! $board) {
+            return response()->json(['message' => 'Price board not found.'], 404);
+        }
+
+        // Phải chụp danh sách sân TRƯỚC khi xoá — xoá bảng là cascade mất luôn các item.
+        $affected = $this->sync->productsAffectedByBoard($board);
+
+        DB::transaction(function () use ($board, $affected) {
+            $board->delete();
+            $this->sync->resyncProductsAfterBoardDeleted($affected);
+        });
+
+        return response()->json(['message' => 'Price board deleted.']);
+    }
+
+    /** POST /{id}/apply — áp ngay xuống sân, bất kể ngày hiệu lực; body tuỳ chọn giới hạn chi nhánh/sân. */
+    public function apply(Request $request, int $id): JsonResponse
+    {
+        $board = $this->find($request->user(), $id);
+
+        if (! $board) {
+            return response()->json(['message' => 'Price board not found.'], 404);
+        }
+
+        $data = $request->validate([
+            'branch_ids'    => 'nullable|array',
+            'branch_ids.*'  => 'integer',
+            'product_ids'   => 'nullable|array',
+            'product_ids.*' => 'string',
+        ]);
+
+        $filter = null;
+
+        if (! empty($data['product_ids']) || ! empty($data['branch_ids'])) {
+            $filter = collect($data['product_ids'] ?? []);
+
+            if (! empty($data['branch_ids'])) {
+                $categoryIds = collect($data['branch_ids'])->flatMap(fn ($b) => PriceBoard::branchCategoryIds((int) $b))->unique()->all();
+                $filter      = $filter->merge(
+                    Product::query()->whereHas('categories', fn ($q) => $q->whereIn('categories.id', $categoryIds))->pluck('id')
+                );
+            }
+
+            $filter = $filter->map(fn ($v) => (string) $v)->unique()->values();
+        }
+
+        $inBoard = $board->items()->pluck('product_id')->map(fn ($v) => (string) $v);
+        $targets = $filter === null ? $inBoard : $inBoard->intersect($filter)->values();
+        $applied = $this->sync->applyBoardTo($board, $targets->all());
+
+        $skipped = collect($filter ?? [])
+            ->diff($inBoard)
+            ->map(fn ($id) => ['product_id' => (string) $id, 'reason' => 'Court does not match any price sheet'])
+            ->values();
+
+        return response()->json([
+            'message' => (PriceBoard::phase2Enabled() ? 'Price board enabled from today for ' : 'Price board applied to ') . count($applied) . ' court(s).',
+            'applied' => count($applied),
+            'skipped' => $skipped,
+        ]);
+    }
+
+    // ════════════════════════════════════════════════════════════════════
+    // Sân nhận giá / xem trước / nhân bản
+    // ════════════════════════════════════════════════════════════════════
+
+    /** GET /{id}/rooms — sân nào nhận bộ giá nào, đang áp hay bị bảng khác chặn. */
+    public function rooms(Request $request, int $id): JsonResponse
+    {
+        $board = $this->find($request->user(), $id);
+
+        if (! $board) {
+            return response()->json(['message' => 'Price board not found.'], 404);
+        }
+
+        $request->validate([
+            'branch_id' => 'nullable|integer',
+            'sheet_id'  => 'nullable|integer',
+            'status'    => ['nullable', Rule::in(['applied', 'waiting', 'blocked', 'overridden', 'unmatched'])],
+            'page'      => 'nullable|integer|min:1',
+            'per_page'  => 'nullable|integer|min:1|max:100',
+        ]);
+
+        $spec    = $this->v2->specFromBoard($board);
+        $eval    = $this->v2->evaluate($spec, $board);
+
+        return $this->roomsResponse($request, $spec, $eval, $board);
+    }
+
+    /** POST /preview — như /rooms nhưng cho body chưa lưu (hoặc 1 lần sửa: gửi kèm "id"). Không ghi gì. */
+    public function preview(Request $request): JsonResponse
+    {
+        /** @var User $user */
+        $user = $request->user();
+
+        if ($error = $this->partnerError($user)) {
+            return $error;
+        }
+
+        $data = $request->validate($this->rules(creating: false) + ['id' => 'nullable|integer']);
+
+        $board = null;
+
+        if (! empty($data['id'])) {
+            $board = $this->find($user, (int) $data['id']);
+
+            if (! $board) {
+                return response()->json(['message' => 'Price board not found.'], 404);
+            }
+        }
+
+        try {
+            $spec = $this->v2->specFromRequest($data, (string) ($board?->partner_id ?? $user->partner_id), $user, $board, dryRun: true);
+        } catch (ValidationException $e) {
+            return $this->unprocessable('Invalid data.', $e->errors());
+        }
+
+        $eval = $this->v2->evaluate($spec, $board);
+
+        if ($failure = $this->failureResponse($eval)) {
+            return $failure;
+        }
+
+        return $this->roomsResponse($request, $spec, $eval, $board);
+    }
+
+    /** POST /{id}/duplicate — nhân bản bảng (copy đủ phạm vi + bộ giá), mặc định tắt. */
+    public function duplicate(Request $request, int $id): JsonResponse
+    {
+        /** @var User $user */
+        $user  = $request->user();
+        $board = $this->find($user, $id);
+
+        if (! $board) {
+            return response()->json(['message' => 'Price board not found.'], 404);
+        }
+
+        if ($error = $this->partnerError($user)) {
+            return $error;
+        }
+
+        $data = $request->validate([
+            'name'       => 'nullable|string|max:255',
+            'start_date' => 'nullable|date_format:Y-m-d',
+            'end_date'   => 'nullable|date_format:Y-m-d|after_or_equal:start_date',
+            'is_active'  => 'nullable|boolean',
+        ]);
+
+        $data['name'] ??= $board->name . ' (copy)';
+
+        $clone = $this->v2->cloneBoard($board, (string) $board->partner_id, $data);
+
+        return $this->persistSpec($clone['spec'], null, 201, 'Price board duplicated.');
+    }
+
+    // ════════════════════════════════════════════════════════════════════
+    // Bảng giá dựng sẵn (preset)
+    // ════════════════════════════════════════════════════════════════════
+
+    /**
+     * GET /price-boards/options?branch_id=&room_style= — bảng giá + bộ giá có thể chọn khi TẠO / SỬA SÂN
+     * (POST|PUT /products kèm price_board_id [+ price_board_sheet_id]). Chỉ bộ kiểu thay thế giá, đúng loại sân.
+     */
+    public function roomOptions(Request $request): JsonResponse
+    {
+        $user = $request->user();
+
+        if ($error = $this->partnerError($user)) {
+            return $error;
+        }
+
+        $data = $request->validate([
+            'branch_id'  => 'nullable|integer',
+            'room_style' => ['nullable', Rule::in([1, 2])],
+        ]);
+
+        $boards = app(\App\Services\PriceBoards\RoomPriceBoardPicker::class)->options(
+            (string) $user->partner_id,
+            isset($data['branch_id']) ? (int) $data['branch_id'] : null,
+            isset($data['room_style']) ? (int) $data['room_style'] : null,
+        );
+
+        return response()->json(['data' => $boards->map(fn (PriceBoard $b) => [
+            'id'         => $b->id,
+            'name'       => $b->name,
+            'scope'      => $b->scope ?: PriceBoard::SCOPE_ROOMS,
+            'is_active'  => (bool) $b->is_active,
+            'status'     => $this->boardStatus($b),
+            'start_date' => $b->start_date?->toDateString(),
+            'end_date'   => $b->end_date?->toDateString(),
+            'priority'   => (int) $b->priority,
+            'days_of_week' => array_values(array_map('intval', (array) $b->days_of_week)),
+            'branches'   => $b->scopeBranches->map(fn ($c) => ['id' => $c->id, 'name' => $c->name])->values(),
+            'sheets'     => $b->sheets->map(fn ($s) => [
+                'id'         => $s->id,
+                'name'       => $s->name,
+                'room_style' => (int) $s->room_style,
+                'is_default' => (bool) $s->is_default,
+                'time_slots' => $s->slots->map(fn ($sl) => [
+                    'timeslot_id' => (int) $sl->timeslot_id,
+                    'label'       => $sl->timeslot?->label,
+                    'start_time'  => $sl->timeslot?->start_time,
+                    'end_time'    => $sl->timeslot?->end_time,
+                    'price'       => (int) $sl->price,
+                    'over_night'  => (bool) $sl->over_night,
+                ])->values(),
+                'price'            => $s->price === null ? null : (int) $s->price,
+                'default_checkin'  => $s->default_checkin,
+                'default_checkout' => $s->default_checkout,
+            ])->values(),
+        ])->values()]);
+    }
+
+    public function presets(Request $request): JsonResponse
+    {
+        $partnerId = $this->partnerIdFor($request->user());
+
+        $data = $this->presetQuery()->get()->map(function (PriceBoard $p) use ($partnerId) {
+            $detail = $this->v2->presetDetail($p, $partnerId);
+            unset($detail['sheets']);
+
+            return $detail;
+        })->values();
+
+        return response()->json(['data' => $data, 'meta' => ['phase' => PriceBoard::phase2Enabled() ? 2 : 1]]);
+    }
+
+    public function presetShow(Request $request, string $code): JsonResponse
+    {
+        $preset = $this->presetQuery()->where('code', $code)->first();
+
+        if (! $preset) {
+            return response()->json(['message' => 'Preset price board not found.'], 404);
+        }
+
+        return response()->json(['data' => $this->v2->presetDetail($preset, $this->partnerIdFor($request->user()))]);
+    }
+
+    /** POST /presets/{code}/use — tạo bảng thật của đối tác từ preset (copy 1 lần, mặc định tắt). */
+    public function presetUse(Request $request, string $code): JsonResponse
+    {
+        /** @var User $user */
+        $user = $request->user();
+
+        if ($error = $this->partnerError($user)) {
+            return $error;
+        }
+
+        $preset = $this->presetQuery()->where('code', $code)->first();
+
+        if (! $preset) {
+            return response()->json(['message' => 'Preset price board not found.'], 404);
+        }
+
+        $data = $request->validate(array_merge($this->rules(creating: false), ['name' => 'nullable|string|max:255']));
+
+        foreach (['days_of_week', 'priority'] as $field) {
+            if (! PriceBoard::phase2Enabled() && ! empty($data[$field])) {
+                return $this->unprocessable('Invalid data.', [$field => ['Not supported in this phase.']]);
+            }
+        }
+
+        if ($preset->requires_dates && (empty($data['start_date']) || empty($data['end_date']))) {
+            return $this->unprocessable('Invalid data.', ['start_date' => ['This preset requires a start date and an end date.']]);
+        }
+
+        $partnerId = (string) $user->partner_id;
+
+        $data['name'] ??= $preset->name . ($code === 'holiday' ? ' ' . now()->year : '');
+        $scope = $data['scope'] ?? ($preset->default_scope ?: PriceBoard::SCOPE_PARTNER);
+
+        // Chi nhánh / sân chọn phải thuộc đối tác (cùng luật khi tạo bảng thường).
+        $check = $this->v2->specFromRequest(
+            ['scope' => $scope, 'branch_ids' => $data['branch_ids'] ?? [], 'product_ids' => $data['product_ids'] ?? []],
+            $partnerId,
+            $user,
+        );
+
+        $clone = $this->v2->cloneBoard($preset, $partnerId, [
+            'name'        => $data['name'],
+            'note'        => $data['note'] ?? null,
+            'start_date'  => $data['start_date'] ?? null,
+            'end_date'    => $data['end_date'] ?? null,
+            'is_active'   => $data['is_active'] ?? false,
+            'scope'       => $check['scope'],
+            'branch_ids'  => $check['branch_ids'],
+            'product_ids' => $check['product_ids'],
+            'source_preset' => $code,
+            'priority'      => $data['priority'] ?? null,
+            'days_of_week'  => $data['days_of_week'] ?? null,
+        ], resolvePresetTimes: true);
+
+        $spec = $clone['spec'];
+
+        if (! empty($data['sheets'])) {
+            try {
+                $spec = $this->v2->applySheetOverrides($spec, $data['sheets'], $partnerId);
+            } catch (ValidationException $e) {
+                return $this->unprocessable('Invalid data.', $e->errors());
+            }
+        }
+
+        $response = $this->persistSpec($spec, null, 201, 'Price board created from the preset.');
+
+        if ($response->getStatusCode() === 201) {
+            $payload = $response->getData(true);
+            $payload['created_time_slots'] = $clone['created_time_slots'];
+
+            return response()->json($payload, 201);
+        }
+
+        return $response;
+    }
+
+    // ════════════════════════════════════════════════════════════════════
+    // Nội bộ
+    // ════════════════════════════════════════════════════════════════════
+
+    private function save(User $user, ?PriceBoard $board, array $data, bool $creating): JsonResponse
+    {
+        try {
+            $spec = $this->v2->specFromRequest($data, (string) ($board?->partner_id ?? $user->partner_id), $user, $board);
+        } catch (ValidationException $e) {
+            return $this->unprocessable('Invalid data.', $e->errors());
+        }
+
+        return $this->persistSpec($spec, $board, $creating ? 201 : 200, $creating ? 'Price board created.' : 'Price board updated.');
+    }
+
+    private function persistSpec(array $spec, ?PriceBoard $board, int $status, string $message): JsonResponse
+    {
+        $eval = $this->v2->evaluate($spec, $board);
+
+        if ($failure = $this->failureResponse($eval)) {
+            return $failure;
+        }
+
+        $saved = $this->v2->persist($spec, $board);
+
+        return response()->json([
+            'message' => $message,
+            'data'    => $this->presentBoard($saved, true),
+            'summary' => $this->v2->summary($this->v2->specFromBoard($saved), $this->resolver->resolve($this->v2->specFromBoard($saved))),
+        ], $status);
+    }
+
+    /** @param array<string,mixed> $eval */
+    private function failureResponse(array $eval): ?JsonResponse
+    {
+        if ($eval['errors']) {
+            return $this->unprocessable('Invalid data.', $eval['errors']);
+        }
+
+        if ($eval['conflicts']) {
+            $first = $eval['conflicts'][0];
+            $count = collect($eval['conflicts'])->pluck('product_ids')->flatten()->unique()->count();
+
+            return response()->json([
+                'message'   => "{$count} court(s) are already in the active board \"{$first['board']['name']}\" with overlapping dates.",
+                'errors'    => ['is_active' => ['Disable the other board or change the date range.']],
+                'conflicts' => $eval['conflicts'],
+            ], 422);
+        }
+
+        return null;
+    }
+
+    /** @param array<string,list<string>> $errors */
+    private function unprocessable(string $message, array $errors): JsonResponse
+    {
+        return response()->json(['message' => $message, 'errors' => $errors], 422);
+    }
+
+    private function rules(bool $creating): array
+    {
+        $req = $creating ? ['sometimes', 'required'] : ['sometimes'];
+
         return [
+            'name'             => array_merge($req, ['string', 'max:255']),
+            'note'             => 'nullable|string',
+            'scope'            => ['nullable', Rule::in([PriceBoard::SCOPE_ROOMS, PriceBoard::SCOPE_BRANCHES, PriceBoard::SCOPE_PARTNER])],
+            'branch_id'        => 'nullable|integer',
+            'branch_ids'       => 'nullable|array',
+            'branch_ids.*'     => 'integer',
+            'product_ids'      => 'nullable|array',
+            'product_ids.*'    => 'string',
+            'is_active'        => 'nullable|boolean',
+            'start_date'       => 'nullable|date_format:Y-m-d',
+            'end_date'         => 'nullable|date_format:Y-m-d|after_or_equal:start_date',
+
+            // giai đoạn 2 — nhận để trả 422 rõ ràng
+            'days_of_week'     => 'nullable|array',
+            'priority'         => 'nullable|integer',
+
+            // ── v1 ──────────────────────────────────────────────────────────
+            'pricing_mode'     => ['nullable', Rule::in([PriceBoard::MODE_OVERRIDE, PriceBoard::MODE_ADJUSTMENT])],
+            'adjustment_type'  => ['nullable', Rule::in(['percentage', 'fixed'])],
+            'adjustment_value' => 'nullable|numeric',
+            'items'            => 'nullable|array',
+            'items.*.product_id'                      => 'required_with:items|string',
+            'items.*.full_booking_discount'           => 'nullable|string|max:50',
+            'items.*.bulk_discount_rules'             => 'nullable|array',
+            'items.*.bulk_discount_rules.*.slots'     => 'required|integer|min:1',
+            'items.*.bulk_discount_rules.*.discount'  => 'required|numeric|min:0|max:100',
+            'items.*.room_config'                     => 'nullable|array',
+            'items.*.room_config.max_free_guests'     => 'nullable|integer|min:0',
+            'items.*.room_config.extra_guest_fee'     => 'nullable|numeric|min:0',
+            'items.*.price'                           => 'nullable|numeric|min:0',
+            'items.*.default_checkin'                 => 'nullable|date_format:H:i',
+            'items.*.default_checkout'                => 'nullable|date_format:H:i',
+            'items.*.deposit_min_nights'              => 'nullable|integer|min:1',
+            'items.*.deposit_multi_night'             => 'nullable|integer|min:0|max:100',
+            'items.*.time_slots'                      => 'nullable|array',
+            'items.*.time_slots.*.timeslot_id'        => 'required|integer',
+            'items.*.time_slots.*.price'              => 'required|integer|min:0',
+            'items.*.time_slots.*.over_night'         => 'nullable|boolean',
+            'items.*.time_slots.*.status'             => 'nullable|string|max:30',
+
+            // ── v2 ──────────────────────────────────────────────────────────
+            'sheets'                                  => 'nullable|array',
+            'sheets.*.id'                             => 'nullable|integer',
+            'sheets.*.name'                           => 'nullable|string|max:255',
+            'sheets.*.pricing_mode'                   => ['nullable', Rule::in([PriceBoard::MODE_OVERRIDE, PriceBoard::MODE_ADJUSTMENT])],
+            'sheets.*.room_style'                     => 'nullable|integer|in:1,2',
+            'sheets.*.is_default'                     => 'nullable|boolean',
+            'sheets.*.sort_order'                     => 'nullable|integer',
+            'sheets.*.product_ids'                    => 'nullable|array',
+            'sheets.*.product_ids.*'                  => 'string',
+            'sheets.*.time_slots'                     => 'nullable|array',
+            'sheets.*.time_slots.*.timeslot_id'       => 'nullable|integer',
+            'sheets.*.time_slots.*.start_time'        => 'nullable|date_format:H:i',
+            'sheets.*.time_slots.*.end_time'          => 'nullable|date_format:H:i',
+            'sheets.*.time_slots.*.price'             => 'nullable|integer|min:0',
+            'sheets.*.time_slots.*.over_night'        => 'nullable|boolean',
+            'sheets.*.time_slots.*.status'            => 'nullable|string|max:30',
+            'sheets.*.price'                          => 'nullable|numeric|min:0',
+            'sheets.*.default_checkin'                => 'nullable|date_format:H:i',
+            'sheets.*.default_checkout'               => 'nullable|date_format:H:i',
+            'sheets.*.deposit_min_nights'             => 'nullable|integer|min:1',
+            'sheets.*.deposit_multi_night'            => 'nullable|integer|min:0|max:100',
+            'sheets.*.full_booking_discount'          => 'nullable|string|max:50',
+            'sheets.*.bulk_discount_rules'            => 'nullable|array',
+            'sheets.*.bulk_discount_rules.*.slots'    => 'required|integer|min:1',
+            'sheets.*.bulk_discount_rules.*.discount' => 'required|numeric|min:0|max:100',
+            'sheets.*.room_config'                    => 'nullable|array',
+            'sheets.*.room_config.max_free_guests'    => 'nullable|integer|min:0',
+            'sheets.*.room_config.extra_guest_fee'    => 'nullable|numeric|min:0',
+            'sheets.*.adjustment_type'                => ['nullable', Rule::in(['percentage', 'fixed'])],
+            'sheets.*.adjustment_value'               => 'nullable|numeric',
+            'sheets.*.adjustment_timeslot_ids'        => 'nullable|array',
+            'sheets.*.adjustment_timeslot_ids.*'      => 'integer',
+        ];
+    }
+
+    private function find(User $user, int $id): ?PriceBoard
+    {
+        return PriceBoard::visibleTo($user)->with(['branch:id,name', 'scopeBranches:id,name'])->find($id);
+    }
+
+    private function presetQuery()
+    {
+        return PriceBoard::query()->where('is_template', true)->whereNull('partner_id')
+            ->when(! PriceBoard::phase2Enabled(), fn ($q) => $q->where('phase', '<=', 1))
+            ->orderBy('sort_order')->orderBy('id');
+    }
+
+    /** Đối tác dùng để dò khung giờ của preset (super_admin chưa chọn đối tác → null = chỉ khung hệ thống). */
+    private function partnerIdFor(User $user): ?string
+    {
+        return $user->seesAllPartners() ? null : ($user->partner_id ? (string) $user->partner_id : null);
+    }
+
+    /** Tài khoản đối tác dùng đối tác của mình; super_admin phải chọn đối tác (X-Partner-Id). */
+    private function partnerError(User $user): ?JsonResponse
+    {
+        if ($user->seesAllPartners()) {
+            return response()->json(['message' => 'Select a partner (X-Partner-Id header) to create/edit price boards for that partner.'], 422);
+        }
+
+        if (empty($user->partner_id)) {
+            return response()->json(['message' => 'This account does not belong to any partner.'], 403);
+        }
+
+        return null;
+    }
+
+    // ════════════════════════════════════════════════════════════════════
+    // Trình bày response
+    // ════════════════════════════════════════════════════════════════════
+
+    private function boardStatus(PriceBoard $board): string
+    {
+        $today = now()->startOfDay();
+
+        return match (true) {
+            ! $board->is_active                                   => 'inactive',
+            $board->coversDate($today)                            => 'active',
+            $board->start_date && $today->lt($board->start_date)  => 'pending',
+            default                                               => 'expired',
+        };
+    }
+
+    private function presentBoard(PriceBoard $board, bool $detail = false): array
+    {
+        $branches = $board->relationLoaded('scopeBranches') ? $board->scopeBranches : $board->scopeBranches()->get();
+
+        $out = [
             'id'               => $board->id,
             'name'             => $board->name,
             'note'             => $board->note,
-            'is_active'        => (bool) $board->is_active,
-            'pricing_mode'     => $board->pricing_mode,
-            'adjustment_type'  => $board->adjustment_type,
-            'adjustment_value' => $board->adjustment_value !== null ? (float) $board->adjustment_value : null,
+            'partner_id'       => $board->partner_id,
+            'scope'            => $board->scope ?: PriceBoard::SCOPE_ROOMS,
+            'branch_ids'       => $branches->pluck('id')->map(fn ($v) => (int) $v)->values(),
+            'branches'         => $branches->map(fn ($c) => ['id' => $c->id, 'name' => $c->name])->values(),
+            'branch_id'        => $board->category_id,
+            'branch'           => $board->branch ? ['id' => $board->branch->id, 'name' => $board->branch->name] : null,
             'start_date'       => $board->start_date?->toDateString(),
             'end_date'         => $board->end_date?->toDateString(),
-            'covers_today'     => $board->coversDate(),
+            'is_active'        => (bool) $board->is_active,
+            'status'           => $this->boardStatus($board),
+            'pricing_mode'     => $board->pricing_mode,
+            'adjustment_type'  => $board->adjustment_type,
+            'adjustment_value' => $board->adjustment_value === null ? null : (float) $board->adjustment_value,
+            'source_preset'    => $board->source_preset,
+            'priority'         => (int) $board->priority,
+            'days_of_week'     => array_values(array_map('intval', (array) $board->days_of_week)),
+            'sheets_count'     => $board->sheets_count ?? $board->sheets()->count(),
             'rooms_count'      => $board->items_count ?? $board->items()->count(),
-            'created_at'       => $board->created_at,
         ];
+
+        if (! $detail) {
+            return $out;
+        }
+
+        $spec    = $this->v2->specFromBoard($board);
+        $resolve = $this->resolver->resolve($spec);
+        $out['rooms_count'] = count($resolve['assignments']);
+
+        $labels = \Modules\Product\App\Models\TimeSlot::query()
+            ->whereIn('id', collect($spec['sheets'])->flatMap(fn ($s) => collect($s['time_slots'])->pluck('timeslot_id'))->filter()->unique()->all() ?: [0])
+            ->get()
+            ->keyBy('id');
+
+        $out['sheets'] = $board->sheets->values()->map(function (PriceBoardSheet $sheet, int $i) use ($resolve, $labels) {
+            $rooms = $sheet->products->map(fn ($p) => $resolve['products']->get($p->product_id))->filter();
+
+            return [
+                'id'           => $sheet->id,
+                'name'         => $sheet->name,
+                'pricing_mode' => $sheet->pricing_mode,
+                'room_style'   => $sheet->room_style,
+                'is_default'   => (bool) $sheet->is_default,
+                'sort_order'   => (int) $sheet->sort_order,
+                'product_ids'  => $sheet->products->pluck('product_id')->values(),
+                'rooms'        => $rooms->map(fn (Product $p) => [
+                    'id' => $p->id, 'name' => $p->name,
+                    ...$this->branchOf($p),
+                ])->values(),
+                'rooms_count'  => (int) ($resolve['per_sheet'][$i] ?? 0),
+                'full_booking_discount' => $sheet->full_booking_discount,
+                'bulk_discount_rules'   => $sheet->bulk_discount_rules ?? [],
+                'room_config'           => $sheet->room_config,
+                'time_slots'   => $sheet->slots->map(fn ($s) => [
+                    'timeslot_id' => (int) $s->timeslot_id,
+                    'label'       => $labels->get($s->timeslot_id)?->label,
+                    'start_time'  => $labels->get($s->timeslot_id)?->start_time,
+                    'end_time'    => $labels->get($s->timeslot_id)?->end_time,
+                    'price'       => $s->price === null ? null : (int) $s->price,
+                    'over_night'  => (bool) $s->over_night,
+                    'status'      => $s->status,
+                ])->values(),
+                'price'               => $sheet->price === null ? null : (float) $sheet->price,
+                'default_checkin'     => $sheet->default_checkin,
+                'default_checkout'    => $sheet->default_checkout,
+                'deposit_min_nights'  => $sheet->deposit_min_nights,
+                'deposit_multi_night' => $sheet->deposit_multi_night,
+                'adjustment_type'     => $sheet->adjustment_type,
+                'adjustment_value'    => $sheet->adjustment_value === null ? null : (float) $sheet->adjustment_value,
+                'adjustment_timeslot_ids' => array_map('intval', (array) $sheet->adjustment_timeslot_ids),
+            ];
+        })->values();
+
+        // ── Tương thích v1: items[] (override) hoặc product_ids[] (adjustment) ──────────────────
+        $items = $board->items()->with(['timeSlots.timeslot', 'product'])->get();
+
+        if ($board->isAdjustment()) {
+            $out['product_ids'] = $items->pluck('product_id')->values();
+            $out['rooms']       = $items->map(fn (PriceBoardItem $i) => ['id' => $i->product_id, 'name' => $i->product?->name])->values();
+
+            return $out;
+        }
+
+        $out['items'] = $items->map(fn (PriceBoardItem $i) => [
+            'product_id'            => $i->product_id,
+            'room_name'             => $i->product?->name,
+            'styles'                => (int) ($i->product?->styles ?? 1),
+            'price'                 => $i->price === null ? null : (float) $i->price,
+            'full_booking_discount' => $i->full_booking_discount,
+            'bulk_discount_rules'   => $i->bulk_discount_rules ?? [],
+            'room_config'           => $i->room_config,
+            'default_checkin'       => $i->default_checkin,
+            'default_checkout'      => $i->default_checkout,
+            'deposit_min_nights'    => $i->deposit_min_nights,
+            'deposit_multi_night'   => $i->deposit_multi_night,
+            'time_slots'            => $i->timeSlots
+                ->sortBy(fn ($s) => $s->timeslot?->start_time ?? '99:99:99')
+                ->map(fn ($s) => [
+                    'timeslot_id' => $s->timeslot_id,
+                    'label'       => $s->timeslot?->label,
+                    'start_time'  => $s->timeslot?->start_time,
+                    'end_time'    => $s->timeslot?->end_time,
+                    'price'       => $s->price === null ? null : (int) $s->price,
+                    'over_night'  => (bool) $s->over_night,
+                    'status'      => $s->status,
+                ])->values(),
+        ])->values();
+
+        return $out;
     }
 
-    private function toDetailItem(PriceBoard $board): array
+    /** @return array{branch_id: ?int, branch_name: ?string} chi nhánh gốc của sân */
+    private function branchOf(Product $product): array
     {
-        return $this->toListItem($board) + [
-            'items' => $board->items->map(function ($item) {
-                $style = (int) ($item->product?->styles ?? 1);
+        $root = null;
 
-                $row = [
-                    'product_id'   => $item->product_id,
-                    'product_name' => $item->product?->name,
-                    'style'        => $style === 2 ? 'daily' : 'slot',
-                    'full_booking_discount' => $item->full_booking_discount,
-                    'bulk_discount_rules'   => $item->bulk_discount_rules,
-                    'room_config'           => $item->room_config,
-                ];
+        foreach ($product->categories as $category) {
+            $current = $category;
+            $guard   = 0;
 
-                if ($style === 2) {
-                    $row['price']               = $item->price !== null ? (int) $item->price : null;
-                    $row['default_checkin']     = $item->default_checkin;
-                    $row['default_checkout']    = $item->default_checkout;
-                    $row['deposit_min_nights']  = $item->deposit_min_nights;
-                    $row['deposit_multi_night'] = $item->deposit_multi_night;
-                } else {
-                    $row['room_time_slots'] = $item->timeSlots->map(fn ($slot) => [
-                        'timeslot_id' => $slot->timeslot_id,
-                        'label'       => $slot->timeslot?->label,
-                        'price'       => (int) $slot->price,
-                        'over_night'  => (bool) $slot->over_night,
-                        'status'      => $slot->status,
-                    ])->values();
+            while ($current && $current->parent_id && $guard++ < 10) {
+                $current = Category::withoutGlobalScopes()->find($current->parent_id);
+            }
+
+            if ($current) {
+                $root = $current;
+                break;
+            }
+        }
+
+        return ['branch_id' => $root?->id, 'branch_name' => $root?->name];
+    }
+
+    /**
+     * Danh sách sân + trạng thái (dùng cho /rooms và /preview).
+     *
+     * @param array<string,mixed> $spec
+     * @param array<string,mixed> $eval
+     */
+    private function roomsResponse(Request $request, array $spec, array $eval, ?PriceBoard $board): JsonResponse
+    {
+        $resolve = $eval['resolve'];
+        $sheets  = array_values($spec['sheets'] ?? []);
+        $today   = Carbon::today();
+
+        $coversToday = (! ($spec['start_date'] ?? null) || $today->gte(Carbon::parse($spec['start_date'])))
+            && (! ($spec['end_date'] ?? null) || $today->lte(Carbon::parse($spec['end_date'])));
+
+        // Sân bị bảng khác chặn: tính như thể bảng này đang bật (đúng nghĩa "bật lên sẽ 422").
+        $probe = $board ? clone $board : new PriceBoard();
+        $probe->forceFill([
+            'is_active'    => true,
+            'scope'        => $spec['scope'] ?? PriceBoard::SCOPE_ROOMS,
+            'priority'     => (int) ($spec['priority'] ?? 0),
+            'days_of_week' => $spec['days_of_week'] ?? [],
+            'start_date'   => $spec['start_date'] ?? null,
+            'end_date'     => $spec['end_date'] ?? null,
+        ]);
+
+        $blockedBy = [];
+        foreach ($this->sync->overlapConflicts($probe, collect(array_keys($resolve['assignments']))) as $conflict) {
+            foreach ($conflict['product_ids'] as $pid) {
+                $blockedBy[(string) $pid] ??= ['id' => $conflict['board']->id, 'name' => $conflict['board']->name];
+            }
+        }
+
+        $removed = [];
+        foreach ($eval['summary']['slot_conflicts']['items'] as $item) {
+            $removed[$item['product_id']] = ($removed[$item['product_id']] ?? 0) + $item['future_orders'];
+        }
+
+        $rows = [];
+
+        foreach ($resolve['products'] as $productId => $product) {
+            $assign = $resolve['assignments'][$productId] ?? null;
+            $sheet  = $assign ? ($sheets[$assign['sheet']] ?? null) : null;
+
+            // Giai đoạn 2: bị bảng ưu tiên cao hơn thắng hôm nay.
+            $winning = null;
+
+            if ($assign && PriceBoard::phase2Enabled() && ! empty($spec['is_active']) && $coversToday
+                && $probe->coversWeekday($today)) {
+                $winner = $this->sync->winningItem((string) $productId, $today)?->priceBoard;
+
+                if ($winner && (! $board || $winner->id !== $board->id)
+                    && ((int) $winner->priority > (int) $probe->priority
+                        || ((int) $winner->priority === (int) $probe->priority && $winner->scopeRank() > $probe->scopeRank()))) {
+                    $winning = ['id' => $winner->id, 'name' => $winner->name, 'priority' => (int) $winner->priority];
                 }
+            }
 
-                return $row;
-            })->values(),
-            'recent_price_logs' => PriceBoardPriceLog::where('price_board_id', $board->id)
-                ->with('product:id,name')
-                ->orderByDesc('created_at')
-                ->limit(50)
-                ->get()
-                ->map(fn ($log) => [
-                    'product'    => $log->product?->name,
-                    'old_price'  => $log->old_price,
-                    'new_price'  => $log->new_price,
-                    'created_at' => $log->created_at,
-                ])->values(),
-        ];
+            $status = match (true) {
+                $assign === null                                             => 'unmatched',
+                $winning !== null                                            => 'overridden',
+                isset($blockedBy[(string) $productId])                       => 'blocked',
+                ! empty($spec['is_active']) && $coversToday                  => 'applied',
+                default                                                      => 'waiting',
+            };
+
+            $rows[] = [
+                'product_id' => (string) $productId,
+                'room_name'  => $product->name,
+                'styles'     => (int) ($product->styles ?? 1),
+                'branch'     => (function () use ($product) {
+                    $b = $this->branchOf($product);
+
+                    return $b['branch_id'] ? ['id' => $b['branch_id'], 'name' => $b['branch_name']] : null;
+                })(),
+                'sheet'      => $sheet ? ['id' => $sheet['id'] ?? null, 'name' => $sheet['name']] : null,
+                'matched_by' => $assign['matched_by'] ?? null,
+                'status'     => $status,
+                'blocking_board' => $blockedBy[(string) $productId] ?? null,
+                'winning_board'  => $winning,
+                'future_orders_on_removed_slots' => (int) ($removed[(string) $productId] ?? 0),
+            ];
+        }
+
+        $rows = collect($rows)
+            ->when($request->filled('branch_id'), fn ($c) => $c->filter(fn ($r) => ($r['branch']['id'] ?? null) === (int) $request->input('branch_id')))
+            ->when($request->filled('sheet_id'), fn ($c) => $c->filter(fn ($r) => ($r['sheet']['id'] ?? null) === (int) $request->input('sheet_id')))
+            ->when($request->filled('status'), fn ($c) => $c->filter(fn ($r) => $r['status'] === $request->input('status')))
+            ->sortBy('room_name')
+            ->values();
+
+        $perPage = (int) $request->input('per_page', 20);
+        $page    = (int) $request->input('page', 1);
+
+        return response()->json([
+            'data'    => $rows->forPage($page, $perPage)->values(),
+            'meta'    => [
+                'current_page' => $page,
+                'last_page'    => max(1, (int) ceil($rows->count() / $perPage)),
+                'per_page'     => $perPage,
+                'total'        => $rows->count(),
+            ],
+            'summary' => $eval['summary'],
+        ]);
     }
 }
