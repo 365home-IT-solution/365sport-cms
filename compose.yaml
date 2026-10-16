@@ -16,8 +16,8 @@ services:
         restart: unless-stopped
         extra_hosts:
             - 'host.docker.internal:host-gateway'
-        # Chỉ mở trên 127.0.0.1 — port 80 public đã thuộc container 365home. Nginx trên host
-        # (deploy/nginx-datgio.conf) nhận 443 từ Cloudflare rồi proxy vào đây.
+        # Chỉ mở trên 127.0.0.1 — nginx trên host (dùng chung với 365home, giữ 80/443) nhận request
+        # datgio.vn từ Cloudflare rồi proxy vào đây (deploy/nginx-datgio.conf).
         ports:
             - '127.0.0.1:${APP_PORT:-9100}:80'
         volumes:
