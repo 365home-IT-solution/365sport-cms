@@ -9,10 +9,15 @@ services:
                 VITE_REVERB_PORT: ${VITE_REVERB_PORT}
                 VITE_REVERB_SCHEME: ${VITE_REVERB_SCHEME}
                 VITE_REVERB_PATH: ${VITE_REVERB_PATH}
-        image: 'datgio/app:latest'
+        # Image build sẵn trên GitHub Actions (deploy.yml) rồi đẩy lên GHCR — server chỉ pull, không
+        # build tại chỗ (VPS 4GB chạy chung 365home, build tại chỗ ăn hết RAM → OOM → 502 cả 2 site).
+        # Local vẫn "docker compose build" được nhờ khối build: phía trên.
+        image: 'ghcr.io/365home-it-solution/365sport-cms:${IMAGE_TAG:-production}'
         restart: unless-stopped
         extra_hosts:
             - 'host.docker.internal:host-gateway'
+        # Chỉ mở trên 127.0.0.1 — port 80 public đã thuộc container 365home. Nginx trên host
+        # (deploy/nginx-datgio.conf) nhận 443 từ Cloudflare rồi proxy vào đây.
         ports:
             - '127.0.0.1:${APP_PORT:-9100}:80'
         volumes:
@@ -30,13 +35,18 @@ services:
     redis:
         image: redis:7-alpine
         restart: unless-stopped
+        # AOF + volume riêng: không có thì cache/session/token mất sạch mỗi lần container bị tạo lại.
+        command: redis-server --appendonly yes
+        volumes:
+            - 'redis-data:/data'
         networks:
             - app
 
     reverb:
-        image: 'datgio/app:latest'
+        image: 'ghcr.io/365home-it-solution/365sport-cms:${IMAGE_TAG:-production}'
         restart: unless-stopped
         command: php artisan reverb:start --host=0.0.0.0 --port=6001
+        # 6001 trên host đã thuộc reverb của 365home → datgio dùng 6002, nginx host proxy /app/ vào đây.
         ports:
             - '127.0.0.1:6002:6001'
         env_file: .env
@@ -51,3 +61,6 @@ networks:
         driver: bridge
     mariadb-datgio_default:
         external: true
+
+volumes:
+    redis-data:

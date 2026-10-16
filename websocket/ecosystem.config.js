@@ -14,9 +14,9 @@ function readEnv(key) {
 module.exports = {
     apps: [
         {
-            name: '365sport-ws',
+            name: 'datgio-ws',
             script: 'server.js',
-            cwd: '/home/dev/www/365sport-cms/websocket',
+            cwd: '/home/dev/www/datgio.vn/websocket',
             instances: 1,
             exec_mode: 'fork',
             autorestart: true,
@@ -24,12 +24,12 @@ module.exports = {
             max_memory_restart: '200M',
             env: {
                 NODE_ENV: 'production',
-                WS_PORT:          readEnv('WS_PORT')          || 3001,
+                WS_PORT:          readEnv('WS_PORT')          || 3002,
                 WS_INTERNAL_KEY:  readEnv('WS_INTERNAL_KEY'),
-                WS_ALLOWED_ORIGIN: readEnv('WS_ALLOWED_ORIGIN') || 'https://365sport-cms.vn',
+                WS_ALLOWED_ORIGIN: readEnv('WS_ALLOWED_ORIGIN') || 'https://datgio.vn',
             },
-            error_file: '/home/dev/.pm2/logs/365sport-ws-error.log',
-            out_file:   '/home/dev/.pm2/logs/365sport-ws-out.log',
+            error_file: '/home/dev/.pm2/logs/datgio-ws-error.log',
+            out_file:   '/home/dev/.pm2/logs/datgio-ws-out.log',
             log_date_format: 'YYYY-MM-DD HH:mm:ss',
         },
     ],
